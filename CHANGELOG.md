@@ -8,6 +8,16 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.1.1] – 2026-08-22
+
+### Geändert
+- **Kopfleiste aufgeräumt/poliert statt "used".** Die mit dem Blau-Umstieg
+  (V2.1.0) mitgewanderten Rost-/Ölfleck-Texturen, Kratzer und der
+  ausgefranste Rand am unteren Header-Rand wirkten nicht mehr stimmig zum
+  sauberen Blauton. `HeaderPlate` (`src/App.jsx`) zeigt jetzt nur noch einen
+  dezenten diagonalen Glanzstreifen plus eine gerade Akzentlinie an der
+  Unterkante.
+
 ## [2.1.0] – 2026-08-22
 
 ### Geändert
