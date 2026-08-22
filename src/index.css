@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  --color-parchment: #f6efdd;
+  --color-parchment-dark: #e9dcb8;
+  --color-wood: #6d2b2b;
+  --color-wood-dark: #4a1c1c;
+  --color-gold: #c9a227;
+  --color-gold-light: #e6c65c;
+  --color-forest: #2f6b4f;
+  --color-forest-dark: #1c4530;
+  --color-ink: #2c4a3a;
+
+  --font-display: "Cinzel", Georgia, "Times New Roman", serif;
+}
+
+/* Grundton: warmes Pergament statt neutralem Weiß/Grau, damit Karten,
+   Modals & Panels durchgängig zur Kopfleiste passen. */
+body {
+  background-color: var(--color-parchment-dark);
+}
+
+@layer components {
+  /* Pergament-Panel mit doppeltem Rahmen (Gold außen, Wein-Rot innen) -
+     Ersatz für das bisherige "bg-white rounded-xl shadow-lg border" Muster. */
+  .panel-parchment {
+    background: linear-gradient(180deg, #fbf6e9 0%, var(--color-parchment) 100%);
+    border: 2px solid var(--color-gold);
+    box-shadow:
+      inset 0 0 0 4px #fffdf6,
+      inset 0 0 0 5px rgba(109, 43, 43, 0.35),
+      0 10px 20px -12px rgba(43, 23, 10, 0.5);
+  }
+
+  /* Kopfleiste im Spiel-Look: dunkles Weinrot, Gold-Saum kommt als
+     ausgefranste Kante vom HeaderPlate-SVG-Overlay (siehe App.jsx). */
+  .header-ornate {
+    background: linear-gradient(180deg, #7c3434 0%, var(--color-wood) 55%, var(--color-wood-dark) 100%);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Kleine Pille für Abschnitts-/Status-Labels, angelehnt an "Hinweis" / "Glück". */
+  .badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.9rem;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #4a9068, var(--color-forest));
+    border: 1px solid var(--color-forest-dark);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 5px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Primärer "Quest"-Button: abgerundete Pille mit Bevel, wie "Einfordern". */
+  .btn-quest {
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #3f8a62, var(--color-forest-dark));
+    border: 2px solid #15311f;
+    color: #fff;
+    font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 10px rgba(0, 0, 0, 0.35);
+    transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+  }
+  .btn-quest:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-quest:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .btn-quest:disabled { filter: grayscale(0.3) brightness(0.85); }
+
+  /* Sekundärer Button, ruhiger, passend zum Pergament statt reinem Grau. */
+  .btn-parchment {
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #fbf6e9, var(--color-parchment-dark));
+    border: 2px solid #b79b5e;
+    color: var(--color-ink);
+    font-weight: 700;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 3px 6px rgba(0, 0, 0, 0.15);
+    transition: transform 120ms ease, filter 120ms ease;
+  }
+  .btn-parchment:active { transform: translateY(1px); }
+
+  /* Gold-Button für den freischwebenden Feedback-Button - bewusst eine
+     eigene Farbe statt btn-quest (Grün ist dem primären "Problem
+     analysieren"-CTA vorbehalten), damit beide nicht verwechselt werden. */
+  .btn-gold {
+    border-radius: 9999px;
+    background: linear-gradient(180deg, var(--color-gold-light), var(--color-gold));
+    border: 2px solid #8a6d1a;
+    color: var(--color-wood-dark);
+    font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 14px rgba(0, 0, 0, 0.45);
+    transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+  }
+  .btn-gold:hover { filter: brightness(1.08); }
+  .btn-gold:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
+
+  .font-display { font-family: var(--font-display); }
+}

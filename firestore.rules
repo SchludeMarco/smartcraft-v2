@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Admin-Bereich (siehe AdminPanel.jsx): Lesezugriff auf ALLE Fehlerreports per
+    // Collection-Group-Query, beschränkt auf Konten mit Custom Claim "admin: true"
+    // (gesetzt via scripts/set-admin-claim.mjs, nie im Code hinterlegt). Echter
+    // Zugriffsschutz — auch direkte Firestore-SDK-Zugriffe ohne die App-UI greifen
+    // ins Leere. Schreiben bleibt weiterhin ausschließlich dem jeweiligen Besitzer
+    // vorbehalten (Regel oben).
+    match /{path=**}/errorReports/{reportId} {
+      allow read: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Admin-Bereich: merkt sich pro Fehlerkontext (siehe errorContextInfo.js), ob er
+    // als "gelöst" markiert wurde (AdminPanel.jsx-Badge/Filter). Gleicher Custom-
+    // Claim-Schutz wie oben bei errorReports.
+    match /artifacts/{appId}/adminMeta/{document=**} {
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Admin-Bereich: Log der App-Starts mit Zeitstempel + grober Region, optional
+    // die anonyme Firebase-UID des Aufrufers als visitorId zur Wiedererkennung
+    // desselben Geräts (siehe api/app-start.js) - kein Name/E-Mail. Schreiben
+    // erfolgt ausschließlich serverseitig über den Firebase-Admin-SDK (umgeht
+    // diese Regel), hier daher nur Lesezugriff für Admins.
+    // "delete" zusätzlich zu "read": Admin-Bereich bietet einen "Alle löschen"-
+    // Button für aufgeräumte Log-Pflege (siehe AdminPanel.jsx). Erzeugt wird
+    // ein Eintrag weiterhin ausschließlich serverseitig über den
+    // Firebase-Admin-SDK (siehe api/app-start.js) - "create"/"update" bleiben
+    // daher bewusst nicht erlaubt.
+    match /artifacts/{appId}/appStarts/{document=**} {
+      allow read, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}
