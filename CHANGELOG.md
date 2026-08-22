@@ -8,6 +8,19 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.3.0] – 2026-08-22
+
+### Hinzugefügt
+- **Persönliche Akzentfarbe im Profil-Menü.** Die App-weite Akzentfarbe
+  (Header, Buttons, Icons) folgte bisher ausschließlich dem gewählten Beruf
+  (`TRADE_THEMES` in `src/App.jsx`) und war nicht separat einstellbar. Neu:
+  Im Profil-Menü (`UserProfileModal`) lässt sich unter "Akzentfarbe" eine von
+  sechs Farboptionen (Blau, Grün, Türkis, Violett, Anthrazit, Terrakotta,
+  siehe `ACCENT_COLOR_OPTIONS`) oder "Automatisch (nach Beruf)" wählen. Eine
+  gewählte Farbe überschreibt die Beruf-Farbe global und wird geräteweit in
+  `localStorage` gemerkt (`smartcraft-accent-color`), analog zum bestehenden
+  Muster bei der TTS-Stimmwahl.
+
 ## [2.2.0] – 2026-08-22
 
 ### Geändert

@@ -93,6 +93,20 @@ const TRADE_THEMES = {
 "Sonstig...": { accent: "#5B7089", accentDark: "#495B70", accentSoft: "#E9EBEE" },
 };
 const DEFAULT_TRADE = "Allround-Handwerker";
+// Persönliche Akzentfarbe (Profil-Menü, siehe UserProfileModal): überschreibt
+// die sonst vom gewählten Beruf abgeleitete TRADE_THEMES-Farbe global, wenn
+// gesetzt. Bewusst dieselbe gedeckte Tonalität wie TRADE_THEMES (accent/
+// accentDark/accentSoft), nur mit unterscheidbaren Farbtönen statt reiner
+// Blau-Abstufung, damit die Wahl auch optisch spürbar ist.
+const ACCENT_COLOR_OPTIONS = [
+{ id: 'blau', label: 'Blau', accent: "#2C5F8A", accentDark: "#234C6F", accentSoft: "#E2E8F0" },
+{ id: 'gruen', label: 'Grün', accent: "#2F7D5E", accentDark: "#26654C", accentSoft: "#E1F0EA" },
+{ id: 'tuerkis', label: 'Türkis', accent: "#1F7A8C", accentDark: "#19626F", accentSoft: "#DFEEF1" },
+{ id: 'violett', label: 'Violett', accent: "#6A4E8C", accentDark: "#553F70", accentSoft: "#EAE4F0" },
+{ id: 'anthrazit', label: 'Anthrazit', accent: "#4B5563", accentDark: "#374151", accentSoft: "#E5E7EB" },
+{ id: 'terrakotta', label: 'Terrakotta', accent: "#A15C3E", accentDark: "#82492F", accentSoft: "#F1E5DC" },
+];
+const ACCENT_COLOR_STORAGE_KEY = 'smartcraft-accent-color';
 // Liste der Berufe mit Icons für die visuelle Auswahl (Farben kommen aus TRADE_THEMES)
 const TRADE_ICONS = [
 { name: "Klempner", icon: Pipette },
@@ -633,14 +647,34 @@ const [sources, setSources] = useState([]);
 const [isAnalyzing, setIsAnalyzing] = useState(false);
 const [error, setError] = useState(null);
 const [selectedTrade, setSelectedTradeState] = useState('Allround-Handwerker');
-// App-weites Farbthema: folgt dem gewählten Beruf (gedeckte Töne, siehe
-// TRADE_THEMES). Header, CTAs und Akzent-Icons lesen diese CSS-Variablen;
-// zusammen mit transition-colors ergibt sich beim Berufswechsel ein weicher
-// Farbwechsel statt eines harten Umschaltens.
-const theme = useMemo(
-() => TRADE_THEMES[selectedTrade] || TRADE_THEMES[DEFAULT_TRADE],
-[selectedTrade]
-);
+// Persönliche Akzentfarbe aus dem Profil-Menü (siehe ACCENT_COLOR_OPTIONS) —
+// 'auto' (Standard) übernimmt weiterhin die Beruf-Farbe, ein gewählter Wert
+// überschreibt sie geräteweit. Gleiches localStorage-Persistenzmuster wie
+// ttsGender/ttsMode weiter unten.
+const [accentColorId, setAccentColorId] = useState(() => {
+try {
+const stored = localStorage.getItem(ACCENT_COLOR_STORAGE_KEY);
+return ACCENT_COLOR_OPTIONS.some((c) => c.id === stored) ? stored : 'auto';
+} catch {
+return 'auto';
+}
+});
+useEffect(() => {
+try {
+localStorage.setItem(ACCENT_COLOR_STORAGE_KEY, accentColorId);
+} catch {
+// localStorage kann in privaten/eingeschränkten Kontexten fehlen — Einstellung bleibt dann nur für die Sitzung
+}
+}, [accentColorId]);
+// App-weites Farbthema: folgt standardmäßig dem gewählten Beruf (gedeckte
+// Töne, siehe TRADE_THEMES), außer der Nutzer hat im Profil-Menü eine eigene
+// Akzentfarbe gewählt. Header, CTAs und Akzent-Icons lesen diese CSS-
+// Variablen; zusammen mit transition-colors ergibt sich beim Wechsel ein
+// weicher Farbwechsel statt eines harten Umschaltens.
+const theme = useMemo(() => {
+const customColor = ACCENT_COLOR_OPTIONS.find((c) => c.id === accentColorId);
+return customColor || TRADE_THEMES[selectedTrade] || TRADE_THEMES[DEFAULT_TRADE];
+}, [selectedTrade, accentColorId]);
 // --- LLM Feature States ---
 const [materialList, setMaterialList] = useState(null);
 const [safetyTips, setSafetyTips] = useState(null);
@@ -2158,6 +2192,33 @@ Mein Konto
 {userId && (
 <p className="text-[11px] text-gray-400 truncate" title={userId}>ID: {userId.slice(0, 6)}</p>
 )}
+</div>
+</div>
+<div className="mb-4">
+<p className="text-xs font-semibold uppercase text-gray-500 mb-2">Akzentfarbe</p>
+<div className="flex flex-wrap gap-2">
+<button
+type="button"
+onClick={() => setAccentColorId('auto')}
+aria-pressed={accentColorId === 'auto'}
+title="Automatisch (nach Beruf)"
+className={`w-8 h-8 rounded-full flex items-center justify-center bg-white ring-2 transition ${accentColorId === 'auto' ? 'ring-gray-700' : 'ring-gray-300 hover:ring-gray-400'}`}
+>
+<Paintbrush className="w-4 h-4 text-gray-500" />
+</button>
+{ACCENT_COLOR_OPTIONS.map((color) => (
+<button
+key={color.id}
+type="button"
+onClick={() => setAccentColorId(color.id)}
+aria-pressed={accentColorId === color.id}
+title={color.label}
+style={{ backgroundColor: color.accent }}
+className={`w-8 h-8 rounded-full ring-2 ring-offset-2 transition ${accentColorId === color.id ? 'ring-gray-700' : 'ring-transparent hover:ring-gray-300'}`}
+>
+{accentColorId === color.id && <CheckCircle className="w-4 h-4 text-white mx-auto" />}
+</button>
+))}
 </div>
 </div>
 <div className="flex justify-between space-x-2 mt-6">

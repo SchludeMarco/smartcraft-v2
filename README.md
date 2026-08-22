@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.3.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -133,6 +133,12 @@ möglich: liegt bereits eine Diagnose vor, bezieht sie sich darauf; sonst auf
 die Problembeschreibung; ohne beides gibt sie allgemeine, praxisnahe Hinweise
 für den gewählten Beruf. Bei "Allround-Handwerker" erscheint die Vereinigung
 aller Berufs-Tools.
+
+**1c. Persönliche Akzentfarbe** — im Profil-Menü lässt sich die App-weite
+Akzentfarbe (sonst automatisch aus dem gewählten Beruf abgeleitet, siehe
+`TRADE_THEMES` in `src/App.jsx`) auf eine von sechs Farboptionen fest
+einstellen oder auf "Automatisch" zurücksetzen (`ACCENT_COLOR_OPTIONS`,
+geräteweit per `localStorage` gemerkt).
 
 **2. Problem dokumentieren** — Foto der Problemstelle hochladen, eine Textbeschreibung
 eintippen, oder beides. Mindestens eines der beiden reicht, damit die Analyse startet.
