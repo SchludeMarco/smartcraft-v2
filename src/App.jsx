@@ -81,16 +81,16 @@ required: ["category", "item", "quantity"]
 // für Flächen/Badges. Die App übernimmt diese Palette global, sobald ein
 // Beruf gewählt ist (siehe `theme` in der App-Komponente).
 const TRADE_THEMES = {
-"Klempner": { accent: "#4F7396", accentDark: "#3E5C79", accentSoft: "#E7EDF2" },
-"Elektriker": { accent: "#A67C40", accentDark: "#856434", accentSoft: "#F1E9DB" },
-"Maler": { accent: "#6E8F63", accentDark: "#59734F", accentSoft: "#E7EEE4" },
-"Gärtner": { accent: "#6F8B4E", accentDark: "#5A703F", accentSoft: "#E9EEE0" },
-"Zimmerer": { accent: "#8A7156", accentDark: "#6E5A44", accentSoft: "#EFEAE2" },
-"Mechaniker": { accent: "#93594A", accentDark: "#76473B", accentSoft: "#EEE2DE" },
-"Maurer": { accent: "#A9764E", accentDark: "#875E3E", accentSoft: "#F1E6DC" },
-"Dachdecker": { accent: "#547E7E", accentDark: "#436565", accentSoft: "#E4ECEC" },
-"Allround-Handwerker": { accent: "#5F6E8C", accentDark: "#4C5970", accentSoft: "#E6E9F0" },
-"Sonstig...": { accent: "#7C7670", accentDark: "#635E59", accentSoft: "#ECEBE9" },
+"Klempner": { accent: "#3E6690", accentDark: "#315277", accentSoft: "#E6EDF3" },
+"Elektriker": { accent: "#2D6FA6", accentDark: "#245A87", accentSoft: "#E1EBF3" },
+"Maler": { accent: "#1E88B8", accentDark: "#186E94", accentSoft: "#DEEDF3" },
+"Gärtner": { accent: "#2E5F8A", accentDark: "#254C6F", accentSoft: "#E2E9F0" },
+"Zimmerer": { accent: "#4A6FA5", accentDark: "#3B5985", accentSoft: "#E7ECF4" },
+"Mechaniker": { accent: "#35506E", accentDark: "#2A4057", accentSoft: "#DFE5EB" },
+"Maurer": { accent: "#2A75A0", accentDark: "#225E82", accentSoft: "#DFECF2" },
+"Dachdecker": { accent: "#1B4F72", accentDark: "#163F5C", accentSoft: "#DCE7EE" },
+"Allround-Handwerker": { accent: "#4C6E96", accentDark: "#3D5878", accentSoft: "#E6E9F0" },
+"Sonstig...": { accent: "#5B7089", accentDark: "#495B70", accentSoft: "#E9EBEE" },
 };
 const DEFAULT_TRADE = "Allround-Handwerker";
 // Liste der Berufe mit Icons für die visuelle Auswahl (Farben kommen aus TRADE_THEMES)
@@ -537,7 +537,7 @@ className="appearance-none block relative w-10 h-10 p-0 m-0 leading-none rounded
 {/* Basis: Hammer */}
 <Hammer className="absolute inset-0 w-full h-full text-white/90" />
 {/* Overlay: Blitz (Smart-Aspekt), leicht versetzt und hervorgehoben */}
-<Zap className="absolute w-5 h-5 bottom-0 right-0 transform translate-x-1 translate-y-1 text-yellow-300 fill-yellow-300 shadow-md" />
+<Zap className="absolute w-5 h-5 bottom-0 right-0 transform translate-x-1 translate-y-1 text-gold-light fill-gold-light shadow-md" />
 </button>
 );
 // Baustellen-"used"-Look fuer die Kopfleiste: Rost-/Oelflecken, Kratzer,
@@ -562,19 +562,19 @@ aria-hidden="true"
 <feColorMatrix in="t2" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.6 0.6 0.6 0 0" />
 </filter>
 <radialGradient id="headerRust1">
-<stop offset="0%" stopColor="#a85a1a" stopOpacity="0.85" />
-<stop offset="55%" stopColor="#7a3a12" stopOpacity="0.5" />
-<stop offset="100%" stopColor="#7a3a12" stopOpacity="0" />
+<stop offset="0%" stopColor="#2a4f74" stopOpacity="0.85" />
+<stop offset="55%" stopColor="#1c3854" stopOpacity="0.5" />
+<stop offset="100%" stopColor="#1c3854" stopOpacity="0" />
 </radialGradient>
 <radialGradient id="headerRust2">
-<stop offset="0%" stopColor="#c46a1e" stopOpacity="0.9" />
-<stop offset="60%" stopColor="#8a4412" stopOpacity="0.45" />
-<stop offset="100%" stopColor="#8a4412" stopOpacity="0" />
+<stop offset="0%" stopColor="#3f7aa8" stopOpacity="0.9" />
+<stop offset="60%" stopColor="#2a5478" stopOpacity="0.45" />
+<stop offset="100%" stopColor="#2a5478" stopOpacity="0" />
 </radialGradient>
 <radialGradient id="headerOil">
-<stop offset="0%" stopColor="#05100a" stopOpacity="0.75" />
-<stop offset="60%" stopColor="#0a1a12" stopOpacity="0.45" />
-<stop offset="100%" stopColor="#0a1a12" stopOpacity="0" />
+<stop offset="0%" stopColor="#050a10" stopOpacity="0.75" />
+<stop offset="60%" stopColor="#0a1420" stopOpacity="0.45" />
+<stop offset="100%" stopColor="#0a1420" stopOpacity="0" />
 </radialGradient>
 <radialGradient id="headerOilSheen">
 <stop offset="0%" stopColor="#bcd4ff" stopOpacity="0.22" />
@@ -590,14 +590,14 @@ aria-hidden="true"
 <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
 </linearGradient>
 <linearGradient id="headerGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-<stop offset="0%" stopColor="#e6c65c" />
-<stop offset="100%" stopColor="#c9a227" />
+<stop offset="0%" stopColor="#6fb1e8" />
+<stop offset="100%" stopColor="#3d7fb8" />
 </linearGradient>
 </defs>
 
 {/* feiner Rausch-Schmutz + groessere Schmutzwolken */}
 <rect width="1000" height="100" fill="#000000" filter="url(#headerGrunge)" style={{ mixBlendMode: 'multiply', opacity: 0.14 }} />
-<rect width="1000" height="100" fill="#2a1206" filter="url(#headerGrime)" style={{ mixBlendMode: 'multiply', opacity: 0.22 }} />
+<rect width="1000" height="100" fill="#0d2136" filter="url(#headerGrime)" style={{ mixBlendMode: 'multiply', opacity: 0.22 }} />
 
 {/* Rostflecken */}
 <g style={{ mixBlendMode: 'multiply' }}>
@@ -2419,7 +2419,7 @@ backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/ap
 '--accent-soft': theme.accentSoft,
 }}
 >
-<div className="absolute inset-0 bg-gradient-to-b from-black/50 via-[#3a2414]/60 to-black/70 z-0"></div>
+<div className="absolute inset-0 bg-gradient-to-b from-black/50 via-[#14314a]/60 to-black/70 z-0"></div>
 <div className="w-full max-w-sm flex flex-col items-center relative z-10">
 {/* Historie-Modal */}
 {showHistory && (

@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#7c3434" />
-      <stop offset="55%" stop-color="#6d2b2b" />
-      <stop offset="100%" stop-color="#4a1c1c" />
+      <stop offset="0%" stop-color="#2c6291" />
+      <stop offset="55%" stop-color="#1e4a72" />
+      <stop offset="100%" stop-color="#12314d" />
     </linearGradient>
   </defs>
 
-  <circle cx="32" cy="32" r="30" fill="url(#bg)" stroke="#c9a227" stroke-width="2.5" />
+  <circle cx="32" cy="32" r="30" fill="url(#bg)" stroke="#3d7fb8" stroke-width="2.5" />
 
   <!-- Hammer -->
   <g transform="translate(9,9) scale(1.9167)" fill="none" stroke="#f5f2ec" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
@@ -17,7 +17,7 @@
   </g>
 
   <!-- Blitz (Zap), unten rechts ueberlappend, wie im App-Header -->
-  <g transform="translate(33,33) scale(1)" fill="#fde047" stroke="#c9860a" stroke-width="0.75" stroke-linejoin="round">
+  <g transform="translate(33,33) scale(1)" fill="#6fb1e8" stroke="#245a87" stroke-width="0.75" stroke-linejoin="round">
     <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
   </g>
 </svg>

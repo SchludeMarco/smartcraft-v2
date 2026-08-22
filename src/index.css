@@ -3,10 +3,10 @@
 @theme {
   --color-parchment: #f6efdd;
   --color-parchment-dark: #e9dcb8;
-  --color-wood: #6d2b2b;
-  --color-wood-dark: #4a1c1c;
-  --color-gold: #c9a227;
-  --color-gold-light: #e6c65c;
+  --color-wood: #1e4a72;
+  --color-wood-dark: #12314d;
+  --color-gold: #3d7fb8;
+  --color-gold-light: #6fb1e8;
   --color-forest: #2f6b4f;
   --color-forest-dark: #1c4530;
   --color-ink: #2c4a3a;
@@ -35,7 +35,7 @@ body {
   /* Kopfleiste im Spiel-Look: dunkles Weinrot, Gold-Saum kommt als
      ausgefranste Kante vom HeaderPlate-SVG-Overlay (siehe App.jsx). */
   .header-ornate {
-    background: linear-gradient(180deg, #7c3434 0%, var(--color-wood) 55%, var(--color-wood-dark) 100%);
+    background: linear-gradient(180deg, #2c6291 0%, var(--color-wood) 55%, var(--color-wood-dark) 100%);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   }
 

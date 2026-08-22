@@ -8,6 +8,19 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.1.0] – 2026-08-22
+
+### Geändert
+- **Farbschema auf Blau umgestellt.** Die bisherige Gold/Wein-Rot-Ornament-
+  Identität (Kopfleiste inkl. Rost-/Grunge-Textur, Rahmen, Buttons, Logo-Blitz,
+  Favicon) läuft jetzt in Blautönen statt Gold/Wein-Rot — Textur-Technik
+  (Verwitterung, Kratzer, Glanzstreifen) und Pergament-Panel-Hintergrund
+  bleiben, nur die Farbwerte ändern sich. Die 9 Berufs-Akzentfarben
+  (`src/App.jsx`) sind ebenfalls auf unterscheidbare Blau-Varianten
+  umgestellt. Die generische Vier-Tools-Farbcodierung (Indigo/Teal/Amber)
+  bleibt bewusst unverändert, da sie einzelne Aktionen unterscheidet statt
+  Marken-Identität abzubilden.
+
 ## [2.0.0] – 2026-08-22
 
 Start des Projekt-Ordners `SmartCraft-V2` als eigenständige Kopie von
