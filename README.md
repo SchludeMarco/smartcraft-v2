@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.1.1)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -160,7 +160,7 @@ druckfertiges PDF exportieren —
 direkt weitergebbar an Kunden, an den Handwerker des Vertrauens oder fürs eigene
 Archiv.
 
-**6. Verlauf** — jede Analyse wird (anonym, pro Sitzung) in Firestore gespeichert; die
+**6. Verlauf** — jede Analyse wird pro Google-Konto in Firestore gespeichert; die
 letzten 20 Analysen lassen sich später erneut aufrufen, ohne Foto oder Beschreibung neu
 eingeben zu müssen.
 
@@ -183,7 +183,7 @@ App eine Einschätzung, keine Freigabe.
 ## Tech-Stack
 
 React 18 + Vite, Tailwind CSS (per `@tailwindcss/vite` zur Build-Zeit kompiliert,
-nicht per CDN), Firebase (Anonymous Auth + optionales Google-Sign-In + Firestore),
+nicht per CDN), Firebase (verpflichtender Google-Login + Firestore),
 Google Gemini API (`gemini-flash-latest`) über eine Vercel Serverless Function als
 Proxy — der API-Key bleibt dadurch server-seitig und wird nie im Browser sichtbar.
 Der Proxy ist zusätzlich per Origin-Check, Firebase App Check (reCAPTCHA v3),
@@ -226,19 +226,19 @@ reicht `npm run dev`, für die volle KI-Funktion lokal: `vercel dev`.
 Firestore wurde im Produktionsmodus angelegt (alles standardmäßig gesperrt).
 Die Regeln aus [`firestore.rules`](./firestore.rules) müssen einmalig in der
 Firebase Console unter **Firestore Database → Regeln** eingetragen werden.
-Sie beschränken Lese-/Schreibzugriff auf den jeweils eigenen Nutzer (egal ob
-anonym oder per Google angemeldet — die UID bleibt beim Google-Sign-In-Upgrade
-über Account-Linking gleich).
+Sie beschränken Lese-/Schreibzugriff auf den jeweils eigenen Nutzer.
 
-## Google-Sign-In aktivieren
+## Google-Login aktivieren (Pflicht)
 
-Nutzer starten weiterhin sofort mit einer anonymen Sitzung (siehe unten) und
-können sie im Profil-Menü optional per "Mit Google anmelden" zu einem echten,
-geräteübergreifenden Konto machen (Firebase Account-Linking, gleiche UID,
-Verlauf bleibt erhalten). Damit das funktioniert, einmalig in der Firebase
-Console unter **Authentication → Sign-in method** den Provider **Google**
-aktivieren. Kein zusätzlicher Env-Var nötig — läuft über die bestehenden
-`VITE_FIREBASE_*`-Werte.
+Die App ist ohne Google-Anmeldung nicht nutzbar — `App.jsx` zeigt statt der
+Hauptansicht ein Login-Gate, solange kein per Google authentifizierter Nutzer
+vorliegt. Damit das funktioniert, muss in der Firebase Console unter
+**Authentication → Sign-in method** der Provider **Google** aktiviert sein.
+Kein zusätzlicher Env-Var nötig — läuft über die bestehenden
+`VITE_FIREBASE_*`-Werte. Eine vor der Umstellung auf verpflichtenden Login
+im Browser bestehende anonyme Alt-Sitzung wird beim ersten Google-Login per
+Firebase Account-Linking übernommen (gleiche UID, Verlauf bleibt erhalten)
+statt verworfen zu werden.
 
 ## Deployment (Vercel)
 
@@ -270,10 +270,10 @@ Environment Variables in den Vercel-Projekteinstellungen:
   nur Vercels Edge-Netzwerk — lokal (`vite dev`/`preview`) fehlen sie, dann
   läuft der Eintrag unter der Region "Unbekannt". Eigene Aufrufe des
   Admin-Kontos werden client- und serverseitig ausgeschlossen. Optional wird
-  die anonyme Firebase-UID des Aufrufers als `visitorId` mitgeloggt (dieselbe
-  UID, die ohnehin für die Verlaufs-Funktion existiert) — damit lassen sich
-  wiederkehrende Geräte erkennen, solange die Person nicht per Google
-  angemeldet ist. Ein Eintrag pro Start (`artifacts/{appId}/appStarts`,
+  die Firebase-UID des angemeldeten Google-Kontos als `visitorId` mitgeloggt
+  (dieselbe UID, die ohnehin für die Verlaufs-Funktion existiert) — damit
+  lassen sich wiederkehrende Konten erkennen. Ein Eintrag pro Start
+  (`artifacts/{appId}/appStarts`,
   Firestore ohne eingebaute Aufbewahrungsfrist) wächst unbegrenzt — bei
   nennenswertem Nutzeraufkommen sollte dafür eine Firestore-TTL-Policy auf das
   `timestamp`-Feld eingerichtet werden (Firebase Console/`gcloud`, kein
@@ -309,24 +309,22 @@ Environment Variables in den Vercel-Projekteinstellungen:
   von alldem unabhängig und bleibt die verlässliche Quelle; die Mail ist nur
   ein zusätzlicher Sofort-Hinweis, siehe Kommentar in `errorReporting.js`.
 - **TTS (Sprachausgabe)** liest die KI-Diagnose auf Wunsch vor — praktisch auf der
-  Baustelle, wenn beide Hände beschäftigt sind. Zwei Engines, gestaffelt nach
-  Anmeldestatus, garantieren dabei immer Ton — nie eine Sackgasse ohne Audio:
-  - **Nicht angemeldete Nutzer** bekommen ausschließlich die browsereigene
-    Web Speech API (`window.speechSynthesis`, kostenlos, kein Server-Call).
+  Baustelle, wenn beide Hände beschäftigt sind. Zwei Engines garantieren dabei
+  immer Ton — nie eine Sackgasse ohne Audio:
+  - **Premium-TTS** läuft für jeden angemeldeten Nutzer über einen eigenen
+    Server-Proxy (`api/tts.js`, gleiches Muster wie `api/gemini.js`) zur
+    Google Cloud Text-to-Speech API (WaveNet-Stimmen `de-DE-Wavenet-A`/`-B`)
+    — bis zu einem serverseitig durchgesetzten Tageskontingent von
+    `PREMIUM_TTS_DAILY_MAX` (`shared/ttsQuota.js`, Stand: 15) pro Nutzer
+    (Firestore-Zähler `_ttsPremiumQuota/{uid}`, per ID-Token verifiziert,
+    nicht vom Client behauptet). Ist das Kontingent aufgebraucht oder liefert
+    der Server einen Fehler (Rate-Limit, 5xx, ...), schaltet `speakText()`
+    automatisch und **ohne Fehlermeldung** auf die browsereigene Web Speech
+    API um (`window.speechSynthesis`, kostenlos, kein Server-Call).
     `pickBrowserVoice()` (`src/App.jsx`) wählt dabei per bekannten
     Stimmnamen-Mustern eine deutsche, zum gewählten Geschlecht passende
     Stimme; ohne Treffer die erste verfügbare deutsche Stimme, sonst die
     Browser-Standardstimme.
-  - **Angemeldete Google-Nutzer** bekommen zusätzlich Premium-TTS über einen
-    eigenen Server-Proxy (`api/tts.js`, gleiches Muster wie `api/gemini.js`)
-    zur Google Cloud Text-to-Speech API (WaveNet-Stimmen
-    `de-DE-Wavenet-A`/`-B`) — bis zu einem serverseitig durchgesetzten
-    Tageskontingent von `PREMIUM_TTS_DAILY_MAX` (`shared/ttsQuota.js`,
-    Stand: 15) pro Nutzer (Firestore-Zähler `_ttsPremiumQuota/{uid}`, per
-    ID-Token verifiziert, nicht vom Client behauptet). Ist das Kontingent
-    aufgebraucht oder liefert der Server einen Fehler (Rate-Limit, 5xx, ...),
-    schaltet `speakText()` automatisch und **ohne Fehlermeldung** auf die
-    Browser-Stimme des jeweiligen Nutzers um.
   - Die Audiodaten der Premium-Engine (MP3, base64) werden über ein
     `<audio>`-Element abgespielt und pro Modus+Geschlecht clientseitig
     zwischengespeichert, damit erneutes Abspielen keine erneute
@@ -346,10 +344,13 @@ Environment Variables in den Vercel-Projekteinstellungen:
     über das Tageskontingent (Code-Konstante, kein Env-Var, analog
     `DEMO_LIFETIME_MAX`) statt — wie bis V1.26.6 — über ein einzelnes
     freigeschaltetes Konto.
-- **Google-Sign-In ist optional, nicht Pflicht:** jeder Nutzer startet weiterhin
-  sofort anonym (keine Hürde vor der ersten Nutzung) und kann die Sitzung im
-  Profil-Menü freiwillig per Google-Konto "aufwerten". Wer das nicht tut, bleibt
-  geräteweise anonym wie bisher — für die geplante Android-App reicht das bereits.
+- **Google-Login ist verpflichtend:** ohne Google-Anmeldung ist die App nicht
+  nutzbar (Login-Gate in `App.jsx`, siehe "Google-Login aktivieren" oben). Eine
+  anonyme Gast-Nutzung ohne Konto gibt es seit V2.2.0 nicht mehr — historisch
+  startete jeder Nutzer zunächst anonym und konnte die Sitzung im Profil-Menü
+  freiwillig per Google-Konto "aufwerten" (Firebase Account-Linking auf eine
+  bestehende anonyme Sitzung); dieser Linking-Mechanismus greift weiterhin für
+  Alt-Sitzungen aus dieser Zeit, ist aber kein separater, optionaler Pfad mehr.
 - **Berufs-Sondereditionen & dedizierter Privat-Modus** sind als nächste große
   Ausbaustufe geplant: eigene Editionen pro Beruf (z.B. Sm@rtCraft Elektro,
   Sm@rtCraft Garten) sowie eine eigene "Sm@rtCraft Zuhause"-Variante mit spürbar
