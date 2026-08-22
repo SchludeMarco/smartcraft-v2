@@ -14,10 +14,10 @@ export const ERROR_CONTEXT_INFO = {
     cause: 'Firebase-Konfiguration (VITE_FIREBASE_*) fehlt/ungültig, oder das Firebase-Projekt ist nicht erreichbar.',
     fix: 'Env-Variablen in .env bzw. Vercel-Projekteinstellungen prüfen; Firebase-Projektstatus in der Console kontrollieren.',
   },
-  'firebase-auth': {
-    label: 'Anonyme Anmeldung fehlgeschlagen',
-    cause: 'Anonyme Anmeldung ist in der Firebase Console nicht aktiviert, oder es gab ein Netzwerkproblem beim Login.',
-    fix: 'Firebase Console → Authentication → Sign-in method → prüfen, ob "Anonym" aktiviert ist.',
+  'firebase-signout': {
+    label: 'Abmelden fehlgeschlagen',
+    cause: 'Netzwerkproblem beim Firebase-Sign-out.',
+    fix: 'Nachricht/Stacktrace unten prüfen; Firebase-Projektstatus in der Console kontrollieren.',
   },
   'app-check-token': {
     label: 'App-Check-Token konnte nicht geholt werden',
@@ -64,11 +64,6 @@ export const ERROR_CONTEXT_INFO = {
     cause: 'reCAPTCHA/App-Check-Setup (VITE_RECAPTCHA_SITE_KEY) konnte beim App-Start nicht initialisiert werden.',
     fix: 'VITE_RECAPTCHA_SITE_KEY in Vercel/.env prüfen; Domain-Freischaltung in der reCAPTCHA-Konsole kontrollieren.',
   },
-  'firebase-auth-fresh-session': {
-    label: 'Neue anonyme Sitzung fehlgeschlagen',
-    cause: 'Beim expliziten Start einer neuen anonymen Sitzung (z.B. nach Abmeldung) schlug die Firebase-Anmeldung fehl — Netzwerkproblem oder anonyme Anmeldung in der Firebase Console deaktiviert.',
-    fix: 'Firebase Console → Authentication → Sign-in method → prüfen, ob "Anonym" aktiviert ist.',
-  },
   'load-history-api': {
     label: 'Analyse-Historie laden fehlgeschlagen',
     cause: 'Firestore-Abfrage der letzten Analysen schlug fehl — Netzwerkproblem oder fehlende Berechtigung (Firestore-Regeln).',
@@ -81,7 +76,7 @@ export const ERROR_CONTEXT_INFO = {
   },
   'browser-tts-unsupported': {
     label: 'Browser ohne Sprachausgabe-Unterstützung',
-    cause: 'Der Browser des Nutzers unterstützt die Web Speech API nicht — betrifft nicht angemeldete Nutzer und Nutzer nach Premium-TTS-Fallback gleichermaßen; einziger echter Dead-End ohne jede Audioausgabe.',
+    cause: 'Der Browser des Nutzers unterstützt die Web Speech API nicht — betrifft den Fallback, wenn Premium-TTS aus irgendeinem Grund nicht verfügbar ist; einziger echter Dead-End ohne jede Audioausgabe.',
     fix: 'Betroffenen Browser/User-Agent im Report prüfen; ggf. Hinweistext für bekannte nicht unterstützte Browser ergänzen.',
   },
   'google-signin': {

@@ -8,6 +8,24 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.2.0] – 2026-08-22
+
+### Geändert
+- **Google-Login ist jetzt verpflichtend.** Bisher startete die App beim
+  ersten Öffnen automatisch eine anonyme Firebase-Sitzung (Gast-Modus) und
+  eine Google-Anmeldung war nur optional über das Profil-Menü verfügbar. Neu:
+  Ohne Google-Anmeldung ist die App nicht nutzbar — `App.jsx` zeigt statt der
+  Hauptansicht ein Login-Gate mit "Mit Google anmelden"-Button, solange kein
+  per Google authentifizierter Nutzer vorliegt. Die zugehörige "Gast-Sitzung
+  auf diesem Gerät gefunden"-Bestätigung (Weiter als Gast / Neue Sitzung
+  starten) sowie die automatische Neu-Anmeldung als Gast nach dem Abmelden
+  entfallen dadurch ersatzlos. Eine bereits vor diesem Update im Browser
+  bestehende anonyme Alt-Sitzung wird beim ersten Google-Login weiterhin per
+  Firebase-Account-Linking übernommen, sodass ihre Historie nicht verloren
+  geht. Premium-Sprachausgabe (Google Cloud TTS) läuft dadurch jetzt immer,
+  ohne separate Fallback-Logik für nicht angemeldete Nutzer. Impressum/
+  Datenschutz (`LegalPanel.jsx`) entsprechend angepasst.
+
 ## [2.1.1] – 2026-08-22
 
 ### Geändert

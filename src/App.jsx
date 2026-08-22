@@ -8,7 +8,7 @@ Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Rule
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
-getAuth, signInAnonymously, onAuthStateChanged, signOut,
+getAuth, onAuthStateChanged, signOut,
 GoogleAuthProvider, signInWithPopup, linkWithPopup, signInWithCredential, getIdToken, getIdTokenResult
 } from 'firebase/auth';
 import {
@@ -601,20 +601,16 @@ const App = () => {
 const [db, setDb] = useState(null);
 const [auth, setAuth] = useState(null);
 const [userId, setUserId] = useState(null);
-// Voller Auth-User (Firebase User-Objekt): liefert isAnonymous/displayName/
-// email/photoURL für Profil-UI und Fehlerreport-Zuordnung (Google-Login).
+// Voller Auth-User (Firebase User-Objekt): liefert displayName/email/photoURL
+// für Profil-UI und Fehlerreport-Zuordnung (Google-Login ist verpflichtend,
+// isAnonymous ist für jeden User in userId/authUser daher immer false).
 const [authUser, setAuthUser] = useState(null);
-// Angemeldet mit echtem Google-Konto (nicht die anonyme Standard-Session) —
-// entscheidet u.a., ob Premium-TTS (api/tts.js) versucht wird oder direkt
-// die browsereigene Sprachausgabe läuft (siehe speakText weiter unten).
-const isGoogleUser = authUser?.isAnonymous === false;
 const [isAuthReady, setIsAuthReady] = useState(false);
+// true, solange kein per Google angemeldeter Nutzer vorliegt — steuert die
+// Login-Gate-Ansicht (siehe "if (!isAuthReady || showAuth)" weiter unten).
 const [showAuth, setShowAuth] = useState(false);
-// Anonyme Sitzung, die beim App-Start bereits im Browser persistiert war
-// (nicht in diesem Ladevorgang neu angelegt) — wartet auf Bestätigung,
-// ob es sich um dieselbe Person handelt, bevor ihre Historie angezeigt wird.
-const [pendingResumeUser, setPendingResumeUser] = useState(null);
-const [isStartingFreshSession, setIsStartingFreshSession] = useState(false);
+const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
+const [googleSignInError, setGoogleSignInError] = useState(null);
 const [showHistory, setShowHistory] = useState(false); // Steuert das Historien-Modal
 const [showAdmin, setShowAdmin] = useState(false); // Steuert das Admin-Modal (Fehlerreports)
 const [showLegal, setShowLegal] = useState(false); // Steuert das Impressum/Datenschutz-Modal
@@ -804,10 +800,9 @@ const byGender = germanVoices.find((v) => hints.some((hint) => v.name.toLowerCas
 return byGender || germanVoices[0] || null;
 }, []);
 // Browsereigene Sprachausgabe (Web Speech API) — kostenlos, ohne Server-
-// Roundtrip. Läuft für nicht angemeldete Nutzer immer und dient angemeldeten
-// Nutzern als garantierter Fallback, wenn Premium-TTS aus irgendeinem Grund
-// nicht verfügbar ist (Kontingent voll, Rate-Limit, Server-Fehler) — siehe
-// speakText. Damit gibt es nie eine Sackgasse ohne Audio.
+// Roundtrip. Dient als garantierter Fallback, wenn Premium-TTS aus
+// irgendeinem Grund nicht verfügbar ist (Kontingent voll, Rate-Limit,
+// Server-Fehler) — siehe speakText. Damit gibt es nie eine Sackgasse ohne Audio.
 const speakWithBrowserTts = useCallback((text) => {
 if (typeof window === 'undefined' || !window.speechSynthesis) {
 // Einziger tatsächlicher Dead-End: Browser ohne Web Speech API.
@@ -833,12 +828,6 @@ if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthe
 setIsTtsPlaying(false);
 }, []);
 const speakText = useCallback(async (text) => {
-// Nicht angemeldete Nutzer bekommen immer Browser-TTS — kein Versuch,
-// keine Wartezeit, kein Server-Call für Premium-Audio.
-if (!isGoogleUser) {
-speakWithBrowserTts(text);
-return;
-}
 const cacheKey = `${ttsMode}:${ttsGender}`;
 const cached = ttsAudioCacheRef.current[cacheKey];
 if (cached) {
@@ -870,7 +859,7 @@ speakWithBrowserTts(text);
 } finally {
 setIsTtsLoading(false);
 }
-}, [isGoogleUser, ttsMode, ttsGender, fetchTtsAudio, playAudioQueue, speakWithBrowserTts, db, userId]);
+}, [ttsMode, ttsGender, fetchTtsAudio, playAudioQueue, speakWithBrowserTts, db, userId]);
 // Erstellt bei Bedarf eine KI-Kurzfassung der Diagnose (nur die wichtigsten
 // Punkte) und liest sie vor; das Ergebnis wird für den aktuellen Diagnosetext
 // zwischengespeichert, damit nicht bei jedem Abspielen erneut angefragt wird.
@@ -996,30 +985,11 @@ const logAppStartOnce = () => {
   appStartLogged = true;
   fetchWithRetry(appStartUrl, { method: 'POST' }, 1).catch(() => {});
 };
-// Merkt sich, ob die aktuelle onAuthStateChanged-Auflösung die erste seit
-// diesem Seiten-Ladevorgang ist. Nur dann kann eine anonyme Sitzung bereits
-// vor dem Laden im Browser persistiert (und damit potenziell von einer
-// anderen Person übernommen) worden sein — später ausgelöste anonyme Logins
-// (z.B. über "Neue Sitzung starten" oder "Sitzung beenden") sind stets in
-// diesem Ladevorgang selbst neu angelegt und brauchen keine Rückfrage.
-let isFirstAuthResolution = true;
-const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
-const wasFirstResolution = isFirstAuthResolution;
-isFirstAuthResolution = false;
-if (user && user.uid) {
-if (user.isAnonymous && wasFirstResolution) {
-// Bereits vor diesem Ladevorgang bestehende anonyme Sitzung (z.B. von
-// einer anderen Person am selben Gerät) — vor Anzeige ihrer Historie
-// erst bestätigen lassen statt sie stillschweigend zu übernehmen.
-setPendingResumeUser(user);
-setIsAuthReady(true);
-logAppStartOnce();
-return;
-}
+const unsubscribe = onAuthStateChanged(authInstance, (user) => {
+if (user && user.uid && !user.isAnonymous) {
 setUserId(user.uid);
 setAuthUser(toAuthUserSnapshot(user));
 setShowAuth(false);
-setPendingResumeUser(null);
 // Custom Claims stecken im ID-Token, nicht im User-Objekt selbst — erst
 // getIdTokenResult() legt sie offen. Rein informativ für die UI (den
 // eigentlichen Zugriffsschutz für Daten setzt firestore.rules durch),
@@ -1034,78 +1004,119 @@ setIsAdmin(false);
 logAppStartOnce();
 });
 } else {
+// Kein Nutzer angemeldet, oder es liegt nur eine anonyme Alt-Sitzung von
+// vor der Einführung des verpflichtenden Google-Logins vor: Zugriff bleibt
+// gesperrt (Login-Gate, siehe "if (!isAuthReady || showAuth)" weiter
+// unten). Eine vorhandene anonyme Alt-Sitzung wird bewusst NICHT
+// abgemeldet — bleibt sie als auth.currentUser bestehen, übernimmt
+// handleGoogleSignIn ihre Historie beim Login per linkWithPopup, statt sie
+// zu verlieren.
 setUserId(null);
 setAuthUser(null);
 setIsAdmin(false);
-setShowAuth(false);
-if (wasFirstResolution) {
-// Log-Aufruf bewusst NICHT hier, sondern erst nach erfolgreichem
-// signInAnonymously(): an dieser Stelle existiert noch kein currentUser,
-// fetchWithRetry könnte also kein ID-Token anhängen und der Eintrag
-// würde ohne visitorId geloggt (siehe api/app-start.js). Der direkt im
-// Anschluss ausgelöste onAuthStateChanged-Durchlauf mit dem neuen
-// anonymen User übernimmt das Logging dann korrekt mit UID.
-try {
-await signInAnonymously(authInstance);
-} catch (e) {
-console.error("Fehler bei der initialen anonymen Anmeldung:", e);
-queueErrorReport('firebase-auth', e);
-setError("Kritischer Fehler: Die App konnte keine anonyme Sitzung starten. Historie nicht möglich.");
-// Anmeldung gescheitert - es kommt kein weiterer onAuthStateChanged-
-// Durchlauf, der den Start sonst loggen würde. Trotzdem zählen, nur ohne UID.
+setShowAuth(true);
 logAppStartOnce();
-}
-} else {
-logAppStartOnce();
-}
 }
 setIsAuthReady(true);
 });
 return () => unsubscribe();
 }, []);
+// Menschenlesbare Meldung je bekanntem Firebase-Auth-Fehlercode. Ohne das
+// bliebe ein fehlgeschlagener Google-Login für den Nutzer unsichtbar (nur
+// console.error) — sah aus wie "kurzer schwarzer Screen, dann nichts".
+const describeGoogleSignInError = (e) => {
+switch (e.code) {
+case 'auth/unauthorized-domain':
+return 'Diese Domain ist in Firebase nicht für Google-Login freigeschaltet (Authentication → Settings → Authorized domains).';
+case 'auth/popup-blocked':
+return 'Der Browser hat das Login-Popup blockiert. Bitte Popups für diese Seite erlauben und erneut versuchen.';
+case 'auth/network-request-failed':
+return 'Netzwerkfehler bei der Google-Anmeldung. Bitte Internetverbindung prüfen und erneut versuchen.';
+case 'auth/popup-closed-by-user':
+case 'auth/cancelled-popup-request':
+return 'Das Login-Fenster wurde vorzeitig geschlossen, bevor die Anmeldung abgeschlossen war. Bitte erneut versuchen.';
+default:
+return `Google-Anmeldung fehlgeschlagen (${e.code || e.message}).`;
+}
+};
+// --- FUNKTION: GOOGLE-LOGIN (verpflichtend, siehe Login-Gate weiter unten) ---
+// Existiert bereits eine anonyme Alt-Sitzung aus der Zeit vor dem
+// verpflichtenden Google-Login (siehe onAuthStateChanged oben), wird sie per
+// Firebase Account-Linking mit dem Google-Konto verknüpft statt ersetzt —
+// deren Historie bleibt so unter derselben UID erhalten, statt beim
+// erzwungenen Login verloren zu gehen.
+const handleGoogleSignIn = async () => {
+if (!auth) return;
+setIsGoogleSigningIn(true);
+setGoogleSignInError(null);
+const provider = new GoogleAuthProvider();
+try {
+let result;
+if (auth.currentUser?.isAnonymous) {
+result = await linkWithPopup(auth.currentUser, provider);
+} else {
+result = await signInWithPopup(auth, provider);
+}
+// onAuthStateChanged feuert nach linkWithPopup nicht zuverlässig erneut
+// (gleiche UID) — State direkt aus dem Ergebnis setzen, damit die App
+// sofort freigeschaltet wird statt erst nach einem Reload.
+setUserId(result.user.uid);
+setAuthUser(toAuthUserSnapshot(result.user));
+setShowAuth(false);
+} catch (e) {
+if (e.code === 'auth/credential-already-in-use') {
+// Das Google-Konto ist bereits mit einem anderen (echten) Nutzer
+// verknüpft: dort stattdessen anmelden. Die anonyme Alt-Sitzung samt
+// ihrer lokalen Historie geht dabei verloren. Tritt ab dem ersten
+// erfolgreichen Link bei JEDER künftigen Anmeldung erneut auf (ein
+// Google-Konto lässt sich nie ein zweites Mal verknüpfen) — deshalb NICHT
+// per erneutem signInWithPopup (zweites, störendes Google-Popup bei jedem
+// Login), sondern mit dem aus dem fehlgeschlagenen Link-Versuch bereits
+// vorliegenden Credential direkt anmelden.
+try {
+const credential = GoogleAuthProvider.credentialFromError(e);
+const result = credential
+? await signInWithCredential(auth, credential)
+: await signInWithPopup(auth, provider); // Fallback, falls Firebase kein Credential mitliefert
+setUserId(result.user.uid);
+setAuthUser(toAuthUserSnapshot(result.user));
+setShowAuth(false);
+} catch (e2) {
+console.error('Google-Anmeldung fehlgeschlagen:', e2);
+setGoogleSignInError(describeGoogleSignInError(e2));
+queueErrorReport('google-signin', e2);
+}
+} else {
+console.error('Google-Anmeldung fehlgeschlagen:', e);
+setGoogleSignInError(describeGoogleSignInError(e));
+// Bei bloßem Nutzer-Abbruch (Popup selbst geschlossen) keinen Report
+// erzeugen — alle anderen Fehler (z.B. nicht freigeschaltete Domain)
+// landen im Admin-Bereich, damit sie nicht mehr lautlos untergehen.
+if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+queueErrorReport('google-signin', e);
+}
+}
+} finally {
+setIsGoogleSigningIn(false);
+}
+};
 // --- EFFECT: Wartende Fehlerreports senden, sobald eine authentifizierte
 // Firestore-Verbindung besteht (initial + bei Wiederherstellung der Internetverbindung) ---
 useEffect(() => {
 if (!db || !userId) return;
-// Identität des meldenden Nutzers (falls per Google angemeldet) wird am Report
-// mitgespeichert, damit der Admin-Bereich verdächtige/gehäufte Reports einer
-// echten Person statt nur einer anonymen UID zuordnen kann.
+// Identität des meldenden Nutzers wird am Report mitgespeichert, damit der
+// Admin-Bereich Reports einer echten Person zuordnen kann (Google-Login ist
+// verpflichtend, isAnonymous ist für jeden hier erreichten userId immer false).
 const reporterInfo = {
 displayName: authUser?.displayName || null,
 email: authUser?.email || null,
-isAnonymous: authUser?.isAnonymous ?? true,
+isAnonymous: false,
 };
 flushErrorReports(db, userId, appId, reporterInfo);
 const handleOnline = () => flushErrorReports(db, userId, appId, reporterInfo);
 window.addEventListener('online', handleOnline);
 return () => window.removeEventListener('online', handleOnline);
 }, [db, userId, authUser]);
-// --- FUNKTIONEN: BEIM APP-START VORGEFUNDENE ANONYME SITZUNG BESTÄTIGEN ---
-// Übernimmt die bereits im Browser persistierte anonyme Sitzung (samt ihrer
-// Historie) als die eigene.
-const handleContinueAsGuest = useCallback(() => {
-if (!pendingResumeUser) return;
-setUserId(pendingResumeUser.uid);
-setAuthUser(toAuthUserSnapshot(pendingResumeUser));
-setPendingResumeUser(null);
-}, [pendingResumeUser]);
-// Verwirft die vorgefundene anonyme Sitzung und legt eine frische an, damit
-// eine andere Person am selben Gerät nicht die Historie der vorigen sieht.
-const handleStartFreshSession = useCallback(async () => {
-if (!auth) return;
-setIsStartingFreshSession(true);
-try {
-await signOut(auth);
-await signInAnonymously(auth);
-setPendingResumeUser(null);
-} catch (e) {
-console.error("Fehler beim Starten einer neuen Sitzung:", e);
-queueErrorReport('firebase-auth-fresh-session', e);
-setError("Neue Sitzung konnte nicht gestartet werden.");
-} finally {
-setIsStartingFreshSession(false);
-}
-}, [auth]);
 // --- FUNKTION: ALLES ZURÜCKSETZEN ---
 const handleReset = useCallback(() => {
 audioRef.current?.pause();
@@ -1890,9 +1901,9 @@ Männlich
 </div>
 </div>
 <p className="text-xs text-gray-500">
-Stimme: {isGoogleUser ? 'Premium (Google Cloud TTS, WaveNet)' : 'Browser-Sprachausgabe'}
+Stimme: Premium (Google Cloud TTS, WaveNet)
 {' '}({ttsGender === 'male' ? 'männlich' : 'weiblich'})
-{isGoogleUser && ' — bei ausgeschöpftem Kontingent automatischer Wechsel zur Browser-Stimme'}
+{' '}— bei ausgeschöpftem Kontingent automatischer Wechsel zur Browser-Stimme
 </p>
 </div>
 {/* 2. Generische KI-Tools (Berufs-Spezial-Tools sitzen jetzt direkt unter der Berufsauswahl, siehe TradeToolsSection) */}
@@ -2080,102 +2091,25 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 // Profil-Modal-Komponente (angepasst an Rot/Blau)
 const UserProfileModal = () => {
 const [showProfile, setShowProfile] = useState(false);
-const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
-const [googleSignInError, setGoogleSignInError] = useState(null);
 // Fällt auf das generische User-Icon zurück, falls das Google-Profilbild aus
 // irgendeinem Grund nicht lädt (Hotlink-Schutz, CSP, Netzwerk) — sonst bliebe
 // ein kaputtes Bild-Icon stehen statt eines brauchbaren Platzhalters.
 const [googlePhotoFailed, setGooglePhotoFailed] = useState(false);
 const showGooglePhoto = !!authUser?.photoURL && !googlePhotoFailed;
 useEffect(() => { setGooglePhotoFailed(false); }, [authUser?.photoURL]);
-// Menschenlesbare Meldung je bekanntem Firebase-Auth-Fehlercode. Ohne das
-// blieb ein fehlgeschlagener Google-Login für den Nutzer unsichtbar (nur
-// console.error) — sah aus wie "kurzer schwarzer Screen, dann nichts".
-const describeGoogleSignInError = (e) => {
-switch (e.code) {
-case 'auth/unauthorized-domain':
-return 'Diese Domain ist in Firebase nicht für Google-Login freigeschaltet (Authentication → Settings → Authorized domains).';
-case 'auth/popup-blocked':
-return 'Der Browser hat das Login-Popup blockiert. Bitte Popups für diese Seite erlauben und erneut versuchen.';
-case 'auth/network-request-failed':
-return 'Netzwerkfehler bei der Google-Anmeldung. Bitte Internetverbindung prüfen und erneut versuchen.';
-case 'auth/popup-closed-by-user':
-case 'auth/cancelled-popup-request':
-return 'Das Login-Fenster wurde vorzeitig geschlossen, bevor die Anmeldung abgeschlossen war. Bitte erneut versuchen.';
-default:
-return `Google-Anmeldung fehlgeschlagen (${e.code || e.message}).`;
-}
-};
 const handleSignOut = async () => {
 // Nur Abmeldung, wenn Firebase aktiv ist
 if (!auth || !userId) return;
 try {
-// Meldet den aktuellen Benutzer ab und startet direkt wieder eine anonyme
-// Gast-Sitzung, damit die App (Historie, Fehlerreports) ohne Reload nutzbar bleibt.
+// Google-Login ist verpflichtend — nach der Abmeldung zeigt das Login-Gate
+// (siehe "if (!isAuthReady || showAuth)") direkt wieder den Anmelde-Button,
+// statt automatisch eine neue Sitzung zu starten.
 await signOut(auth);
-await signInAnonymously(auth);
 setShowProfile(false);
 handleReset(); // App zurücksetzen
 } catch (e) {
 console.error("Logout Error:", e);
-queueErrorReport('firebase-auth', e);
-}
-};
-// Verknüpft die bestehende anonyme Sitzung (samt Historie) per Firebase
-// Account-Linking mit einem Google-Konto, statt sie zu ersetzen — der
-// Verlauf bleibt unter derselben UID erhalten. Ist bereits ein "echtes"
-// Konto aktiv, meldet sich der Nutzer stattdessen direkt per Google an.
-const handleGoogleSignIn = async () => {
-if (!auth) return;
-setIsGoogleSigningIn(true);
-setGoogleSignInError(null);
-const provider = new GoogleAuthProvider();
-try {
-let result;
-if (auth.currentUser?.isAnonymous) {
-result = await linkWithPopup(auth.currentUser, provider);
-} else {
-result = await signInWithPopup(auth, provider);
-}
-// onAuthStateChanged feuert nach linkWithPopup nicht zuverlässig erneut
-// (gleiche UID) — Snapshot direkt aus dem Ergebnis setzen, damit Foto/Name
-// sofort sichtbar sind statt erst nach einem Reload.
-setAuthUser(toAuthUserSnapshot(result.user));
-setShowProfile(false);
-} catch (e) {
-if (e.code === 'auth/credential-already-in-use') {
-// Das Google-Konto ist bereits mit einem anderen (echten) Nutzer
-// verknüpft: dort stattdessen anmelden. Die bisherige anonyme Sitzung
-// samt ihrer lokalen Historie geht dabei verloren. Tritt ab dem ersten
-// erfolgreichen Link bei JEDER künftigen Anmeldung erneut auf (ein
-// Google-Konto lässt sich nie ein zweites Mal verknüpfen) — deshalb NICHT
-// per erneutem signInWithPopup (zweites, störendes Google-Popup bei jedem
-// Login), sondern mit dem aus dem fehlgeschlagenen Link-Versuch bereits
-// vorliegenden Credential direkt anmelden.
-try {
-const credential = GoogleAuthProvider.credentialFromError(e);
-const result = credential
-? await signInWithCredential(auth, credential)
-: await signInWithPopup(auth, provider); // Fallback, falls Firebase kein Credential mitliefert
-setAuthUser(toAuthUserSnapshot(result.user));
-setShowProfile(false);
-} catch (e2) {
-console.error('Google-Anmeldung fehlgeschlagen:', e2);
-setGoogleSignInError(describeGoogleSignInError(e2));
-queueErrorReport('google-signin', e2);
-}
-} else {
-console.error('Google-Anmeldung fehlgeschlagen:', e);
-setGoogleSignInError(describeGoogleSignInError(e));
-// Bei bloßem Nutzer-Abbruch (Popup selbst geschlossen) keinen Report
-// erzeugen — alle anderen Fehler (z.B. nicht freigeschaltete Domain)
-// landen im Admin-Bereich, damit sie nicht mehr lautlos untergehen.
-if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-queueErrorReport('google-signin', e);
-}
-}
-} finally {
-setIsGoogleSigningIn(false);
+queueErrorReport('firebase-signout', e);
 }
 };
 return (
@@ -2208,11 +2142,10 @@ onClick={e => e.stopPropagation()}
 <h3 className="text-xl font-bold text-gray-800 flex items-center">
 {/* Profil-Icon folgt der Berufs-Akzentfarbe */}
 <User className="w-5 h-5 mr-2 text-(--accent) transition-colors duration-500 ease-in-out" />
-{isGoogleUser ? 'Mein Konto' : 'Anonyme Sitzung'}
+Mein Konto
 </h3>
 <button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
 </div>
-{isGoogleUser ? (
 <div className="flex items-center space-x-3 mb-4 p-2 bg-gray-50 rounded-lg border border-gray-200">
 {showGooglePhoto ? (
 <img src={authUser.photoURL} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
@@ -2220,42 +2153,13 @@ onClick={e => e.stopPropagation()}
 <User className="w-10 h-10 p-2 bg-gray-200 rounded-full text-gray-500 flex-shrink-0" />
 )}
 <div className="min-w-0">
-<p className="text-sm font-semibold text-gray-800 truncate">{authUser.displayName || 'Google-Konto'}</p>
-<p className="text-xs text-gray-500 truncate">{authUser.email}</p>
+<p className="text-sm font-semibold text-gray-800 truncate">{authUser?.displayName || 'Google-Konto'}</p>
+<p className="text-xs text-gray-500 truncate">{authUser?.email}</p>
 {userId && (
 <p className="text-[11px] text-gray-400 truncate" title={userId}>ID: {userId.slice(0, 6)}</p>
 )}
 </div>
 </div>
-) : (
-<>
-<p className="text-sm text-gray-600 mb-3 break-words p-2 bg-yellow-50 rounded-lg border border-yellow-200">
-<strong className="block text-xs uppercase text-yellow-700 mb-1">Hinweis zur Historie:</strong>
-<span className="font-semibold text-gray-700 break-words">Sie sind anonym angemeldet. Die Historie ist an dieses Gerät gebunden und geht z.B. bei Cache-Löschung verloren.</span>
-</p>
-<button
-onClick={handleGoogleSignIn}
-disabled={isGoogleSigningIn}
-className="w-full flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition duration-300 text-sm mb-3 transform active:scale-[0.98] disabled:opacity-60"
->
-{isGoogleSigningIn ? (
-<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-) : (
-<GoogleIcon className="w-4 h-4 mr-2" />
-)}
-Mit Google anmelden
-</button>
-{googleSignInError && (
-<p className="text-xs text-red-700 mb-3 break-words p-2 bg-red-50 rounded-lg border border-red-200">
-{googleSignInError}
-</p>
-)}
-<p className="text-sm text-gray-600 mb-4 break-words">
-<strong className="block text-xs uppercase text-gray-500 mb-1">Temporäre ID:</strong>
-<span className="font-semibold text-blue-600 break-words" title={userId}>{userId ? `${userId.slice(0, 6)} (${userId})` : 'Wird geladen...'}</span>
-</p>
-</>
-)}
 <div className="flex justify-between space-x-2 mt-6">
 <button
 onClick={() => { setShowHistory(true); setShowProfile(false); }}
@@ -2267,11 +2171,11 @@ Historie
 </button>
 <button
 onClick={handleSignOut}
-// Rot, um auf den Verlust der (Google-)Anmeldung bzw. anonymen Historie hinzuweisen
+// Rot, um auf den Verlust des Zugriffs bis zur erneuten Google-Anmeldung hinzuweisen
 className="flex items-center px-4 py-2 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition duration-300 text-sm transform active:scale-[0.98]"
 >
 <X className="w-4 h-4 mr-2" />
-{isGoogleUser ? 'Abmelden' : 'Sitzung beenden'}
+Abmelden
 </button>
 </div>
 <button
@@ -2287,7 +2191,7 @@ Admin-Bereich
 </>
 );
 };
-if (!isAuthReady || showAuth) {
+if (!isAuthReady) {
 // Ladebildschirm während der Firebase-Authentifizierung
 return (
 <div
@@ -2305,10 +2209,8 @@ className='text-white p-6 bg-(--accent) rounded-xl max-w-sm text-center transiti
 </div>
 );
 }
-if (pendingResumeUser) {
-// Auf diesem Gerät wurde eine bereits vorher angelegte anonyme Sitzung
-// gefunden (nicht in diesem Ladevorgang neu erstellt) — bevor deren
-// Historie sichtbar wird, muss bestätigt werden, dass es dieselbe Person ist.
+if (showAuth) {
+// Login-Gate: Die App ist ohne Google-Anmeldung nicht nutzbar.
 return (
 <div
 className="min-h-screen flex justify-center items-center bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
@@ -2320,28 +2222,27 @@ style={{ '--accent': theme.accent }}
 className='relative z-10 text-white p-6 bg-(--accent) rounded-xl max-w-sm text-center transition-colors duration-700 ease-in-out space-y-4'
 >
 <User className="w-8 h-8 mx-auto" />
-<p className='font-bold'>Gast-Sitzung auf diesem Gerät gefunden</p>
+<p className='font-bold'>Anmeldung erforderlich</p>
 <p className='text-sm text-white/90'>
-Auf diesem Gerät ist noch eine anonyme Sitzung mit gespeicherter Historie aktiv. Bist du das, oder nutzt hier gerade jemand anders die App?
+Diese App erfordert eine Anmeldung mit einem Google-Konto.
 </p>
-<div className="flex flex-col space-y-2 pt-2">
 <button
-onClick={handleContinueAsGuest}
-className="w-full px-4 py-2 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-100 transition duration-300 text-sm transform active:scale-[0.98]"
+onClick={handleGoogleSignIn}
+disabled={isGoogleSigningIn || !auth}
+className="w-full flex items-center justify-center px-4 py-2 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-100 transition duration-300 text-sm transform active:scale-[0.98] disabled:opacity-60"
 >
-Weiter als Gast (das ist meine Sitzung)
-</button>
-<button
-onClick={handleStartFreshSession}
-disabled={isStartingFreshSession}
-className="w-full flex items-center justify-center px-4 py-2 bg-black/20 border border-white/40 text-white font-semibold rounded-xl hover:bg-black/30 transition duration-300 text-sm transform active:scale-[0.98] disabled:opacity-60"
->
-{isStartingFreshSession ? (
+{isGoogleSigningIn ? (
 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-) : null}
-Neue Sitzung starten (das ist nicht meine)
+) : (
+<GoogleIcon className="w-4 h-4 mr-2" />
+)}
+Mit Google anmelden
 </button>
-</div>
+{googleSignInError && (
+<p className="text-xs text-red-100 break-words p-2 bg-red-900/40 rounded-lg border border-red-300/40">
+{googleSignInError}
+</p>
+)}
 </div>
 </div>
 );
@@ -2387,7 +2288,7 @@ onClose={() => setShowFeedback(false)}
 reporterInfo={{
 displayName: authUser?.displayName || null,
 email: authUser?.email || null,
-isAnonymous: authUser?.isAnonymous ?? true,
+isAnonymous: false,
 }}
 />
 )}

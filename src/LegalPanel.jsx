@@ -98,19 +98,14 @@ const LegalPanel = ({ onClose }) => {
 
           <Section title="3. Anmeldung (Firebase Authentication)">
             <p>
-              Beim ersten Öffnen wird automatisch eine anonyme, zufällige
-              Kennung (Firebase Anonymous Auth) angelegt, um die eigene
-              Analyse-Historie diesem Gerät zuordnen zu können — ohne Name,
-              E-Mail oder sonstige Identitätsangabe. Optional kann man sich
-              zusätzlich per Google-Konto anmelden (Firebase Authentication);
-              dabei werden Name, E-Mail-Adresse und Profilbild aus dem
-              Google-Konto verarbeitet, um z. B. Premium-Sprachausgabe zu
-              ermöglichen und Fehlerreports einer echten Person statt nur einer
-              anonymen ID zuordnen zu können. Anbieter: Google Ireland
+              Die Nutzung der App erfordert eine Anmeldung mit einem
+              Google-Konto (Firebase Authentication); dabei werden Name,
+              E-Mail-Adresse und Profilbild aus dem Google-Konto verarbeitet,
+              um die eigene Analyse-Historie dem Konto zuordnen zu können,
+              Premium-Sprachausgabe zu ermöglichen und Fehlerreports einer
+              echten Person zuordnen zu können. Anbieter: Google Ireland
               Limited. Rechtsgrundlage: Vertragserfüllung/vorvertragliche
-              Maßnahmen (Art. 6 Abs. 1 lit. b DSGVO) für die Kernfunktion,
-              Einwilligung (Art. 6 Abs. 1 lit. a DSGVO) für die optionale
-              Google-Anmeldung.
+              Maßnahmen (Art. 6 Abs. 1 lit. b DSGVO) für die Kernfunktion.
             </p>
           </Section>
 
@@ -151,10 +146,10 @@ const LegalPanel = ({ onClose }) => {
             <p>
               Standardmäßig wird die im Browser eingebaute Web Speech API
               verwendet — die Sprachausgabe läuft dabei lokal im Gerät, ohne
-              Datenübertragung an SmartCraft- oder Google-Server. Angemeldete
-              Google-Nutzer können zusätzlich eine "Premium"-Sprachausgabe über
-              die Google Cloud Text-to-Speech API nutzen; dabei wird der
-              vorzulesende Text an Google übermittelt. Rechtsgrundlage:
+              Datenübertragung an SmartCraft- oder Google-Server. Zusätzlich
+              kann eine "Premium"-Sprachausgabe über die Google Cloud
+              Text-to-Speech API genutzt werden; dabei wird der vorzulesende
+              Text an Google übermittelt. Rechtsgrundlage:
               Einwilligung durch aktive Auswahl der Premium-Option (Art. 6
               Abs. 1 lit. a DSGVO).
             </p>
@@ -167,9 +162,9 @@ const LegalPanel = ({ onClose }) => {
               App-Version, User-Agent, Zeitpunkt) in Cloud Firestore
               gespeichert und zusätzlich per E-Mail über den Dienst Resend
               (USA) an den Verantwortlichen gesendet, damit Fehler zeitnah
-              behoben werden können. Bei Anmeldung per Google-Konto wird der
-              Bericht zusätzlich mit Name/E-Mail des meldenden Kontos
-              versehen. Rechtsgrundlage: berechtigtes Interesse an einem
+              behoben werden können. Der Bericht wird zusätzlich mit
+              Name/E-Mail des meldenden Google-Kontos versehen.
+              Rechtsgrundlage: berechtigtes Interesse an einem
               funktionsfähigen, fehlerfreien Betrieb (Art. 6 Abs. 1 lit. f
               DSGVO).
             </p>
@@ -180,9 +175,9 @@ const LegalPanel = ({ onClose }) => {
               Über den Feedback-Button kann freiwillig eine Nachricht an den
               Verantwortlichen geschickt werden. Sie wird per E-Mail über den
               Dienst Resend (USA) zugestellt, nicht dauerhaft in Cloud
-              Firestore gespeichert. Bei Anmeldung per Google-Konto wird die
-              Nachricht zusätzlich mit Name/E-Mail des Kontos versehen, damit
-              bei Rückfragen geantwortet werden kann. Rechtsgrundlage:
+              Firestore gespeichert. Die Nachricht wird zusätzlich mit
+              Name/E-Mail des Google-Kontos versehen, damit bei Rückfragen
+              geantwortet werden kann. Rechtsgrundlage:
               Einwilligung durch aktives Senden (Art. 6 Abs. 1 lit. a DSGVO).
             </p>
           </Section>
@@ -193,11 +188,11 @@ const LegalPanel = ({ onClose }) => {
               Region (Land/Stadt, ermittelt serverseitig über
               Standort-Header des Hosting-Anbieters — keine exakten
               GPS-Koordinaten, kein Zugriff auf Geräte-Standortdienste)
-              gespeichert. Ist man angemeldet (auch anonym), wird zusätzlich
-              die bereits unter Punkt 3 genannte anonyme Gerätekennung
-              mitgespeichert, um wiederkehrende Geräte von unterschiedlichen
-              Geräten am selben Ort unterscheiden zu können, ohne dass dafür
-              Name oder E-Mail nötig sind. Aufrufe über das eigene,
+              gespeichert. Ist man angemeldet, wird zusätzlich die eigene,
+              unter Punkt 3 genannte Konto-Kennung mitgespeichert, um
+              wiederkehrende Geräte von unterschiedlichen Geräten am selben Ort
+              unterscheiden zu können, ohne dass dafür Name oder E-Mail nötig
+              sind. Aufrufe über das eigene,
               administrative Konto werden hiervon ausgenommen. Zweck: Betrieb
               und Weiterentwicklung der App sinnvoll einschätzen zu können
               (z. B. Nutzungsumfang, grobe geografische Verteilung).
