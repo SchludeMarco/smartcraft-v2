@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.1)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -182,7 +182,7 @@ App eine Einschätzung, keine Freigabe.
 
 ## Tech-Stack
 
-React 18 + Vite, Tailwind CSS (per `@tailwindcss/vite` zur Build-Zeit kompiliert,
+React 19 + Vite, Tailwind CSS (per `@tailwindcss/vite` zur Build-Zeit kompiliert,
 nicht per CDN), Firebase (verpflichtender Google-Login + Firestore),
 Google Gemini API (`gemini-flash-latest`) über eine Vercel Serverless Function als
 Proxy — der API-Key bleibt dadurch server-seitig und wird nie im Browser sichtbar.
@@ -220,6 +220,11 @@ npm run dev
 Die Serverless-Function unter `api/gemini.js` läuft lokal nur über
 `vercel dev` (nicht über `npm run dev` allein) — für reines Frontend-Testen
 reicht `npm run dev`, für die volle KI-Funktion lokal: `vercel dev`.
+
+`npm run lint` (ESLint, `eslint.config.js`) und `npm run build` laufen
+zusätzlich automatisch bei jedem Push/PR gegen `master`
+([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)) — es gibt noch
+keine automatisierten Tests, nur diese beiden Prüfungen.
 
 ## Firestore Security Rules
 

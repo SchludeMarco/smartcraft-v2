@@ -8,6 +8,25 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.2.1] – 2026-08-23
+
+### Hinzugefügt
+- **`.env.example` ergänzt.** Das im README dokumentierte lokale Setup
+  (`cp .env.example .env`) verwies bisher auf eine nicht existierende Datei —
+  alle server- und clientseitigen Env-Vars aus der README-Deployment-Tabelle
+  sind jetzt mit Quellenhinweis als Vorlage vorhanden.
+- **Minimale CI (`.github/workflows/ci.yml`).** Lint (ESLint, neu via
+  `npm run lint`) und Build laufen jetzt automatisch bei jedem Push/PR gegen
+  `master` — bisher gab es keinerlei automatisierte Prüfung vor dem Deploy.
+  ESLint-Konfiguration (`eslint.config.js`) mit React-Hooks- und
+  React-Refresh-Regeln; bestehende, unkritische Warnungen (v.a.
+  `exhaustive-deps` in `src/App.jsx`) sind bewusst als Warnung statt Fehler
+  belassen, um den CI-Einstieg nicht an einen größeren Refactor zu koppeln.
+
+### Behoben
+- **README-Tech-Stack-Angabe veraltet.** Stand "React 18", tatsächlich lief
+  das Projekt bereits auf React 19 (`package.json`) — korrigiert.
+
 ## [2.2.0] – 2026-08-22
 
 ### Geändert
