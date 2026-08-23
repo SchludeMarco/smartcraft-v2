@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.1)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -24,6 +24,24 @@ Da die App als reine Web-App im Browser läuft, funktioniert sie genauso gut am
 Desktop — etwa im Büro zur Nachbereitung oder für den Kundenbericht.
 
 Entstanden während der Schulung zum KI-Anwendungsspezialisten.
+
+## Was ist neu ab Version 2?
+
+Mit V2.0.0 wurde `SmartCraft-V2` als eigenständige Kopie des ursprünglichen
+Projekts (Stand V1.37.1) aufgesetzt — das Original bleibt in eigenem
+Ordner/Deployment unverändert bestehen. Seitdem hat sich einiges verändert:
+
+- **Berufs-Spezial-Tools sofort nutzbar** (V2.0.0) — die beiden Zusatz-Tools
+  pro Beruf sind direkt nach der Berufswahl klickbar, nicht erst nach
+  abgeschlossener Diagnose (siehe "1b. Berufs-Spezial-Tools" unten).
+- **Neues Farbschema** (V2.1.0/V2.1.1) — Kopfleiste, Rahmen, Buttons, Logo
+  und Favicon laufen jetzt in Blautönen statt der bisherigen Gold/Wein-Rot-
+  Ornament-Identität; die Kopfleiste wurde zusätzlich optisch aufgeräumt.
+- **Google-Login verpflichtend** (V2.2.0) — die anonyme Gast-Nutzung ist
+  ersatzlos entfallen, ohne Google-Anmeldung ist die App nicht mehr nutzbar
+  (siehe "Google-Login aktivieren" unten).
+
+Details zu jeder Version stehen wie gewohnt in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Entstehung & technische Hürden
 

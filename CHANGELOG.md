@@ -8,6 +8,17 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.2.1] – 2026-08-23
+
+### Geändert
+- **README: neuer Abschnitt "Was ist neu ab Version 2?"** direkt nach der
+  Einleitung fasst die bisherigen V2-Änderungen (sofort nutzbare
+  Berufs-Spezial-Tools, Blau-Farbschema, verpflichtender Google-Login)
+  gebündelt zusammen, statt nur verstreut in den jeweiligen Feature-
+  Beschreibungen aufzutauchen — bisher war aus dem README nicht auf einen
+  Blick ersichtlich, dass sich mit V2 mehrere grundlegende Dinge geändert
+  haben.
+
 ## [2.2.0] – 2026-08-22
 
 ### Geändert
