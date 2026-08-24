@@ -252,6 +252,19 @@ buildQuery: (ctx) => buildTradeToolQuery("Nenne ein geeignetes Wetterfenster.", 
 },
 ],
 };
+// Flache Liste aller Berufs-Spezial-Tools über alle Berufe hinweg (statisch,
+// einmal beim Modul-Laden berechnet) — ermöglicht, ein Tool-Ergebnis anhand
+// seiner ID nachzuschlagen, auch wenn der aktuell gewählte Beruf ein anderer
+// ist als der, zu dem das Tool ursprünglich gehört (siehe ALL_TRADE_TOOL_RESULTS
+// in der App-Komponente: Ergebnisse bleiben beim Berufswechsel sichtbar,
+// statt beim Wechsel weg vom ursprünglichen Beruf zu verschwinden).
+const ALL_TRADE_TOOLS = Object.values(TRADE_TOOLS).flat();
+// Ordnet jeder Tool-ID ihren ursprünglichen Beruf zu — für die Akzentfarbe
+// und das Herkunfts-Label, wenn ein Tool-Ergebnis nach einem Berufswechsel
+// weiterhin angezeigt wird (siehe tradeToolResultEntries).
+const TRADE_TOOL_ORIGIN = Object.fromEntries(
+Object.entries(TRADE_TOOLS).flatMap(([trade, tools]) => tools.map((tool) => [tool.id, trade]))
+);
 /**
 * Funktion zur Konvertierung einer Datei in Base64 (wird für die API benötigt).
 * Skaliert dabei über Canvas auf max. 1600px Kantenlänge herunter und
@@ -660,6 +673,17 @@ const currentTradeTools = useMemo(
 ? Object.values(TRADE_TOOLS).flat()
 : (TRADE_TOOLS[selectedTrade] || []),
 [selectedTrade]
+);
+// Ergebnisse aller Berufs-Spezial-Tools, unabhängig vom aktuell gewählten
+// Beruf — anders als currentTradeTools (nur die Buttons des aktuellen
+// Berufs) bleiben so schon erzeugte Ergebnisse beim Berufswechsel weiter
+// sichtbar, statt zu verschwinden ("Ergebnisse verschiedener Berufe
+// stapeln, völlig flexibel bleiben").
+const tradeToolResultEntries = useMemo(
+() => ALL_TRADE_TOOLS
+.map((tool) => ({ tool, text: tradeToolResults[tool.id], trade: TRADE_TOOL_ORIGIN[tool.id] }))
+.filter((entry) => entry.text),
+[tradeToolResults]
 );
 // --- TTS (Sprachausgabe) States ---
 // Läuft über einen serverseitigen Proxy (api/tts.js) zur Google Cloud
@@ -1626,10 +1650,10 @@ const callGeminiVideoSearch = useCallback(async () => {
 const handleExportPdf = useCallback(() => {
 // Export ist auch ohne abgeschlossene Diagnose möglich, sobald mindestens
 // ein Berufs-Spezial-Tool-Ergebnis vorliegt (die Tools sind seit V2.0.0
-// schon ohne Diagnose nutzbar, siehe buildTradeToolQuery).
-const tradeToolEntries = currentTradeTools
-.map((tool) => ({ tool, text: tradeToolResults[tool.id] }))
-.filter((entry) => entry.text);
+// schon ohne Diagnose nutzbar, siehe buildTradeToolQuery). tradeToolResultEntries
+// (siehe oben) enthält Ergebnisse ALLER Berufe, nicht nur des aktuell
+// gewählten, damit auch gestapelte Ergebnisse aus mehreren Berufen exportiert werden.
+const tradeToolEntries = tradeToolResultEntries;
 if (!solutionText && tradeToolEntries.length === 0) {
 setError("Es gibt keine Analyseergebnisse zum Exportieren.");
 return;
@@ -1710,10 +1734,10 @@ ${reportContent}
 let tradeToolsHtml = '';
 if (tradeToolEntries.length > 0) {
 tradeToolsHtml = `
-<h2>7. Berufs-Spezial: ${selectedTrade}</h2>
-${tradeToolEntries.map(({ tool, text }) => `
+<h2>7. Berufs-Spezial-Tools</h2>
+${tradeToolEntries.map(({ tool, text, trade }) => `
 <div class="result-box" style="margin-bottom: 15px;">
-<strong>${tool.label}</strong>
+<strong>${tool.label}</strong>${trade ? ` <span style="color:#999;font-weight:normal;">(${trade})</span>` : ''}
 <div>${text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')}</div>
 </div>
 `).join('')}
@@ -1782,7 +1806,7 @@ printWindow.print();
 } else {
 setError("Der Browser hat das Popup-Fenster blockiert. Bitte erlauben Sie Popups.");
 }
-}, [solutionText, problemDescription, selectedImageBase64, selectedTrade, materialList, safetyTips, videoLinks, clientReport, currentTradeTools, tradeToolResults]);
+}, [solutionText, problemDescription, selectedImageBase64, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
 // Dünne Abstraktion für die Anzeige des Ergebniszustands (Laden, Fehler, Lösung)
 const ResultDisplay = useMemo(() => {
 // NEUE PRÜFUNG: Mindestens ein Element muss vorhanden sein
@@ -2548,18 +2572,27 @@ style={{ backgroundColor: isToolLoading ? theme.accentDark : theme.accent }}
 );
 })}
 </div>
-{currentTradeTools.some((tool) => tradeToolResults[tool.id]) && (
+{/* Zeigt Ergebnisse ALLER Berufe an, nicht nur des aktuell gewählten -
+    Ergebnisse stapeln sich beim Berufswechsel statt zu verschwinden, damit
+    man völlig flexibel zwischen Berufen wechseln kann (siehe
+    tradeToolResultEntries). Akzentfarbe/Herkunfts-Label folgen dabei dem
+    ursprünglichen Beruf des jeweiligen Tools, nicht dem aktuell gewählten. */}
+{tradeToolResultEntries.length > 0 && (
 <div className="mt-4 space-y-3">
-{currentTradeTools.map((tool) => {
-const toolResult = tradeToolResults[tool.id];
-if (!toolResult) return null;
+{tradeToolResultEntries.map(({ tool, text, trade }) => {
 const ToolResultIcon = tool.icon;
+const resultTheme = TRADE_THEMES[trade] || theme;
 return (
 <div key={tool.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
 <div className="flex items-start justify-between mb-3">
 <h4 className="text-md font-bold text-gray-800 flex items-center">
-<ToolResultIcon className="w-5 h-5 mr-2" style={{ color: theme.accent }} />
+<ToolResultIcon className="w-5 h-5 mr-2" style={{ color: resultTheme.accent }} />
+<span>
 {tool.label}
+{trade && trade !== selectedTrade && (
+<span className="block text-xs font-normal text-gray-400">{trade}</span>
+)}
+</span>
 </h4>
 <button
 onClick={() => setTradeToolResults((prev) => ({ ...prev, [tool.id]: null }))}
@@ -2570,7 +2603,7 @@ title="Ergebnis entfernen"
 </button>
 </div>
 <div className="text-sm text-gray-700 leading-relaxed">
-<div dangerouslySetInnerHTML={{ __html: toolResult.replace(/\n/g, '<br/>') }} />
+<div dangerouslySetInnerHTML={{ __html: text.replace(/\n/g, '<br/>') }} />
 </div>
 </div>
 );
@@ -2582,7 +2615,7 @@ title="Ergebnis entfernen"
     voraus, obwohl der Export selbst inzwischen auch nur mit Berufs-
     Spezial-Tool-Ergebnissen funktioniert. Nur hier zeigen, solange keine
     Diagnose vorliegt — sonst gibt es den Export-Button doppelt. */}
-{!solutionText && currentTradeTools.some((tool) => tradeToolResults[tool.id]) && (
+{!solutionText && tradeToolResultEntries.length > 0 && (
 <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
 <button
 onClick={handleExportPdf}

@@ -8,6 +8,24 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.6.0] – 2026-08-24
+
+### Geändert
+- **Berufs-Spezial-Tool-Ergebnisse verschwinden nicht mehr beim
+  Berufswechsel.** Bisher zeigte die Ergebnisliste nur Tool-Ergebnisse des
+  aktuell gewählten Berufs (`currentTradeTools`) — ein Ergebnis, das z.B.
+  bei "Zimmerer" erzeugt wurde, verschwand aus der Ansicht, sobald auf
+  "Klempner" gewechselt wurde (blieb aber im State erhalten, war nur nicht
+  mehr sichtbar). Jetzt sammelt eine neue `tradeToolResultEntries`-Liste
+  (`src/App.jsx`) Ergebnisse über ALLE Berufe hinweg — Ergebnisse
+  verschiedener Berufe stapeln sich, man kann völlig flexibel zwischen
+  Berufen wechseln und weitere Tools ausführen, ohne bisherige Ergebnisse
+  zu verlieren. Jede Ergebniskarte zeigt Akzentfarbe und (falls vom aktuell
+  gewählten Beruf abweichend) ein kleines Herkunfts-Label des
+  ursprünglichen Berufs. Der PDF-Export (`handleExportPdf`) exportiert
+  entsprechend jetzt auch gestapelte Ergebnisse mehrerer Berufe statt nur
+  die des aktuell gewählten.
+
 ## [2.5.0] – 2026-08-24
 
 ### Hinzugefügt
