@@ -15,7 +15,16 @@ export const config = { maxDuration: 30 };
 // "latest"-Alias statt fest datiertem Modellnamen, damit die App nicht erneut
 // durch eine Modell-Abschaltung bricht (siehe Git-Historie: gemini-2.5-flash-preview-09-2025
 // und gemini-2.5-flash wurden beide bereits zurückgezogen).
-const MODEL_NAME = 'gemini-flash-latest';
+//
+// "-lite" statt des einfachen "gemini-flash-latest": Am 24.8.2026 direkt gegen
+// Google getestet (siehe error_log.md) - gemini-flash-latest hing zu diesem
+// Zeitpunkt komplett (0 Bytes nach 40-60s, mehrfach reproduziert), das
+// gepinnte Nachfolgemodell gemini-3.6-flash antwortete zwar, brauchte aber
+// als "Thinking"-Modell 24s allein für ein triviales "Hallo" - zu knapp für
+// die 30s maxDuration oben, sobald App-Check/Firestore-Overhead dazukommt.
+// gemini-flash-lite-latest antwortete im selben Test in 0-3s bei
+// gleichbleibend guter Qualität.
+const MODEL_NAME = 'gemini-flash-lite-latest';
 
 // Rate-Limit-Fenster: 12/Minute deckt einen legitimen Burst (Hauptanalyse +
 // die 4 Zusatz-Tools) locker ab, 200/Tag bremst zusätzlich Slow-Drip-Missbrauch.

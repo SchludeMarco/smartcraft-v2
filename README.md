@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.2)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.2.3)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -56,8 +56,17 @@ Von dort an kamen die Hürden meist erst im Betrieb ans Licht, nicht am Reißbre
   weggeklickt wurde.
 - **Zwei Gemini-Modelle wurden während der Entwicklung abgeschaltet**
   (`gemini-2.5-flash-preview-09-2025`, danach `gemini-2.5-flash`) — die App lief
-  jeweils plötzlich ins Leere. Seitdem zeigt `gemini-flash-latest` (ein stabiler
-  Alias statt einer festen Versionsnummer) auf das jeweils aktuelle Modell.
+  jeweils plötzlich ins Leere. Umgestellt auf `gemini-flash-latest` (ein
+  stabiler Alias statt einer festen Versionsnummer), der auf das jeweils
+  aktuelle Modell zeigt. **Der Alias selbst erwies sich am 24.8.2026 aber als
+  Falle:** Nach einer Google-seitigen Modellrotation hing er komplett (0 Bytes
+  nach 40-60s), das gepinnte Nachfolgemodell (`gemini-3.6-flash`) antwortete
+  zwar, aber als "Thinking"-Modell mit ca. 24s allein für ein triviales
+  "Hallo" — zu langsam für das 30s-Zeitbudget der Vercel-Funktion, sichtbar
+  als `FUNCTION_INVOCATION_TIMEOUT` (siehe `error_log.md`). Umgestellt auf
+  `gemini-flash-lite-latest`: gleiche Update-Sicherheit durch den
+  "-latest"-Alias, aber ohne Thinking-Phase und in Tests durchgehend
+  0-3s Antwortzeit bei weiterhin guter Qualität.
 - **Firestore im Produktionsmodus** heißt: standardmäßig alles gesperrt. Ohne die
   Regeln aus [`firestore.rules`](./firestore.rules) einmal manuell in der Firebase
   Console zu veröffentlichen, schlug jeder Zugriff mit "Missing or insufficient
@@ -184,7 +193,7 @@ App eine Einschätzung, keine Freigabe.
 
 React 18 + Vite, Tailwind CSS (per `@tailwindcss/vite` zur Build-Zeit kompiliert,
 nicht per CDN), Firebase (verpflichtender Google-Login + Firestore),
-Google Gemini API (`gemini-flash-latest`) über eine Vercel Serverless Function als
+Google Gemini API (`gemini-flash-lite-latest`) über eine Vercel Serverless Function als
 Proxy — der API-Key bleibt dadurch server-seitig und wird nie im Browser sichtbar.
 Der Proxy ist zusätzlich per Origin-Check, Firebase App Check (reCAPTCHA v3),
 IP-basiertem Rate-Limiting und einem dauerhaften Demo-Kontingent (30 KI-Anfragen

@@ -31,30 +31,6 @@ neu als offener Eintrag dokumentieren.
 
 ## Offene Fehler
 
-### 10. gemini-trade-tool-api: "FUNCTION_INVOCATION_TIMEOUT" beim Berufs-Spezial-Tool ohne Kontext
-
-- **Status:** Offen (einzelner Report, kein bestätigtes Muster)
-- **Kontext:** `callGeminiTradeToolAPI` (`src/App.jsx`) — hier beim
-  Zimmerer-Tool "Holzart-Empfehlung", ohne vorherige Diagnose/
-  Problembeschreibung aufgerufen (`buildTradeToolQuery` fällt dann auf den
-  generischen "keine Diagnose vorhanden"-Prompt zurück, siehe V2.0.0).
-- **Nachricht:** "An error occurred with your deployment
-  FUNCTION_INVOCATION_TIMEOUT fra1::mdzrt-1787560833492-3bdb4e4b98df"
-  (24.8.2026, 08:41:04 Uhr, V2.2.1, Android/Chrome Mobile, über den
-  Admin-Bereich gemeldet).
-- **Vermutliche Ursache:** Vercel-seitiger 504-Timeout — die Gemini-Antwort
-  überschritt die in `api/gemini.js` konfigurierten `maxDuration: 30`
-  Sekunden. `fetchWithRetry` wiederholt 5xx-Antworten zwar automatisch
-  (bis zu 5×, siehe Einträge 6/1), aber wenn Gemini über mehrere
-  aufeinanderfolgende Versuche hinweg durchgängig langsam ist (z.B. bei
-  Überlastung, vgl. Eintrag 6), schlagen auch alle Retries fehl. Kein
-  Hinweis auf einen Bug im kurz zuvor verschobenen Berufs-Spezial-Tools-
-  Code (V2.2.2) — betrifft strukturell jeden `/api/gemini`-Aufrufer.
-- **Lösungsansatz:** Zunächst abwarten, ob sich das Muster wiederholt.
-  `maxDuration` weiter zu erhöhen würde bei echter Google-Überlastung nur
-  die Wartezeit fürs Scheitern verlängern, nicht die Ursache beheben —
-  daher vorerst keine Codeänderung.
-
 ### 8. App Check: "AppCheck: Requests throttled due to previous 403 error" — blockiert alle `/api/gemini`-Aufrufe
 
 - **Status:** Beobachten (Config nachweislich korrekt, echte Bestätigung durch
@@ -125,6 +101,32 @@ neu als offener Eintrag dokumentieren.
 ---
 
 ## Gelöste Fehler
+
+### 10. gemini-trade-tool-api: "FUNCTION_INVOCATION_TIMEOUT" beim Berufs-Spezial-Tool ohne Kontext
+
+- **Status:** Gelöst (V2.2.3)
+- **Kontext:** `callGeminiTradeToolAPI` (`src/App.jsx`), betraf strukturell
+  jeden `/api/gemini`-Aufrufer, nicht nur das erstbeobachtete Zimmerer-Tool
+  "Holzart-Empfehlung".
+- **Nachricht:** "An error occurred with your deployment
+  FUNCTION_INVOCATION_TIMEOUT ..." — zweimal beim selben Tool innerhalb von
+  15 Minuten (24.8.2026, 08:41 und 08:56 Uhr, V2.2.1/V2.2.2, Android/Chrome
+  Mobile, über den Admin-Bereich gemeldet).
+- **Ursache:** Direkt gegen die Gemini-API getestet (siehe unten) statt nur
+  über die App: Das bisher verwendete `gemini-flash-latest` (`api/gemini.js`,
+  `MODEL_NAME`) hing zum Testzeitpunkt komplett — mehrfach 0 Bytes nach
+  40-60s, selbst bei einem trivialen "Sag nur Hallo"-Prompt, unabhängig vom
+  konkreten Tool/Prompt. Das von Google für neue Nutzer empfohlene
+  Nachfolgemodell `gemini-3.6-flash` antwortete zwar, aber als
+  "Thinking"-Modell mit ca. 24s allein für "Hallo" — zu knapp für die 30s
+  `maxDuration` der Vercel-Funktion, sobald App-Check-Verifikation +
+  Firestore-Rate-Limit-Transaktion davor noch Zeit verbrauchen. Der
+  "-latest"-Alias hatte sich also durch eine Google-seitige Modellrotation
+  (vom 2.5- auf den 3.x-Modelljahrgang) faktisch selbst kaputtgemacht.
+- **Lösung:** `MODEL_NAME` auf `gemini-flash-lite-latest` umgestellt — im
+  selben direkten Test durchgehend 0-3s Antwortzeit (auch mit dem echten
+  Holzart-Prompt), keine Thinking-Phase, weiterhin über den "-latest"-Alias
+  automatisch update-sicher. Siehe CHANGELOG `[2.2.3]`.
 
 ### 9. Google-Login: "Firebase: Error (auth/unauthorized-domain)"
 

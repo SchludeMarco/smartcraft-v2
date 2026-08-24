@@ -8,6 +8,19 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.2.3] – 2026-08-24
+
+### Behoben
+- **`FUNCTION_INVOCATION_TIMEOUT` bei `/api/gemini`-Aufrufen.** Direkt gegen
+  die Gemini-API getestet: `gemini-flash-latest` hing komplett (0 Bytes nach
+  40-60s, auch bei trivialen Prompts), das aktuell empfohlene
+  Nachfolgemodell `gemini-3.6-flash` ist ein "Thinking"-Modell mit ~24s
+  allein für "Hallo" — zu langsam für die 30s `maxDuration` in
+  `api/gemini.js`, sobald App-Check/Firestore-Overhead dazukommt. Auf
+  `gemini-flash-lite-latest` umgestellt (0-3s Antwortzeit im Test, gleiche
+  Qualität, weiterhin ein automatisch aktueller "-latest"-Alias). Siehe
+  `error_log.md` Eintrag 10.
+
 ## [2.2.2] – 2026-08-24
 
 ### Geändert
