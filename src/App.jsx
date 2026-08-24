@@ -1980,10 +1980,19 @@ isGeneratingReport ? 'bg-blue-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'
 {/* 3. Materialliste Ergebnis */}
 {materialList && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
-<h4 className="text-md font-bold text-gray-800 mb-3 flex items-center">
+<div className="flex items-start justify-between mb-3">
+<h4 className="text-md font-bold text-gray-800 flex items-center">
 <Package className="w-5 h-5 mr-2 text-indigo-600" />
 Benötigte Materialien und Werkzeuge
 </h4>
+<button
+onClick={() => setMaterialList(null)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Ergebnis entfernen"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
 <div className="overflow-x-auto">
 <table className="min-w-full divide-y divide-gray-200">
 <thead className="bg-gray-50">
@@ -2009,10 +2018,19 @@ Benötigte Materialien und Werkzeuge
 {/* 4. Sicherheits-Check Ergebnis */}
 {safetyTips && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
-<h4 className="text-md font-bold text-gray-800 mb-3 flex items-center">
+<div className="flex items-start justify-between mb-3">
+<h4 className="text-md font-bold text-gray-800 flex items-center">
 <Shield className="w-5 h-5 mr-2 text-teal-600" />
 Sicherheits-Check (PSA & Risiko)
 </h4>
+<button
+onClick={() => setSafetyTips(null)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Ergebnis entfernen"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
 <div className="text-sm text-gray-700 leading-relaxed">
 <div dangerouslySetInnerHTML={{ __html: safetyTips.replace(/\n/g, '<br/>') }} />
 </div>
@@ -2021,10 +2039,19 @@ Sicherheits-Check (PSA & Risiko)
 {/* 5. Video-Anleitungen Ergebnis */}
 {videoLinks && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
-<h4 className="text-md font-bold text-gray-800 mb-3 flex items-center">
+<div className="flex items-start justify-between mb-3">
+<h4 className="text-md font-bold text-gray-800 flex items-center">
 <Video className="w-5 h-5 mr-2 text-amber-600" />
 Video-Anleitungen (YouTube)
 </h4>
+<button
+onClick={() => setVideoLinks(null)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Ergebnis entfernen"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
 <ul className="space-y-2">
 {videoLinks.map((link, index) => (
 // BLAUER AKZENT: Hervorhebung für Video-Links
@@ -2046,11 +2073,20 @@ className="text-sm text-blue-600 hover:text-blue-800 font-medium truncate block"
 {/* 6. Kundenbericht Ergebnis */}
 {clientReport && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
-<h4 className="text-md font-bold text-gray-800 mb-3 flex items-center">
+<div className="flex items-start justify-between mb-3">
+<h4 className="text-md font-bold text-gray-800 flex items-center">
 {/* BLAUER AKZENT: Icon Farbe */}
 <FileText className="w-5 h-5 mr-2 text-blue-600" />
 Kundenbericht & Nächste Schritte
 </h4>
+<button
+onClick={() => setClientReport(null)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Ergebnis entfernen"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
 <div className="text-sm text-gray-700 leading-relaxed">
 <div dangerouslySetInnerHTML={{ __html: clientReport.replace(/\n/g, '<br/>') }} />
 </div>

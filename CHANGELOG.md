@@ -8,6 +8,17 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.5.0] – 2026-08-24
+
+### Hinzugefügt
+- **Ergebnisse der generischen KI-Tools einzeln per (X) entfernbar.**
+  Analog zu den Berufs-Spezial-Tools (V2.3.0) bekommen jetzt auch
+  Materialliste, Sicherheits-Check, Video-Anleitungen und Kundenbericht
+  (`src/App.jsx`) je einen (X)-Button oben rechts, der nur das jeweilige
+  Ergebnis entfernt (`setMaterialList`/`setSafetyTips`/`setVideoLinks`/
+  `setClientReport` auf `null`) — erneuter Klick auf das Tool erzeugt es
+  bei Bedarf neu.
+
 ## [2.4.0] – 2026-08-24
 
 ### Hinzugefügt
