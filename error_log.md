@@ -33,7 +33,8 @@ neu als offener Eintrag dokumentieren.
 
 ### 8. App Check: "AppCheck: Requests throttled due to previous 403 error" — blockiert alle `/api/gemini`-Aufrufe
 
-- **Status:** Offen
+- **Status:** Beobachten (Config nachweislich korrekt, echte Bestätigung durch
+  reale Nutzer-Reports steht noch aus)
 - **Kontext:** Erstmals bei SmartCraft-V2 (eigenständige Kopie, eigenes
   Vercel-Projekt `smartcraft-v2`, siehe `CLAUDE.md`/Versionshistorie ab
   V2.0.0) beobachtet, betrifft strukturell jeden der sechs
@@ -43,28 +44,26 @@ neu als offener Eintrag dokumentieren.
   403 error. Attempts allowed again after 01d:00m:00s (appCheck/throttled)`
   (24.8.2026, 07:37:58 Uhr, V2.2.1, Android/Chrome Mobile, über den
   Admin-Bereich gemeldet). Live auf `smartcraft-v2.vercel.app`
-  nachgestellt und per Network-Trace bestätigt — auch mit frischem
-  Browser-Kontext (`appCheck/initial-throttle` statt `.../throttled`),
-  also kein reines Throttle-Nachwirken einer alten Sperre.
-- **Ursache:** Der Trace zeigt: reCAPTCHA v3 liefert clientseitig ein
-  gültiges Token (`recaptcha/api2/reload` → 200), Firebase lehnt es beim
-  Austausch aber serverseitig ab —
-  `POST .../exchangeRecaptchaV3Token` → **403
-  `PERMISSION_DENIED` "App attestation failed."** Das spricht für einen
-  Mismatch zwischen dem in `VITE_RECAPTCHA_SITE_KEY` (Vercel) hinterlegten
-  reCAPTCHA-Site-Key und dem in Firebase App Check registrierten Secret
-  Key — z.B. weil im Google-Account mehrere reCAPTCHA-Sites existieren und
-  beim Einrichten (siehe CHANGELOG-Kontext V2.1.0/V2.2.0-Deploy) der
-  falsche Site Key kopiert wurde. Alternativ/zusätzlich denkbar: die Domain
-  `smartcraft-v2.vercel.app` fehlt noch in der Domain-Liste dieser
-  reCAPTCHA-Site.
-- **Lösungsansatz (nicht code-seitig behebbar):** In
-  google.com/recaptcha/admin die Site mit besagtem Site Key öffnen, den
-  dort danebenstehenden Secret Key kopieren und in Firebase Console → App
-  Check → Apps → Smartcraft-Web-App → reCAPTCHA-Provider neu eintragen,
-  damit Site Key (Vercel) und Secret Key (Firebase) garantiert zum
-  selben reCAPTCHA-Eintrag gehören. Dabei auch die Domain-Liste der Site
-  gegenprüfen.
+  nachgestellt: `POST .../exchangeRecaptchaV3Token` → 403
+  `PERMISSION_DENIED` "App attestation failed."
+- **Ursache (nach Untersuchung wahrscheinlich kein Config-Fehler):**
+  Site-Key/Secret-Key-Zuordnung (google.com/recaptcha/admin ↔ Firebase
+  Console → App Check → Apps → reCAPTCHA-Provider) sowie Domain-Freigabe
+  wurden mehrfach geprüft und korrigiert. Ein direkter Test gegen Googles
+  `siteverify`-Endpoint mit einem frisch abgefangenen Token ergab
+  `"timeout-or-duplicate"` — das Token war zu diesem Zeitpunkt bereits
+  von Firebase selbst erfolgreich verifiziert worden, was Secret Key und
+  Domain als korrekt bestätigt. Die wiederholten 403-Fehler beim
+  Nachstellen kamen mit hoher Wahrscheinlichkeit daher, dass alle
+  Nachstell-Versuche über einen **headless Chromium-Browser** (Playwright)
+  liefen — reCAPTCHA v3 erkennt das zuverlässig als botartig und vergibt
+  einen niedrigen Score, den Firebase App Check korrekterweise ablehnt.
+  D.h. der 403 beim automatisierten Testen ist erwartetes Verhalten, keine
+  Bestätigung eines echten Configfehlers.
+- **Nächster Schritt:** Kein weiterer Config-Eingriff geplant. Falls dieses
+  Fehlerbild bei einem eindeutig echten Nutzer-Gerät (nicht
+  `HeadlessChrome` im User-Agent, siehe Report-Kontext) erneut auftaucht,
+  hier neu untersuchen.
 
 ### 5. Alle `/api/gemini`-Aufrufer: "You exceeded your current quota... free_tier_requests, limit: 20"
 
@@ -103,7 +102,20 @@ neu als offener Eintrag dokumentieren.
 
 ## Gelöste Fehler
 
-### 7. Fünf von sechs `/api/gemini`-Aufrufern zeigten den rohen Google-Fehlertext direkt an
+### 9. Google-Login: "Firebase: Error (auth/unauthorized-domain)"
+
+- **Status:** Gelöst (Config, kein Versions-Bump — betrifft keine Code-Datei)
+- **Kontext:** `handleGoogleSignIn` in `src/App.jsx`, seit V2.2.0 auf jedem
+  Login-Versuch relevant (Google-Login ist seitdem verpflichtend).
+- **Nachricht:** `FirebaseError: Firebase: Error (auth/unauthorized-domain)`
+  (24.8.2026, 08:28:17 Uhr, V2.2.1, Android/Chrome Mobile, über den
+  Admin-Bereich gemeldet). Live auf `smartcraft-v2.vercel.app` per
+  Network-Trace nachgestellt und bestätigt.
+- **Ursache:** `smartcraft-v2.vercel.app` fehlte in Firebase Authentication →
+  Settings → Authorized domains — jede neue Vercel-Domain muss dort einzeln
+  freigeschaltet werden, unabhängig von der (separaten) Domain-Freigabe für
+  reCAPTCHA/App Check (siehe Eintrag 8).
+- **Lösung:** Domain am 24.8.2026 in Authorized domains ergänzt.
 
 - **Status:** Gelöst (V1.27.4)
 - **Kontext:** Hauptanalyse (`gemini-vision-api`), Materialien, Sicherheit,
