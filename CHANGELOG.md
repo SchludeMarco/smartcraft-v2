@@ -8,6 +8,21 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.4.0] – 2026-08-24
+
+### Hinzugefügt
+- **PDF-Export bereits mit nur einem Berufs-Spezial-Tool-Ergebnis möglich,
+  ohne abgeschlossene Diagnose.** `handleExportPdf` (`src/App.jsx`) setzte
+  bisher zwingend `solutionText` voraus, obwohl die Berufs-Spezial-Tools
+  seit V2.0.0 schon vor einer Diagnose nutzbar sind und ihre Ergebnisse im
+  Export ohnehin schon mit ausgegeben wurden (Abschnitt 7). Der Export
+  prüft jetzt, ob Diagnose ODER mindestens ein Tool-Ergebnis vorliegt; der
+  Diagnose-Abschnitt im PDF erscheint nur noch, wenn tatsächlich eine
+  Diagnose existiert. Ein eigener "Als PDF exportieren"-Button erscheint
+  direkt im Berufs-Spezial-Tools-Bereich, solange noch keine Diagnose
+  läuft (der bestehende Button im Analyseergebnis-Bereich deckt den Fall
+  mit Diagnose weiterhin ab, kein doppelter Button).
+
 ## [2.3.0] – 2026-08-24
 
 ### Hinzugefügt

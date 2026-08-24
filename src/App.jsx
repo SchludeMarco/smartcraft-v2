@@ -1624,7 +1624,13 @@ const callGeminiVideoSearch = useCallback(async () => {
 }, [solutionText, selectedTrade, db, userId]);
 // --- FUNKTION: PDF-EXPORT ---
 const handleExportPdf = useCallback(() => {
-if (!solutionText) {
+// Export ist auch ohne abgeschlossene Diagnose möglich, sobald mindestens
+// ein Berufs-Spezial-Tool-Ergebnis vorliegt (die Tools sind seit V2.0.0
+// schon ohne Diagnose nutzbar, siehe buildTradeToolQuery).
+const tradeToolEntries = currentTradeTools
+.map((tool) => ({ tool, text: tradeToolResults[tool.id] }))
+.filter((entry) => entry.text);
+if (!solutionText && tradeToolEntries.length === 0) {
 setError("Es gibt keine Analyseergebnisse zum Exportieren.");
 return;
 }
@@ -1637,8 +1643,8 @@ const tradeHtml = selectedTrade
 : '';
 // Konvertiere Markdown-Formatierung in einfache HTML-Tags
 const solutionHtml = solutionText
-.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-.replace(/\n/g, '<br/>');
+? solutionText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
+: '';
 let materialHtml = '';
 if (materialList && materialList.length > 0) {
 materialHtml = `
@@ -1702,9 +1708,6 @@ ${reportContent}
 `;
 }
 let tradeToolsHtml = '';
-const tradeToolEntries = currentTradeTools
-.map((tool) => ({ tool, text: tradeToolResults[tool.id] }))
-.filter((entry) => entry.text);
 if (tradeToolEntries.length > 0) {
 tradeToolsHtml = `
 <h2>7. Berufs-Spezial: ${selectedTrade}</h2>
@@ -1751,12 +1754,14 @@ ${selectedImageBase64 ?
 `<img class="image-preview" src="data:image/jpeg;base64,${selectedImageBase64}" alt="Problemstelle">` :
 '<p class="meta italic">Kein Bild beigefügt.</p>'}
 </div>
+${solutionText ? `
 <div class="section">
 <h2>2. KI-Diagnose und Lösungsvorschlag</h2>
 <div class="result-box">
 ${solutionHtml}
 </div>
 </div>
+` : ''}
 ${materialHtml}
 ${safetyHtml}
 ${videoHtml}
@@ -2534,6 +2539,23 @@ title="Ergebnis entfernen"
 </div>
 );
 })}
+</div>
+)}
+{/* PDF-Export auch ohne abgeschlossene Diagnose: der Button im
+    Analyseergebnis-Bereich (handleExportPdf) setzt sonst solutionText
+    voraus, obwohl der Export selbst inzwischen auch nur mit Berufs-
+    Spezial-Tool-Ergebnissen funktioniert. Nur hier zeigen, solange keine
+    Diagnose vorliegt — sonst gibt es den Export-Button doppelt. */}
+{!solutionText && currentTradeTools.some((tool) => tradeToolResults[tool.id]) && (
+<div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+<button
+onClick={handleExportPdf}
+disabled={Object.values(loadingTradeToolIds).some(Boolean)}
+className="flex items-center px-4 py-2 bg-(--accent) text-white font-semibold rounded-xl shadow-md hover:bg-(--accent-dark) transition-colors duration-500 ease-in-out transform active:scale-[0.98] disabled:opacity-60"
+>
+<FileText className="w-4 h-4 mr-2" />
+Als PDF exportieren
+</button>
 </div>
 )}
 </div>
