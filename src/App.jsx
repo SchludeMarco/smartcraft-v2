@@ -2515,10 +2515,19 @@ if (!toolResult) return null;
 const ToolResultIcon = tool.icon;
 return (
 <div key={tool.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
-<h4 className="text-md font-bold text-gray-800 mb-3 flex items-center">
+<div className="flex items-start justify-between mb-3">
+<h4 className="text-md font-bold text-gray-800 flex items-center">
 <ToolResultIcon className="w-5 h-5 mr-2" style={{ color: theme.accent }} />
 {tool.label}
 </h4>
+<button
+onClick={() => setTradeToolResults((prev) => ({ ...prev, [tool.id]: null }))}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Ergebnis entfernen"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
 <div className="text-sm text-gray-700 leading-relaxed">
 <div dangerouslySetInnerHTML={{ __html: toolResult.replace(/\n/g, '<br/>') }} />
 </div>

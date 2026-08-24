@@ -8,6 +8,16 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.3.0] – 2026-08-24
+
+### Hinzugefügt
+- **Ergebnisse der Berufs-Spezial-Tools einzeln per (X) entfernbar.** Jede
+  Tool-Ausgabe hatte bisher keine Möglichkeit, sie wieder auszublenden —
+  bei mehreren genutzten Tools bläht das die Ergebnisansicht unnötig auf.
+  Jede Ergebniskarte (`src/App.jsx`) hat jetzt einen (X)-Button oben rechts,
+  der nur das jeweilige Ergebnis aus `tradeToolResults` entfernt (erneuter
+  Klick auf das Tool erzeugt es bei Bedarf neu).
+
 ## [2.2.3] – 2026-08-24
 
 ### Behoben
