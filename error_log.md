@@ -31,6 +31,30 @@ neu als offener Eintrag dokumentieren.
 
 ## Offene Fehler
 
+### 10. gemini-trade-tool-api: "FUNCTION_INVOCATION_TIMEOUT" beim Berufs-Spezial-Tool ohne Kontext
+
+- **Status:** Offen (einzelner Report, kein bestätigtes Muster)
+- **Kontext:** `callGeminiTradeToolAPI` (`src/App.jsx`) — hier beim
+  Zimmerer-Tool "Holzart-Empfehlung", ohne vorherige Diagnose/
+  Problembeschreibung aufgerufen (`buildTradeToolQuery` fällt dann auf den
+  generischen "keine Diagnose vorhanden"-Prompt zurück, siehe V2.0.0).
+- **Nachricht:** "An error occurred with your deployment
+  FUNCTION_INVOCATION_TIMEOUT fra1::mdzrt-1787560833492-3bdb4e4b98df"
+  (24.8.2026, 08:41:04 Uhr, V2.2.1, Android/Chrome Mobile, über den
+  Admin-Bereich gemeldet).
+- **Vermutliche Ursache:** Vercel-seitiger 504-Timeout — die Gemini-Antwort
+  überschritt die in `api/gemini.js` konfigurierten `maxDuration: 30`
+  Sekunden. `fetchWithRetry` wiederholt 5xx-Antworten zwar automatisch
+  (bis zu 5×, siehe Einträge 6/1), aber wenn Gemini über mehrere
+  aufeinanderfolgende Versuche hinweg durchgängig langsam ist (z.B. bei
+  Überlastung, vgl. Eintrag 6), schlagen auch alle Retries fehl. Kein
+  Hinweis auf einen Bug im kurz zuvor verschobenen Berufs-Spezial-Tools-
+  Code (V2.2.2) — betrifft strukturell jeden `/api/gemini`-Aufrufer.
+- **Lösungsansatz:** Zunächst abwarten, ob sich das Muster wiederholt.
+  `maxDuration` weiter zu erhöhen würde bei echter Google-Überlastung nur
+  die Wartezeit fürs Scheitern verlängern, nicht die Ursache beheben —
+  daher vorerst keine Codeänderung.
+
 ### 8. App Check: "AppCheck: Requests throttled due to previous 403 error" — blockiert alle `/api/gemini`-Aufrufe
 
 - **Status:** Beobachten (Config nachweislich korrekt, echte Bestätigung durch
