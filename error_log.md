@@ -31,6 +31,41 @@ neu als offener Eintrag dokumentieren.
 
 ## Offene Fehler
 
+### 8. App Check: "AppCheck: Requests throttled due to previous 403 error" — blockiert alle `/api/gemini`-Aufrufe
+
+- **Status:** Offen
+- **Kontext:** Erstmals bei SmartCraft-V2 (eigenständige Kopie, eigenes
+  Vercel-Projekt `smartcraft-v2`, siehe `CLAUDE.md`/Versionshistorie ab
+  V2.0.0) beobachtet, betrifft strukturell jeden der sechs
+  `/api/gemini`-Aufrufer (App Check läuft vor `api/gemini.js`, sobald
+  `FIREBASE_SERVICE_ACCOUNT_KEY` gesetzt ist).
+- **Nachricht:** `FirebaseError: AppCheck: Requests throttled due to previous
+  403 error. Attempts allowed again after 01d:00m:00s (appCheck/throttled)`
+  (24.8.2026, 07:37:58 Uhr, V2.2.1, Android/Chrome Mobile, über den
+  Admin-Bereich gemeldet). Live auf `smartcraft-v2.vercel.app`
+  nachgestellt und per Network-Trace bestätigt — auch mit frischem
+  Browser-Kontext (`appCheck/initial-throttle` statt `.../throttled`),
+  also kein reines Throttle-Nachwirken einer alten Sperre.
+- **Ursache:** Der Trace zeigt: reCAPTCHA v3 liefert clientseitig ein
+  gültiges Token (`recaptcha/api2/reload` → 200), Firebase lehnt es beim
+  Austausch aber serverseitig ab —
+  `POST .../exchangeRecaptchaV3Token` → **403
+  `PERMISSION_DENIED` "App attestation failed."** Das spricht für einen
+  Mismatch zwischen dem in `VITE_RECAPTCHA_SITE_KEY` (Vercel) hinterlegten
+  reCAPTCHA-Site-Key und dem in Firebase App Check registrierten Secret
+  Key — z.B. weil im Google-Account mehrere reCAPTCHA-Sites existieren und
+  beim Einrichten (siehe CHANGELOG-Kontext V2.1.0/V2.2.0-Deploy) der
+  falsche Site Key kopiert wurde. Alternativ/zusätzlich denkbar: die Domain
+  `smartcraft-v2.vercel.app` fehlt noch in der Domain-Liste dieser
+  reCAPTCHA-Site.
+- **Lösungsansatz (nicht code-seitig behebbar):** In
+  google.com/recaptcha/admin die Site mit besagtem Site Key öffnen, den
+  dort danebenstehenden Secret Key kopieren und in Firebase Console → App
+  Check → Apps → Smartcraft-Web-App → reCAPTCHA-Provider neu eintragen,
+  damit Site Key (Vercel) und Secret Key (Firebase) garantiert zum
+  selben reCAPTCHA-Eintrag gehören. Dabei auch die Domain-Liste der Site
+  gegenprüfen.
+
 ### 5. Alle `/api/gemini`-Aufrufer: "You exceeded your current quota... free_tier_requests, limit: 20"
 
 - **Status:** Offen (das eigentliche Kontingent-Problem bleibt bestehen — nur
