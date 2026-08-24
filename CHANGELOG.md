@@ -8,6 +8,17 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.2.2] – 2026-08-24
+
+### Geändert
+- **Berufs-Spezial-Tools jetzt direkt oberhalb des Analyseergebnisses statt
+  zwischen Berufsauswahl und Problemdokumentation.** Bisher (seit V2.0.0)
+  saß der Abschnitt zwischen "1. Beruf auswählen" und "2. Problem
+  dokumentieren & analysieren". Neu: Der Abschnitt sitzt direkt vor
+  "3. Ergebnis der KI-Analyse" (`src/App.jsx`) — weiterhin sofort nutzbar
+  ohne abgeschlossene Diagnose, nur die Position im Seitenfluss hat sich
+  geändert.
+
 ## [2.2.1] – 2026-08-22
 
 ### Geändert

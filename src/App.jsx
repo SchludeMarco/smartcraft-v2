@@ -2379,67 +2379,6 @@ onClick={saveTradePreference} // Speichert direkt in Firestore
 <p className="mt-3 text-sm text-gray-600 font-medium transition-colors duration-500 ease-in-out">Aktueller Beruf: <span className="text-(--accent) font-bold">{selectedTrade}</span></p>
 )}
 </section>
-{/* 1b. Berufs-Spezial-Tools: seit V2.0.0 direkt nach der Berufswahl nutzbar,
-    schon ohne abgeschlossene Analyse (siehe buildTradeToolQuery). Nur
-    sichtbar, wenn der gewählte Beruf hinterlegte Tools hat. */}
-{currentTradeTools.length > 0 && (
-<section>
-<h2 className="mb-3">
-<span className="badge-pill inline-flex items-center gap-1">
-<Sparkles className="w-3.5 h-3.5" />
-{selectedTrade === 'Allround-Handwerker' ? 'Alle Berufs-Spezial-Tools' : `${selectedTrade}-Spezial-Tools`}
-</span>
-</h2>
-<div className="panel-parchment p-4 rounded-xl">
-<p className="text-xs text-gray-500 mb-3">
-Direkt nutzbar, sobald ein Beruf gewählt ist — je genauer die Grundlage
-(Diagnose &gt; Problembeschreibung &gt; nur der Beruf), desto konkreter die Antwort.
-</p>
-<div className="grid grid-cols-2 gap-3">
-{currentTradeTools.map((tool) => {
-const ToolIcon = tool.icon;
-const isToolLoading = !!loadingTradeToolIds[tool.id];
-return (
-<button
-key={tool.id}
-onClick={() => callGeminiTradeToolAPI(tool)}
-disabled={isToolLoading}
-className="flex flex-col items-center justify-center p-2 rounded-xl font-bold text-white shadow-md transition duration-300 text-xs transform active:scale-[0.98] disabled:opacity-60"
-style={{ backgroundColor: isToolLoading ? theme.accentDark : theme.accent }}
->
-{isToolLoading ? (
-<Loader2 className="w-4 h-4 animate-spin" />
-) : (
-<ToolIcon className="w-4 h-4" />
-)}
-<span className="mt-1">✨ {tool.label}</span>
-</button>
-);
-})}
-</div>
-{currentTradeTools.some((tool) => tradeToolResults[tool.id]) && (
-<div className="mt-4 space-y-3">
-{currentTradeTools.map((tool) => {
-const toolResult = tradeToolResults[tool.id];
-if (!toolResult) return null;
-const ToolResultIcon = tool.icon;
-return (
-<div key={tool.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
-<h4 className="text-md font-bold text-gray-800 mb-3 flex items-center">
-<ToolResultIcon className="w-5 h-5 mr-2" style={{ color: theme.accent }} />
-{tool.label}
-</h4>
-<div className="text-sm text-gray-700 leading-relaxed">
-<div dangerouslySetInnerHTML={{ __html: toolResult.replace(/\n/g, '<br/>') }} />
-</div>
-</div>
-);
-})}
-</div>
-)}
-</div>
-</section>
-)}
 {/* 2. Problem dokumentieren & analysieren - ANPASSUNG AN BILDSTIL */}
 <section>
 <h2 className="mb-3"><span className="badge-pill">2. Problem dokumentieren &amp; analysieren</span></h2>
@@ -2530,6 +2469,67 @@ Problem analysieren
 </button>
 </div>
 </section>
+{/* Berufs-Spezial-Tools: direkt oberhalb des Analyseergebnisses, weiterhin
+    schon ohne abgeschlossene Analyse nutzbar (siehe buildTradeToolQuery).
+    Nur sichtbar, wenn der gewählte Beruf hinterlegte Tools hat. */}
+{currentTradeTools.length > 0 && (
+<section className="mt-6">
+<h2 className="mb-3">
+<span className="badge-pill inline-flex items-center gap-1">
+<Sparkles className="w-3.5 h-3.5" />
+{selectedTrade === 'Allround-Handwerker' ? 'Alle Berufs-Spezial-Tools' : `${selectedTrade}-Spezial-Tools`}
+</span>
+</h2>
+<div className="panel-parchment p-4 rounded-xl">
+<p className="text-xs text-gray-500 mb-3">
+Direkt nutzbar, sobald ein Beruf gewählt ist — je genauer die Grundlage
+(Diagnose &gt; Problembeschreibung &gt; nur der Beruf), desto konkreter die Antwort.
+</p>
+<div className="grid grid-cols-2 gap-3">
+{currentTradeTools.map((tool) => {
+const ToolIcon = tool.icon;
+const isToolLoading = !!loadingTradeToolIds[tool.id];
+return (
+<button
+key={tool.id}
+onClick={() => callGeminiTradeToolAPI(tool)}
+disabled={isToolLoading}
+className="flex flex-col items-center justify-center p-2 rounded-xl font-bold text-white shadow-md transition duration-300 text-xs transform active:scale-[0.98] disabled:opacity-60"
+style={{ backgroundColor: isToolLoading ? theme.accentDark : theme.accent }}
+>
+{isToolLoading ? (
+<Loader2 className="w-4 h-4 animate-spin" />
+) : (
+<ToolIcon className="w-4 h-4" />
+)}
+<span className="mt-1">✨ {tool.label}</span>
+</button>
+);
+})}
+</div>
+{currentTradeTools.some((tool) => tradeToolResults[tool.id]) && (
+<div className="mt-4 space-y-3">
+{currentTradeTools.map((tool) => {
+const toolResult = tradeToolResults[tool.id];
+if (!toolResult) return null;
+const ToolResultIcon = tool.icon;
+return (
+<div key={tool.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
+<h4 className="text-md font-bold text-gray-800 mb-3 flex items-center">
+<ToolResultIcon className="w-5 h-5 mr-2" style={{ color: theme.accent }} />
+{tool.label}
+</h4>
+<div className="text-sm text-gray-700 leading-relaxed">
+<div dangerouslySetInnerHTML={{ __html: toolResult.replace(/\n/g, '<br/>') }} />
+</div>
+</div>
+);
+})}
+</div>
+)}
+</div>
+</section>
+)}
 {/* 3. Analyseergebnisse */}
 <section className="mt-6">
 <h2 className="mb-3"><span className="badge-pill">3. Ergebnis der KI-Analyse</span></h2>
