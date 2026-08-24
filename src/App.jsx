@@ -2221,6 +2221,14 @@ style={{ backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/
 style={{ '--accent': theme.accent }}
 className='relative z-10 text-white p-6 bg-(--accent) rounded-xl max-w-sm text-center transition-colors duration-700 ease-in-out space-y-4'
 >
+{/* Markenname groß + Versionsnummer klein darunter, siehe Kopfleiste der Haupt-App-Ansicht weiter unten (dort inline statt gestapelt) */}
+<div>
+<h1 className="text-4xl font-display font-bold tracking-wide">
+<span className="text-gold-light" style={{ color: 'var(--color-gold-light)' }}>Sm@rt</span>
+<span style={{ color: '#fff' }}>Craft</span>!
+</h1>
+<p className="text-xs font-sans font-light italic text-white/70 mt-1">(V{__APP_VERSION__})</p>
+</div>
 <User className="w-8 h-8 mx-auto" />
 <p className='font-bold'>Anmeldung erforderlich</p>
 <p className='text-sm text-white/90'>

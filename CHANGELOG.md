@@ -8,6 +8,15 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.2.1] – 2026-08-22
+
+### Geändert
+- **Markenname groß auf dem Login-Gate.** Seit dem verpflichtenden
+  Google-Login (V2.2.0) ist der erste Bildschirm, den Nutzer sehen, das
+  Login-Gate — dort fehlte bisher jede Markenkennzeichnung. Jetzt erscheint
+  "Sm@rtCraft" groß mit der Versionsnummer klein darunter, oberhalb von
+  "Mit Google anmelden" (`App.jsx`).
+
 ## [2.2.0] – 2026-08-22
 
 ### Geändert
