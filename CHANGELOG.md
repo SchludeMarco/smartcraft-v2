@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.2] – 2026-08-26
+
+### Geändert
+- **Hauptansicht nutzt auf größeren Screens mehr Breite statt als schmale
+  Handy-Spalte zu verharren.** Der Content-Container in `src/App.jsx` war
+  hart auf `max-w-sm` (384px) begrenzt, obwohl das README Desktop-Nutzung
+  explizit bewirbt ("funktioniert genauso gut am Desktop — etwa im Büro").
+  Auf großen Screens blieb dadurch viel ungenutzter Leerraum links/rechts.
+  Der Container wächst jetzt stufenweise mit (`max-w-sm` →
+  `sm:max-w-xl` → `md:max-w-2xl` → `lg:max-w-3xl`), `main`- und
+  Seiten-Padding skalieren mit (`sm:p-6 lg:p-8`), und das
+  Berufs-Spezial-Tools-Grid nutzt ab `sm`/`lg` 3 bzw. 4 statt fix 2 Spalten.
+  Visuell per Playwright-Screenshots bei 390/640/768/1024/1440px geprüft
+  (kein Firebase-Login nötig, da `VITE_FIREBASE_*` in der Testumgebung
+  unkonfiguriert war und die App dann direkt die Hauptansicht ohne
+  Login-Gate zeigt).
+
 ## [2.9.1] – 2026-08-26
 
 ### Geändert

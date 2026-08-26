@@ -2595,7 +2595,7 @@ Mit Google anmelden
 // Haupt-App-Ansicht
 return (
 <div
-className="min-h-screen p-4 sm:p-6 flex justify-center relative bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
+className="min-h-screen p-4 sm:p-6 lg:p-8 flex justify-center relative bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
 style={{
 backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg)",
 '--accent': theme.accent,
@@ -2604,7 +2604,10 @@ backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/ap
 }}
 >
 <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-[#14314a]/60 to-black/70 z-0"></div>
-<div className="w-full max-w-sm flex flex-col items-center relative z-10">
+{/* max-w wächst auf größeren Screens mit (statt fix max-w-sm), damit die App
+    auf Desktop/Tablet nicht als schmale Handy-Spalte mit viel Leerraum
+    drumherum hängt (siehe README: "funktioniert genauso gut am Desktop"). */}
+<div className="w-full max-w-sm sm:max-w-xl md:max-w-2xl lg:max-w-3xl flex flex-col items-center relative z-10">
 {/* Historie-Modal */}
 {showHistory && (
 <AnalysisHistoryModal
@@ -2656,7 +2659,7 @@ isAnonymous: false,
 <p className="text-sm text-white/80 mt-1 relative z-10 italic">Der Kollege in der Hosentasche.</p>
 </header>
 {/* Haupt-Content-Bereich */}
-<main className="p-4 space-y-6 w-full panel-parchment backdrop-blur-md overflow-y-auto">
+<main className="p-4 sm:p-6 lg:p-8 space-y-6 w-full panel-parchment backdrop-blur-md overflow-y-auto">
 {/* PRO-KONTO-KONTINGENT-HINWEIS: informiert vorab über das Limit aus
     FREE_TRIAL_MAX (shared/trialLimit.js), statt dass Nutzer erst beim
     Fehlschlagen der Analyse davon erfahren. trialRemaining kommt live vom
@@ -2838,7 +2841,7 @@ Problem analysieren
 Direkt nutzbar, sobald ein Beruf gewählt ist — je genauer die Grundlage
 (Diagnose &gt; Problembeschreibung &gt; nur der Beruf), desto konkreter die Antwort.
 </p>
-<div className="grid grid-cols-2 gap-3">
+<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
 {currentTradeTools.map((tool) => {
 const ToolIcon = tool.icon;
 const isToolLoading = !!loadingTradeToolIds[tool.id];
