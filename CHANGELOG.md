@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.3] – 2026-08-26
+
+### Geändert
+- **Icon-only Buttons und Formularfelder ohne sichtbaren Text bekommen jetzt
+  durchgängig `aria-label`.** Bisher hatten von ~40 `<button>`-Elementen in
+  `src/App.jsx` nur 12 Stellen ein `aria-*`/`role`/`alt`-Attribut — reine
+  Icon-Buttons (Schließen-Kreuze in den Modals, "Ergebnis entfernen"/"Bild
+  entfernen"-Buttons, Hinweis-Ausblenden-Buttons, das Logo im Header, die
+  "Speichern"-Buttons für den eigenen API-Key, die während des Speicherns
+  nur noch einen Spinner ohne Text zeigen) waren für Screenreader-Nutzer
+  ohne zusätzlichen Kontext nicht erkennbar. Gleiches in `AdminPanel.jsx`
+  (Schließen-, "Alle als gelesen markieren"-, "Alle löschen"-Button),
+  `FeedbackModal.jsx` und `LegalPanel.jsx` (jeweils Schließen-Button).
+  Zusätzlich `aria-label` auf den bisher nur über Platzhaltertext
+  erkennbaren Eingabefeldern ergänzt (Gemini-API-Key-Inputs in
+  `App.jsx`, Feedback-Textarea in `FeedbackModal.jsx`).
+
 ## [2.9.2] – 2026-08-26
 
 ### Geändert

@@ -547,6 +547,7 @@ const SmarterCraftLogo = ({ onClick }) => (
 type="button"
 onClick={onClick}
 title="Eingaben zurücksetzen"
+aria-label="Eingaben zurücksetzen"
 className="appearance-none block relative w-10 h-10 p-0 m-0 leading-none rounded-full focus:outline-none focus:ring-2 focus:ring-white/70"
 >
 {/* Basis: Hammer */}
@@ -2113,6 +2114,7 @@ Benötigte Materialien und Werkzeuge
 onClick={() => setMaterialList(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2151,6 +2153,7 @@ Sicherheits-Check (PSA & Risiko)
 onClick={() => setSafetyTips(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2172,6 +2175,7 @@ Video-Anleitungen (YouTube)
 onClick={() => setVideoLinks(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2207,6 +2211,7 @@ Kundenbericht & Nächste Schritte
 onClick={() => setClientReport(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2327,11 +2332,13 @@ type="password"
 value={keyDraft}
 onChange={(e) => setKeyDraft(e.target.value)}
 placeholder="AIza..."
+aria-label="Gemini-API-Key"
 className="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-(--accent)"
 />
 <button
 onClick={handleSave}
 disabled={isSaving || !keyDraft.trim()}
+aria-label="Speichern"
 className="px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
 >
 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Speichern'}
@@ -2477,11 +2484,13 @@ type="password"
 value={apiKeyDraft}
 onChange={(e) => setApiKeyDraft(e.target.value)}
 placeholder="AIza..."
+aria-label="Gemini-API-Key"
 className="flex-grow min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-(--accent)"
 />
 <button
 onClick={handleSaveApiKey}
 disabled={isSavingApiKey || !apiKeyDraft.trim()}
+aria-label="Speichern"
 className="px-3 py-1.5 bg-(--accent) text-white text-xs font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
 >
 {isSavingApiKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Speichern'}
@@ -2689,6 +2698,7 @@ isAnonymous: false,
 onClick={() => setShowTrialNotice(false)}
 className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white transition ${!ownApiKey && trialRemaining === 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'}`}
 title="Hinweis ausblenden"
+aria-label="Hinweis ausblenden"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2706,6 +2716,7 @@ title="Hinweis ausblenden"
 onClick={() => setShowDisclaimer(false)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Hinweis ausblenden"
+aria-label="Hinweis ausblenden"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2771,6 +2782,7 @@ className="object-cover w-full h-full"
 onClick={() => setSelectedImageBase64(null)}
 className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full text-xs hover:bg-black/70 transition"
 title="Bild entfernen"
+aria-label="Bild entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2889,6 +2901,7 @@ return (
 onClick={() => setTradeToolResults((prev) => ({ ...prev, [tool.id]: null }))}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
