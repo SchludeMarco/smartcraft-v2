@@ -8,6 +8,19 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.8.1] – 2026-08-26
+
+### Geändert
+- **Berufs-Spezial-Tools sitzen jetzt unter dem Analyseergebnis statt
+  darüber.** Bisher erschienen die Berufs-Spezial-Tools (`currentTradeTools`
+  in `src/App.jsx`) zwischen dem Analyse-Formular ("2. Problem
+  dokumentieren & analysieren") und dem Ergebnis-Abschnitt ("3. Ergebnis
+  der KI-Analyse") — wer erst die KI-Diagnose sehen wollte, musste daran
+  vorbeiscrollen. Die Sektion wurde unverändert (inkl. ihrer Ergebnisliste
+  und dem bedingten PDF-Export-Button) hinter den KI-Analyse-Abschnitt
+  verschoben, sodass die Reihenfolge jetzt Formular → KI-Analyse →
+  Spezial-Tools lautet.
+
 ## [2.8.0] – 2026-08-26
 
 ### Hinzugefügt
