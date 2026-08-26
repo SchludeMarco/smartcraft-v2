@@ -34,7 +34,7 @@ function base64UrlToBuffer(str) {
 // Verifiziert Signatur + Standard-Claims eines Firebase-ID-Tokens manuell
 // (RS256 gegen Googles öffentliche Zertifikate). Gibt bei Erfolg die
 // Token-Payload zurück (u.a. email/email_verified), sonst null.
-async function verifyFirebaseIdToken(idToken, projectId) {
+export async function verifyFirebaseIdToken(idToken, projectId) {
   if (!idToken || !projectId) return null;
   const parts = idToken.split('.');
   if (parts.length !== 3) return null;
@@ -123,7 +123,7 @@ async function verifyAppCheck(req, app) {
   }
 }
 
-async function checkRateLimit(app, ip) {
+export async function checkRateLimit(app, ip) {
   const db = getFirestore(app);
   const ref = db.collection('_ttsRateLimits').doc(ip);
   const now = Date.now();
@@ -151,7 +151,7 @@ async function checkRateLimit(app, ip) {
 // Client) — eigene Collection, getrennt von der IP-basierten Missbrauchs-
 // bremse oben: Die hier zählt, wie viel Premium-Audio ein einzelnes Google-
 // Konto pro Tag "verdient" hat, unabhängig davon, von welcher IP es kommt.
-async function checkPremiumQuota(app, uid) {
+export async function checkPremiumQuota(app, uid) {
   const db = getFirestore(app);
   const ref = db.collection('_ttsPremiumQuota').doc(uid);
   const now = Date.now();
@@ -172,7 +172,7 @@ async function checkPremiumQuota(app, uid) {
 
 // Zerlegt Text an Satzenden in Häppchen unter TTS_CHUNK_MAX_BYTES, damit auch
 // lange Diagnosetexte (> 5000 Byte) als mehrere Anfragen an Google Cloud gehen.
-function chunkText(text) {
+export function chunkText(text) {
   const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) || [text];
   const chunks = [];
   let current = '';

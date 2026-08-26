@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.8.1)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.9.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -246,6 +246,21 @@ npm run dev
 Die Serverless-Function unter `api/gemini.js` läuft lokal nur über
 `vercel dev` (nicht über `npm run dev` allein) — für reines Frontend-Testen
 reicht `npm run dev`, für die volle KI-Funktion lokal: `vercel dev`.
+
+## Tests
+
+```bash
+npm test          # einmaliger Lauf (Vitest)
+npm run test:watch
+```
+
+Aktuell abgedeckt: die sicherheits-/kontingentkritischen Teile der
+Serverless-Functions — `verifyFirebaseIdToken` und `chunkText` in
+`api/tts.test.js`, `checkRateLimit`/`checkAndConsumeTrial` in
+`api/gemini.test.js` (gegen eine In-Memory-Fake-Implementierung von
+`firebase-admin/firestore`, kein echtes Firestore-Projekt nötig). Weitere
+Bereiche (Frontend-Komponenten, restliche `api/*.js`-Endpoints) haben noch
+keine Tests.
 
 ## Firestore Security Rules
 

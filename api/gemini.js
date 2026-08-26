@@ -115,7 +115,7 @@ async function getVerifiedUser(req, app) {
 // Burst-/Tages-Fenster zählen, das Lebenszeit-Demo-Kontingent bleibt
 // unangetastet — das gilt seit V2.7.0 ausschließlich für Requests ohne
 // gültiges ID-Token (siehe getVerifiedUser).
-async function checkRateLimit(app, ip, applyLifetimeCap) {
+export async function checkRateLimit(app, ip, applyLifetimeCap) {
   const db = getFirestore(app);
   const ref = db.collection('_rateLimits').doc(ip);
   const now = Date.now();
@@ -147,7 +147,7 @@ async function checkRateLimit(app, ip, applyLifetimeCap) {
 // Kontingent aus FREE_TRIAL_MAX. "consume" ist nur bei der Haupt-Diagnose
 // true (Header "X-Analysis-Kind: main") — Zusatz-Tools prüfen den Stand nur,
 // ohne ihn zu erhöhen, damit sie keinen eigenen Slot verbrauchen.
-async function checkAndConsumeTrial(app, uid, consume) {
+export async function checkAndConsumeTrial(app, uid, consume) {
   const db = getFirestore(app);
   const ref = db.collection('_analysisQuota').doc(uid);
   return db.runTransaction(async (tx) => {
