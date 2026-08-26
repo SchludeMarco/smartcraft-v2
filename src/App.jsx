@@ -474,19 +474,19 @@ fetchHistory();
 return (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
 <div
-className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md h-[80vh] flex flex-col transform transition-all duration-300 scale-100"
+className="panel-parchment p-6 rounded-2xl w-full max-w-md h-[80vh] flex flex-col transform transition-all duration-300 scale-100"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-center border-b pb-3 mb-4 flex-shrink-0">
+<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4 flex-shrink-0">
 <h3 className="text-xl font-bold text-gray-800 flex items-center">
-<List className="w-5 h-5 mr-2 text-blue-600" />
+<List className="w-5 h-5 mr-2 text-(--accent)" />
 Ihre Analyse-Historie
 </h3>
-<button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
+<button onClick={onClose} aria-label="Historie schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
 </div>
 {isLoading ? (
 <div className="flex items-center justify-center flex-grow">
-<Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+<Loader2 className="w-6 h-6 text-(--accent) animate-spin" />
 <p className="ml-2 text-gray-600">Historie wird geladen...</p>
 </div>
 ) : error ? (
@@ -503,7 +503,7 @@ Ihre Analyse-Historie
 {history.map((item) => (
 <li
 key={item.id}
-className="p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 transition duration-150 cursor-pointer flex items-center justify-between"
+className="p-3 bg-parchment border border-gold/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
 onClick={() => onSelect(item)} // Ladefunktion wird bei Klick ausgelöst
 >
 <div>
@@ -513,11 +513,11 @@ onClick={() => onSelect(item)} // Ladefunktion wird bei Klick ausgelöst
 <p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
 {item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
 </p>
-<span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+<span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-(--accent-soft) text-(--accent-dark) rounded-full">
 {item.selectedTrade}
 </span>
 </div>
-<button className='flex items-center text-blue-600 hover:text-blue-800 text-sm font-semibold flex-shrink-0'>
+<button className='flex items-center text-(--accent) hover:text-(--accent-dark) text-sm font-semibold flex-shrink-0'>
 Laden
 </button>
 </li>
@@ -2275,10 +2275,10 @@ setIsSaving(false);
 return (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowApiKeyOnboarding(false)}>
 <div
-className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
+className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-start border-b pb-3 mb-4">
+<div className="flex justify-between items-start border-b border-gold/40 pb-3 mb-4">
 <div>
 <h3 className="text-lg font-bold text-gray-800 flex items-center">
 <Zap className="w-5 h-5 mr-2 text-(--accent)" />
@@ -2290,7 +2290,7 @@ einem eigenen, kostenlosen Gemini-API-Key können Sie SmartCraft sofort
 weiter nutzen — in 4 kurzen Schritten.
 </p>
 </div>
-<button onClick={() => setShowApiKeyOnboarding(false)} className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
+<button onClick={() => setShowApiKeyOnboarding(false)} aria-label="Schließen" className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
 <X className="w-5 h-5" />
 </button>
 </div>
@@ -2413,6 +2413,7 @@ onClick={() => setShowProfile(true)} // Öffnet Profil-Modal
 className={`w-10 h-10 flex items-center justify-center rounded-full ring-2 ring-white/70 ring-offset-2 ring-offset-transparent transition duration-200 overflow-hidden ${userId ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-500/50 cursor-wait'}`}
 disabled={!userId}
 title="Benutzerprofil und Historie anzeigen"
+aria-label="Benutzerprofil und Historie anzeigen"
 >
 {showGooglePhoto ? (
 <img src={authUser.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
@@ -2425,18 +2426,18 @@ title="Benutzerprofil und Historie anzeigen"
 {showProfile && (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowProfile(false)}>
 <div
-className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-xs transform transition-all duration-300 scale-100"
+className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-all duration-300 scale-100"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-center border-b pb-3 mb-4">
+<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4">
 <h3 className="text-xl font-bold text-gray-800 flex items-center">
 {/* Profil-Icon folgt der Berufs-Akzentfarbe */}
 <User className="w-5 h-5 mr-2 text-(--accent) transition-colors duration-500 ease-in-out" />
 Mein Konto
 </h3>
-<button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
+<button onClick={() => setShowProfile(false)} aria-label="Schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
 </div>
-<div className="flex items-center space-x-3 mb-4 p-2 bg-gray-50 rounded-lg border border-gray-200">
+<div className="flex items-center space-x-3 mb-4 p-2 bg-parchment-dark/30 rounded-lg border border-gold/30">
 {showGooglePhoto ? (
 <img src={authUser.photoURL} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
 ) : (
@@ -2499,7 +2500,7 @@ Eigenen Key kostenlos erstellen (aistudio.google.com)
 <div className="flex justify-between space-x-2 mt-4">
 <button
 onClick={() => { setShowHistory(true); setShowProfile(false); }}
-className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition duration-300 text-sm transform active:scale-[0.98]"
+className="flex items-center px-4 py-2 btn-parchment text-sm transform active:scale-[0.98]"
 disabled={!userId}
 >
 <List className="w-4 h-4 mr-2" />

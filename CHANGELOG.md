@@ -8,6 +8,25 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.1] – 2026-08-26
+
+### Geändert
+- **Historie-, API-Key-Onboarding- und Profil-Modal folgen jetzt dem
+  Pergament/Gold-Theme statt generischem Tailwind-Grau/Blau.** Bisher
+  brachen diese drei Dialoge (`AnalysisHistoryModal`, `ApiKeyOnboardingModal`,
+  `UserProfileModal` in `src/App.jsx`) mit `bg-white`/`shadow-2xl`-Containern,
+  `text-blue-600`-Icons und `bg-blue-100 text-blue-800`-Badges aus dem sonst
+  durchgängigen Fantasy-/Handwerker-Look aus (`panel-parchment`, Gold-/
+  Pergament-Farbtokens aus `src/index.css`, siehe `TRADE_THEMES`-Akzentfarbe
+  pro Beruf). Jetzt nutzen alle drei die `panel-parchment`-Klasse als
+  Container, Icons/Verlinkungen/Badges laufen über die berufsabhängige
+  `--accent`/`--accent-dark`/`--accent-soft`-Variable statt fixem Blau, und
+  der "Historie"-Button im Profil-Modal nutzt `btn-parchment` statt
+  `bg-blue-600` (der rote "Abmelden"-Button bleibt bewusst Rot als
+  Warnfarbe). Zusätzlich `aria-label` auf den bisher unbeschrifteten
+  Schließen-Icon-Buttons dieser drei Modals sowie auf dem Profil-Button im
+  Header ergänzt.
+
 ## [2.9.0] – 2026-08-26
 
 ### Hinzugefügt
