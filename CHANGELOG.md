@@ -8,6 +8,47 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.8.0] – 2026-08-26
+
+### Hinzugefügt
+- **Geführte Anleitung zum Hinterlegen eines eigenen API-Keys.** Bisher zeigte
+  ein aufgebrauchtes Pro-Konto-Kontingent (siehe V2.7.0) nur eine Fehlermeldung
+  im roten Hinweisfeld — der Nutzer musste selbst wissen, dass dafür das
+  Profil-Menü der richtige Ort ist. Jetzt öffnet sich bei jedem mit Status 402
+  scheiternden KI-Aufruf automatisch ein neuer Dialog (`ApiKeyOnboardingModal`
+  in `src/App.jsx`, ausgelöst über die neue `handleTrialExceededError`), der in
+  4 Schritten durch das Erstellen eines eigenen, kostenlosen Gemini-API-Keys
+  bei Google AI Studio führt (Link öffnet direkt `aistudio.google.com/apikey`)
+  und den erzeugten Key direkt im selben Dialog entgegennimmt und speichert —
+  ohne Umweg über das Profil-Menü. Nach dem Speichern kann die zuvor
+  fehlgeschlagene Aktion sofort erneut gestartet werden.
+
+## [2.7.0] – 2026-08-26
+
+### Hinzugefügt
+- **Rollout-Kostenmodell: 20 kostenlose Analysen pro Konto, danach eigener
+  Gemini-API-Key.** Bisher lief jede KI-Anfrage über einen einzigen
+  zentralen `GEMINI_API_KEY`, geschützt nur durch ein IP-weites
+  Lebenszeit-Kontingent (`DEMO_LIFETIME_MAX`, gedacht für den anonymen
+  Demo-Link) — bei echtem Rollout an mehrere Nutzer hätte das entweder
+  unbegrenzte Kosten auf den eigenen Account bedeutet oder mehrere Nutzer
+  hinter derselben IP/demselben Firmennetz gegenseitig blockiert. Jetzt
+  zählt `api/gemini.js` Haupt-Diagnosen pro Konto (Firestore
+  `_analysisQuota/{uid}`, per verifiziertem Firebase-ID-Token, neue
+  Konstante `FREE_TRIAL_MAX` in `shared/trialLimit.js`, Stand: 20). Ist das
+  Kontingent aufgebraucht, nutzt der Server automatisch einen vom Nutzer
+  selbst im Profil hinterlegten Gemini-API-Key (`UserProfileModal` in
+  `src/App.jsx`, neues Feld `geminiApiKey` im Firestore-Profil) statt des
+  zentralen Keys — die Kosten laufen dann über das eigene Google-Konto der
+  Person. Ohne hinterlegten Key liefert der Server einen klaren 402-Fehler
+  mit Hinweis statt eines generischen "später erneut versuchen". Ein neuer
+  Endpoint `api/trial-status.js` (Zwilling zu `api/demo-status.js`, aber
+  pro Konto statt pro IP) zeigt den aktuellen Stand schon beim App-Start.
+  Das alte IP-basierte `DEMO_LIFETIME_MAX`-Kontingent bleibt als Schutz für
+  Anfragen ohne gültiges Login bestehen (z. B. ein Direktzugriff auf den
+  Endpoint am UI vorbei); das Burst-/Tages-Fenster pro IP (12/Minute,
+  200/Tag) gilt weiterhin für alle, auch eingeloggte Nutzer.
+
 ## [2.6.0] – 2026-08-24
 
 ### Geändert

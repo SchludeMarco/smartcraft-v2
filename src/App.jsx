@@ -4,7 +4,8 @@ Camera, Image, Upload, Wrench, Loader2, Zap, AlertTriangle, CheckCircle,
 Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
 Settings, MoreHorizontal, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
-Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat
+Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
+ExternalLink
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
@@ -23,16 +24,16 @@ import { queueErrorReport, flushErrorReports, setErrorReportingAppCheck } from '
 import AdminPanel from './AdminPanel';
 import LegalPanel from './LegalPanel';
 import FeedbackModal from './FeedbackModal';
-import { DEMO_LIFETIME_MAX } from '../shared/demoLimit.js';
+import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
 import { APP_ID as appId } from '../shared/appId.js';
 
 // Gemini-Aufrufe laufen über eine eigene Serverless-Function (api/gemini.js),
 // damit der API-Key nie im Browser sichtbar ist.
 const apiUrl = '/api/gemini';
-// Rein lesender Zwilling (api/demo-status.js): liefert den aktuellen Stand
-// des Demo-Kontingents, ohne es zu verbrauchen — für die Anzeige beim
-// App-Start, bevor die erste echte Anfrage läuft.
-const demoStatusUrl = '/api/demo-status';
+// Rein lesender Zwilling (api/trial-status.js): liefert den aktuellen Stand
+// des Pro-Konto-Kontingents (FREE_TRIAL_MAX), ohne ihn zu verbrauchen — für
+// die Anzeige beim App-Start, bevor die erste echte Anfrage läuft.
+const trialStatusUrl = '/api/trial-status';
 // DSGVO-schonender App-Start-Zähler (api/app-start.js): erhöht serverseitig
 // nur ein Tages-Aggregat pro grober Region (Land/Stadt aus Vercel-Geo-
 // Headern), kein Log einzelner Starts mit Zeitstempel/Standort pro Person.
@@ -46,9 +47,10 @@ const apiTtsUrl = '/api/tts';
 let appCheckInstance = null;
 // Gleicher Grund wie appCheckInstance: hält die Auth-Instanz für fetchWithRetry
 // bereit, damit /api/gemini das ID-Token des eingeloggten Nutzers mitschicken
-// kann (Voraussetzung für den serverseitigen Admin-Custom-Claim-Check, siehe
-// api/gemini.js isAdminRequest). Für normale Nutzer ändert das mitgeschickte
-// Token nichts — der Server prüft nur, ob der Claim "admin: true" gesetzt ist.
+// kann (Voraussetzung für den serverseitigen Admin-Custom-Claim-Check UND das
+// Pro-Konto-Kontingent, siehe api/gemini.js getVerifiedUser). Für normale
+// Nutzer identifiziert das Token nur die uid fürs eigene Kontingent — der
+// Admin-Bypass greift ausschließlich bei gesetztem Claim "admin: true".
 let currentAuthInstance = null;
 // NEUE SYSTEM INSTRUCTION: Betont die Problembeschreibung stärker
 const SYSTEM_INSTRUCTION = "Du bist ein erfahrener Bauingenieur und Zimmermann, spezialisiert auf die Fehlerbehebung und Lösungsfindung bei Bauproblemen. Analysiere das bereitgestellte Bild basierend auf dem GLEICHZEITIG GELIEFERTEN GEWERK und der Problembeschreibung. Ist eine Problembeschreibung vorhanden, MUSS sich die Analyse VORRANGIG auf diese Beschreibung konzentrieren. Gib eine präzise Diagnose sowie eine klare, schrittweise Lösung für einen erfahrenen Handwerker. Antworte immer auf Deutsch. Halte die Sprache professionell, aber direkt und praxisnah.";
@@ -339,7 +341,7 @@ setTimeout(() => ctx.close(), 700);
 const MAX_RETRY_DELAY_MS = 8000;
 const fetchWithRetry = async (url, options, maxRetries = 5) => {
 let requestOptions = options;
-if ((url === apiUrl || url === demoStatusUrl || url === apiTtsUrl || url === appStartUrl) && appCheckInstance) {
+if ((url === apiUrl || url === trialStatusUrl || url === apiTtsUrl || url === appStartUrl) && appCheckInstance) {
 try {
 const { token } = await getAppCheckToken(appCheckInstance);
 requestOptions = { ...options, headers: { ...options.headers, 'X-Firebase-AppCheck': token } };
@@ -355,7 +357,7 @@ console.error('App-Check-Token konnte nicht geholt werden:', e);
 queueErrorReport('app-check-token', e);
 }
 }
-if ((url === apiUrl || url === appStartUrl) && currentAuthInstance?.currentUser) {
+if ((url === apiUrl || url === trialStatusUrl || url === appStartUrl) && currentAuthInstance?.currentUser) {
 try {
 const idToken = await getIdToken(currentAuthInstance.currentUser);
 requestOptions = { ...requestOptions, headers: { ...requestOptions.headers, Authorization: `Bearer ${idToken}` } };
@@ -628,16 +630,33 @@ const [showHistory, setShowHistory] = useState(false); // Steuert das Historien-
 const [showAdmin, setShowAdmin] = useState(false); // Steuert das Admin-Modal (Fehlerreports)
 const [showLegal, setShowLegal] = useState(false); // Steuert das Impressum/Datenschutz-Modal
 const [showFeedback, setShowFeedback] = useState(false); // Steuert das Feedback-Modal
+// Steuert die Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen
+// Gemini-API-Keys — öffnet sich automatisch, sobald eine KI-Anfrage mit
+// Status 402 (Kontingent aufgebraucht, kein eigener Key, siehe
+// api/gemini.js) scheitert, statt dass der Nutzer die Profil-Einstellung
+// selbst suchen muss (siehe handleTrialExceededError unten).
+const [showApiKeyOnboarding, setShowApiKeyOnboarding] = useState(false);
+// Muss vor allen callGemini*API-Funktionen stehen, die sie in ihrer
+// useCallback-Deps-Liste referenzieren — sonst TDZ-Fehler beim Rendern
+// (const-Deklarationen sind nicht hoisted). Nutzt nur stabile State-Setter,
+// daher leeres Deps-Array.
+const handleTrialExceededError = useCallback((message) => {
+setError(message);
+setShowApiKeyOnboarding(true);
+}, []);
 // Echter Admin-Status (Firebase Custom Claim "admin: true", siehe
 // scripts/set-admin-claim.mjs + api/gemini.js), kein UI-Sichtschutz mehr —
 // AdminPanel.jsx verlässt sich hierauf statt auf einen PIN.
 const [isAdmin, setIsAdmin] = useState(false);
 const [showDisclaimer, setShowDisclaimer] = useState(true); // EU-AI-Act-Haftungsausschluss wegklickbar (pro Sitzung)
-const [showDemoNotice, setShowDemoNotice] = useState(true); // Hinweis auf Demo-Kontingent wegklickbar (pro Sitzung)
-// Live-Stand des Demo-Kontingents (siehe api/gemini.js DEMO_LIFETIME_MAX) —
-// null solange unbekannt (noch nicht geladen bzw. Tracking serverseitig aus),
-// dann Zahl der noch übrigen KI-Anfragen für dieses Gerät.
-const [demoRemaining, setDemoRemaining] = useState(null);
+const [showTrialNotice, setShowTrialNotice] = useState(true); // Hinweis aufs Pro-Konto-Kontingent wegklickbar (pro Sitzung)
+// Live-Stand des kostenlosen Pro-Konto-Kontingents (siehe api/gemini.js
+// FREE_TRIAL_MAX) — null solange unbekannt (noch nicht geladen bzw. Tracking
+// serverseitig aus), dann Zahl der noch übrigen kostenlosen Analysen.
+const [trialRemaining, setTrialRemaining] = useState(null);
+// Vom Nutzer selbst hinterlegter Gemini-API-Key (Firestore-Profil, siehe
+// loadProfile-Effect unten) — leerer String, solange keiner gespeichert ist.
+const [ownApiKey, setOwnApiKey] = useState('');
 // --- App States ---
 const [selectedImageBase64, setSelectedImageBase64] = useState(null);
 const [problemDescription, setProblemDescription] = useState('');
@@ -899,13 +918,16 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify(payload)
 });
-updateDemoRemainingFromResponse(response);
+updateTrialRemainingFromResponse(response);
 const responseText = await response.text();
 if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Rate-Limit) kommen als {"error": "..."} —
-// nur die Klartext-Message anzeigen statt des rohen JSON-Strings.
+// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+// JSON-Strings.
 const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-throw new Error(errorMsg);
+const err = new Error(errorMsg);
+err.status = response.status;
+throw err;
 }
 const result = JSON.parse(responseText);
 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -914,13 +936,17 @@ setTtsShortText(text);
 speakText(text);
 } catch (e) {
 console.error("API-Fehler (TTS-Kurzfassung):", e);
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
 queueErrorReport('gemini-tts-summary-api', e);
 flushErrorReports(db, userId, appId);
 setError("Kurzfassung konnte nicht erstellt werden. Bitte erneut versuchen oder auf 'Vollständig' umschalten.");
+}
 } finally {
 setIsGeneratingTtsShort(false);
 }
-}, [solutionText, speakText, db, userId]);
+}, [solutionText, speakText, db, userId, handleTrialExceededError]);
 const handleToggleTts = useCallback(() => {
 if (isTtsPlaying) {
 stopSpeaking();
@@ -937,14 +963,15 @@ callGeminiTtsSummaryAPI();
 speakText(solutionText);
 }
 }, [isTtsPlaying, solutionText, isGeneratingTtsShort, isTtsLoading, ttsMode, ttsShortText, speakText, callGeminiTtsSummaryAPI, stopSpeaking]);
-// Liest den X-Demo-Remaining-Header aus einer /api/gemini-Antwort (siehe
+// Liest den X-Trial-Remaining-Header aus einer /api/gemini-Antwort (siehe
 // api/gemini.js) und hält den Live-Zähler im Banner aktuell. Fehlt der
-// Header (z.B. Tracking serverseitig aus), bleibt der bisherige Stand.
-const updateDemoRemainingFromResponse = (response) => {
-const header = response.headers.get('X-Demo-Remaining');
+// Header (z.B. Admin-Konto oder Tracking serverseitig aus), bleibt der
+// bisherige Stand.
+const updateTrialRemainingFromResponse = (response) => {
+const header = response.headers.get('X-Trial-Remaining');
 if (header === null) return;
 const value = Number(header);
-if (Number.isFinite(value)) setDemoRemaining(value);
+if (Number.isFinite(value)) setTrialRemaining(value);
 };
 // --- EFFECT: FIREBASE INITIALISIERUNG UND ANONYME ANMELDUNG ---
 useEffect(() => {
@@ -991,15 +1018,6 @@ return;
 setAuth(authInstance);
 currentAuthInstance = authInstance;
 setDb(dbInstance);
-// Zeigt den Live-Stand des Demo-Kontingents (api/demo-status.js) schon vor
-// der ersten Analyse an. Rein informativ: Netzwerk-/Server-Fehler bleiben
-// stumm, das Banner fällt dann auf die statische Obergrenze zurück.
-fetchWithRetry(demoStatusUrl, { method: 'GET' }, 1)
-.then((response) => (response.ok ? response.json() : null))
-.then((data) => {
-if (data && typeof data.remaining === 'number') setDemoRemaining(data.remaining);
-})
-.catch(() => {});
 // Zählt diesen App-Start für den Admin-Bereich (api/app-start.js) — genau
 // einmal pro Seiten-Ladevorgang, erst sobald der Auth-Status bekannt ist.
 // Rein informativ, Fehler/fehlendes App Check bleiben bewusst stumm.
@@ -1014,6 +1032,17 @@ if (user && user.uid && !user.isAnonymous) {
 setUserId(user.uid);
 setAuthUser(toAuthUserSnapshot(user));
 setShowAuth(false);
+// Zeigt den Live-Stand des Pro-Konto-Kontingents (api/trial-status.js)
+// schon vor der ersten Analyse an — braucht das ID-Token, daher erst hier
+// (nach dem Login) statt schon beim Modul-Start. Rein informativ:
+// Netzwerk-/Server-Fehler bleiben stumm, das Banner fällt dann auf die
+// statische Obergrenze zurück.
+fetchWithRetry(trialStatusUrl, { method: 'GET' }, 1)
+.then((response) => (response.ok ? response.json() : null))
+.then((data) => {
+if (data && typeof data.remaining === 'number') setTrialRemaining(data.remaining);
+})
+.catch(() => {});
 // Custom Claims stecken im ID-Token, nicht im User-Objekt selbst — erst
 // getIdTokenResult() legt sie offen. Rein informativ für die UI (den
 // eigentlichen Zugriffsschutz für Daten setzt firestore.rules durch),
@@ -1241,6 +1270,21 @@ await setDoc(profileRef, { preferredTrade: trade }, { merge: true });
 console.error("Fehler beim Speichern des Berufs:", e);
 }
 }, [db, userId, appId]);
+// Speichert (oder entfernt, bei key=null) den vom Nutzer selbst hinterlegten
+// Gemini-API-Key im Profil (siehe UserProfileModal) — greift ab dem
+// aufgebrauchten FREE_TRIAL_MAX-Kontingent serverseitig statt des zentralen
+// Keys (siehe api/gemini.js getUserOwnApiKey). Direkter Client-Write, gleiche
+// firestore.rules-Beschränkung auf den eigenen Nutzer wie preferredTrade.
+const saveOwnApiKey = useCallback(async (key) => {
+if (!db || !userId) return;
+const profileRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+try {
+await setDoc(profileRef, { geminiApiKey: key || null }, { merge: true });
+setOwnApiKey(key || '');
+} catch (e) {
+console.error("Fehler beim Speichern des eigenen API-Keys:", e);
+}
+}, [db, userId, appId]);
 useEffect(() => {
 if (!isAuthReady || !db || !userId) return;
 const loadProfile = async () => {
@@ -1252,6 +1296,9 @@ if (docSnap.exists()) {
 const data = docSnap.data();
 if (data.preferredTrade) {
 setSelectedTradeState(data.preferredTrade);
+}
+if (data.geminiApiKey) {
+setOwnApiKey(data.geminiApiKey);
 }
 }
 } catch (e) {
@@ -1314,18 +1361,24 @@ parts: [{ text: SYSTEM_INSTRUCTION }]
 try {
 const response = await fetchWithRetry(apiUrl, {
 method: 'POST',
-headers: { 'Content-Type': 'application/json' },
+// "X-Analysis-Kind: main" markiert diesen Aufruf als Haupt-Diagnose
+// gegenüber api/gemini.js — nur er verbraucht einen Slot des
+// Pro-Konto-Kontingents (FREE_TRIAL_MAX), Zusatz-Tools nicht.
+headers: { 'Content-Type': 'application/json', 'X-Analysis-Kind': 'main' },
 body: JSON.stringify(payload)
 });
-updateDemoRemainingFromResponse(response);
+updateTrialRemainingFromResponse(response);
 // Robuste Verarbeitung der JSON-Antwort
 const responseText = await response.text();
 if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Demo-Kontingent, Rate-Limit) kommen als {"error": "..."} —
-// nur die Klartext-Message anzeigen statt des rohen JSON-Strings.
+// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+// JSON-Strings.
 const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
 console.error("API Response Fehler:", errorMsg);
-throw new Error(errorMsg);
+const err = new Error(errorMsg);
+err.status = response.status;
+throw err;
 }
 let result;
 try {
@@ -1352,13 +1405,21 @@ setError("Konnte keine gültige Antwort von der KI erhalten. Mögliches Problem:
 }
 } catch (e) {
 console.error("API-Fehler:", e);
+// Status 402: kostenloses Kontingent aufgebraucht, kein eigener API-Key
+// hinterlegt (siehe api/gemini.js) — die reale, actionable Fehlermeldung
+// zeigen statt des generischen "erneut versuchen"-Texts, der hier nichts
+// bringt, solange kein eigener Key hinterlegt ist.
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
 queueErrorReport('gemini-vision-api', e);
 flushErrorReports(db, userId, appId);
 setError("Die Analyse konnte nicht abgeschlossen werden. Bitte in ein paar Minuten erneut versuchen.");
+}
 } finally {
 setIsAnalyzing(false);
 }
-}, [selectedImageBase64, problemDescription, selectedTrade, saveAnalysis, db, userId]);
+}, [selectedImageBase64, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Materialliste generieren (JSON Mode) ---
 const callGeminiMaterialsAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1379,14 +1440,17 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify(payload)
 });
-updateDemoRemainingFromResponse(response);
+updateTrialRemainingFromResponse(response);
 const responseText = await response.text();
 if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Demo-Kontingent, Rate-Limit) kommen als {"error": "..."} —
-// nur die Klartext-Message anzeigen statt des rohen JSON-Strings.
+// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+// JSON-Strings.
 const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
 console.error("API Response Fehler:", errorMsg);
-throw new Error(errorMsg);
+const err = new Error(errorMsg);
+err.status = response.status;
+throw err;
 }
 let result;
 try {
@@ -1414,13 +1478,17 @@ setError("Konnte keine Materialliste erstellen. Die KI hat keine strukturierte A
 }
 } catch (e) {
 console.error("API-Fehler (Material):", e);
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
 queueErrorReport('gemini-materials-api', e);
 flushErrorReports(db, userId, appId);
 setError("Die Materialliste konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
+}
 } finally {
 setIsGeneratingMaterials(false);
 }
-}, [solutionText, db, userId]);
+}, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Sicherheits-Check generieren (Text Mode) ---
 const callGeminiSafetyAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1437,14 +1505,17 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify(payload)
 });
-updateDemoRemainingFromResponse(response);
+updateTrialRemainingFromResponse(response);
 const responseText = await response.text();
 if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Demo-Kontingent, Rate-Limit) kommen als {"error": "..."} —
-// nur die Klartext-Message anzeigen statt des rohen JSON-Strings.
+// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+// JSON-Strings.
 const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
 console.error("API Response Fehler:", errorMsg);
-throw new Error(errorMsg);
+const err = new Error(errorMsg);
+err.status = response.status;
+throw err;
 }
 let result;
 try {
@@ -1463,13 +1534,17 @@ setError("Konnte den Sicherheits-Check nicht erstellen.");
 }
 } catch (e) {
 console.error("API-Fehler (Sicherheit):", e);
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
 queueErrorReport('gemini-safety-api', e);
 flushErrorReports(db, userId, appId);
 setError("Der Sicherheits-Check konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
+}
 } finally {
 setIsGeneratingSafety(false);
 }
-}, [solutionText, db, userId]);
+}, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Kundenbericht generieren (Text Mode) ---
 const callGeminiClientReportAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1486,14 +1561,17 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify(payload)
 });
-updateDemoRemainingFromResponse(response);
+updateTrialRemainingFromResponse(response);
 const responseText = await response.text();
 if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Demo-Kontingent, Rate-Limit) kommen als {"error": "..."} —
-// nur die Klartext-Message anzeigen statt des rohen JSON-Strings.
+// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+// JSON-Strings.
 const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
 console.error("API Response Fehler:", errorMsg);
-throw new Error(errorMsg);
+const err = new Error(errorMsg);
+err.status = response.status;
+throw err;
 }
 let result;
 try {
@@ -1512,13 +1590,17 @@ setError("Konnte den Kundenbericht nicht erstellen.");
 }
 } catch (e) {
 console.error("API-Fehler (Kundenbericht):", e);
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
 queueErrorReport('gemini-client-report-api', e);
 flushErrorReports(db, userId, appId);
 setError("Der Kundenbericht konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
+}
 } finally {
 setIsGeneratingReport(false);
 }
-}, [solutionText, db, userId]);
+}, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Berufs-spezifisches KI-Tool aufrufen (TRADE_TOOLS, Text Mode) ---
 // Generisch statt eine eigene Funktion pro Tool, da systemInstruction/Query
 // je Tool (TRADE_TOOLS) variieren, Fetch/Fehlerbehandlung aber identisch sind.
@@ -1535,14 +1617,17 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify(payload)
 });
-updateDemoRemainingFromResponse(response);
+updateTrialRemainingFromResponse(response);
 const responseText = await response.text();
 if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Demo-Kontingent, Rate-Limit) kommen als {"error": "..."} —
-// nur die Klartext-Message anzeigen statt des rohen JSON-Strings.
+// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+// JSON-Strings.
 const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
 console.error("API Response Fehler:", errorMsg);
-throw new Error(errorMsg);
+const err = new Error(errorMsg);
+err.status = response.status;
+throw err;
 }
 let result;
 try {
@@ -1561,13 +1646,17 @@ setError(`Konnte "${tool.label}" nicht erstellen.`);
 }
 } catch (e) {
 console.error(`API-Fehler (${tool.label}):`, e);
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
 queueErrorReport('gemini-trade-tool-api', e);
 flushErrorReports(db, userId, appId);
 setError(`"${tool.label}" konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.`);
+}
 } finally {
 setLoadingTradeToolIds((prev) => ({ ...prev, [tool.id]: false }));
 }
-}, [solutionText, problemDescription, selectedTrade, db, userId]);
+}, [solutionText, problemDescription, selectedTrade, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Video-Anleitungen suchen (Google-Search-Grounding) ---
 // Hinweis: responseSchema/responseMimeType lassen sich bei der Gemini API nicht mit
 // dem "tools"-Grounding kombinieren, daher wird das JSON-Array per Prompt erzwungen
@@ -1588,14 +1677,17 @@ const callGeminiVideoSearch = useCallback(async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    updateDemoRemainingFromResponse(response);
+    updateTrialRemainingFromResponse(response);
     const responseText = await response.text();
     if (!response.ok || !responseText) {
-      // Server-Fehler (z.B. Demo-Kontingent, Rate-Limit) kommen als {"error": "..."} —
-      // nur die Klartext-Message anzeigen statt des rohen JSON-Strings.
+      // Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+      // {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+      // JSON-Strings.
       const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
       console.error("API Response Fehler:", errorMsg);
-      throw new Error(errorMsg);
+      const err = new Error(errorMsg);
+      err.status = response.status;
+      throw err;
     }
     let result;
     try {
@@ -1639,13 +1731,17 @@ const callGeminiVideoSearch = useCallback(async () => {
     }
   } catch (e) {
     console.error("API-Fehler (Video Search):", e);
-    queueErrorReport('gemini-video-search-api', e);
-    flushErrorReports(db, userId, appId);
-    setError("Die Video-Anleitungen konnten nicht gefunden werden. Bitte in ein paar Minuten erneut versuchen.");
+    if (e.status === 402) {
+      handleTrialExceededError(e.message);
+    } else {
+      queueErrorReport('gemini-video-search-api', e);
+      flushErrorReports(db, userId, appId);
+      setError("Die Video-Anleitungen konnten nicht gefunden werden. Bitte in ein paar Minuten erneut versuchen.");
+    }
   } finally {
     setIsGeneratingVideos(false);
   }
-}, [solutionText, selectedTrade, db, userId]);
+}, [solutionText, selectedTrade, db, userId, handleTrialExceededError]);
 // --- FUNKTION: PDF-EXPORT ---
 const handleExportPdf = useCallback(() => {
 // Export ist auch ohne abgeschlossene Diagnose möglich, sobald mindestens
@@ -1849,17 +1945,21 @@ return (
 <CheckCircle className="w-6 h-6 text-green-500 mr-2" />
 Lösung und Diagnose
 </h2>
-{/* Erneuter Hinweis aufs Demo-Kontingent direkt nach jeder Analyse (nicht
-    nur im wegklickbaren Banner oben), damit der aktuelle Stand nicht
-    übersehen wird — demoRemaining kommt aus dem X-Demo-Remaining-Header
-    (siehe updateDemoRemainingFromResponse). Fehlt der Live-Wert (z.B. weil
+{/* Erneuter Hinweis aufs Pro-Konto-Kontingent direkt nach jeder Analyse
+    (nicht nur im wegklickbaren Banner oben), damit der aktuelle Stand nicht
+    übersehen wird — trialRemaining kommt aus dem X-Trial-Remaining-Header
+    (siehe updateTrialRemainingFromResponse). Fehlt der Live-Wert (z.B. weil
     FIREBASE_SERVICE_ACCOUNT_KEY serverseitig nicht gesetzt ist und das
     Tracking damit inaktiv bleibt), zeigt die Zeile ersatzweise nur die
     statische Obergrenze, statt ganz zu verschwinden. */}
 <p className="text-xs text-gray-500">
-{demoRemaining !== null
-? `Noch ${demoRemaining} von ${DEMO_LIFETIME_MAX} kostenlosen KI-Anfragen für dieses Gerät übrig.`
-: `Diese Demo ist auf ${DEMO_LIFETIME_MAX} KI-Anfragen pro Gerät begrenzt.`}
+{ownApiKey
+? "Eigener Gemini-API-Key aktiv: weitere Analysen laufen über Ihr eigenes Google-Konto."
+: trialRemaining !== null
+? (trialRemaining > 0
+? `Noch ${trialRemaining} von ${FREE_TRIAL_MAX} kostenlosen Analysen übrig.`
+: `Kostenloses Kontingent aufgebraucht. Bitte hinterlegen Sie im Profil einen eigenen Gemini-API-Key, um weiter zu analysieren.`)
+: `Kostenloses Kontingent von ${FREE_TRIAL_MAX} Analysen pro Konto.`}
 </p>
 {/* 1. Hauptlösung */}
 <div className="prose max-w-none text-gray-700 leading-relaxed max-h-96 overflow-y-auto p-3 border border-gray-200 rounded-lg bg-gray-50">
@@ -2152,7 +2252,107 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 <p className="text-xs mt-4 text-gray-500">Wählen Sie zuerst Ihren Beruf (Abschnitt 1) für eine präzisere Diagnose.</p>
 </div>
 );
-}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImageBase64, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, demoRemaining]);
+}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImageBase64, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey]);
+// Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen Gemini-API-Keys —
+// öffnet sich automatisch über handleTrialExceededError, sobald eine KI-Anfrage
+// mit Status 402 scheitert (Kontingent aufgebraucht, kein eigener Key). Nimmt
+// den Nutzer "an die Hand" statt nur auf die Profil-Einstellung zu verweisen:
+// Key lässt sich direkt in diesem Dialog anlegen und speichern.
+const ApiKeyOnboardingModal = () => {
+const [keyDraft, setKeyDraft] = useState('');
+const [isSaving, setIsSaving] = useState(false);
+const handleSave = async () => {
+const trimmed = keyDraft.trim();
+if (!trimmed) return;
+setIsSaving(true);
+try {
+await saveOwnApiKey(trimmed);
+setShowApiKeyOnboarding(false);
+} finally {
+setIsSaving(false);
+}
+};
+return (
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowApiKeyOnboarding(false)}>
+<div
+className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
+onClick={e => e.stopPropagation()}
+>
+<div className="flex justify-between items-start border-b pb-3 mb-4">
+<div>
+<h3 className="text-lg font-bold text-gray-800 flex items-center">
+<Zap className="w-5 h-5 mr-2 text-(--accent)" />
+Kostenloses Kontingent aufgebraucht
+</h3>
+<p className="text-xs text-gray-500 mt-1">
+Sie haben Ihre {FREE_TRIAL_MAX} kostenlosen Analysen aufgebraucht. Mit
+einem eigenen, kostenlosen Gemini-API-Key können Sie SmartCraft sofort
+weiter nutzen — in 4 kurzen Schritten.
+</p>
+</div>
+<button onClick={() => setShowApiKeyOnboarding(false)} className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
+<X className="w-5 h-5" />
+</button>
+</div>
+<ol className="space-y-3 text-sm text-gray-700 mb-4">
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">1</span>
+<span>Öffnen Sie Google AI Studio und melden Sie sich mit einem Google-Konto an.</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">2</span>
+<span>Klicken Sie dort auf <strong>"Create API key"</strong> (kostenlos, kein Abo nötig).</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">3</span>
+<span>Kopieren Sie den erzeugten Key.</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">4</span>
+<span>Fügen Sie ihn unten ein und speichern Sie ihn.</span>
+</li>
+</ol>
+<a
+href="https://aistudio.google.com/apikey"
+target="_blank"
+rel="noopener noreferrer"
+className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl hover:bg-gray-200 transition duration-300 text-sm mb-4"
+>
+<ExternalLink className="w-4 h-4 mr-2" />
+Google AI Studio öffnen (aistudio.google.com/apikey)
+</a>
+<div className="flex space-x-2">
+<input
+type="password"
+value={keyDraft}
+onChange={(e) => setKeyDraft(e.target.value)}
+placeholder="AIza..."
+className="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-(--accent)"
+/>
+<button
+onClick={handleSave}
+disabled={isSaving || !keyDraft.trim()}
+className="px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
+>
+{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Speichern'}
+</button>
+</div>
+<p className="text-[11px] text-gray-400 mt-3">
+Der Key wird nur für Ihr eigenes Konto gespeichert und ausschließlich
+serverseitig für Ihre eigenen KI-Anfragen genutzt. Google bietet für die
+Gemini API ein kostenloses Kontingent — für den privaten Gebrauch fallen
+in der Regel keine Kosten an.
+</p>
+<button
+onClick={() => setShowApiKeyOnboarding(false)}
+className="w-full mt-3 text-xs text-gray-400 hover:text-gray-600 transition"
+>
+Später erledigen
+</button>
+</div>
+</div>
+);
+};
 // Profil-Modal-Komponente (angepasst an Rot/Blau)
 const UserProfileModal = () => {
 const [showProfile, setShowProfile] = useState(false);
@@ -2162,6 +2362,31 @@ const [showProfile, setShowProfile] = useState(false);
 const [googlePhotoFailed, setGooglePhotoFailed] = useState(false);
 const showGooglePhoto = !!authUser?.photoURL && !googlePhotoFailed;
 useEffect(() => { setGooglePhotoFailed(false); }, [authUser?.photoURL]);
+// Eigener Gemini-API-Key (siehe ownApiKey/saveOwnApiKey oben in App): eigener
+// Eingabe-Entwurf, damit ein Tippfehler nicht sofort den gespeicherten Key
+// überschreibt — erst "Speichern" schreibt nach Firestore.
+const [apiKeyDraft, setApiKeyDraft] = useState('');
+const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+useEffect(() => { setApiKeyDraft(''); }, [showProfile]);
+const handleSaveApiKey = async () => {
+const trimmed = apiKeyDraft.trim();
+if (!trimmed) return;
+setIsSavingApiKey(true);
+try {
+await saveOwnApiKey(trimmed);
+setApiKeyDraft('');
+} finally {
+setIsSavingApiKey(false);
+}
+};
+const handleRemoveApiKey = async () => {
+setIsSavingApiKey(true);
+try {
+await saveOwnApiKey(null);
+} finally {
+setIsSavingApiKey(false);
+}
+};
 const handleSignOut = async () => {
 // Nur Abmeldung, wenn Firebase aktiv ist
 if (!auth || !userId) return;
@@ -2225,7 +2450,53 @@ Mein Konto
 )}
 </div>
 </div>
-<div className="flex justify-between space-x-2 mt-6">
+{/* Eigener Gemini-API-Key: siehe api/gemini.js getUserOwnApiKey — greift,
+    sobald FREE_TRIAL_MAX (kostenlose Analysen pro Konto) aufgebraucht ist. */}
+<div className="pt-3 mt-1 border-t border-gray-200">
+<p className="text-xs font-semibold text-gray-700 flex items-center mb-1">
+<Zap className="w-3.5 h-3.5 mr-1 text-(--accent)" />
+Eigener Gemini-API-Key
+</p>
+<p className="text-[11px] text-gray-500 mb-2">
+{trialRemaining !== null && trialRemaining <= 0
+? `Ihr kostenloses Kontingent von ${FREE_TRIAL_MAX} Analysen ist aufgebraucht. Hinterlegen Sie hier einen eigenen, kostenlosen Gemini-API-Key, um SmartCraft weiter zu nutzen — die Kosten laufen dann über Ihr eigenes Google-Konto.`
+: `Optional: Hinterlegen Sie schon jetzt einen eigenen Gemini-API-Key. Nach den ersten ${FREE_TRIAL_MAX} kostenlosen Analysen wird automatisch dieser Key statt des zentralen Kontingents genutzt.`}
+</p>
+{ownApiKey ? (
+<div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+<span>Aktiv: ••••{ownApiKey.slice(-4)}</span>
+<button onClick={handleRemoveApiKey} disabled={isSavingApiKey} className="text-red-600 hover:text-red-800 font-semibold disabled:opacity-50">
+Entfernen
+</button>
+</div>
+) : (
+<div className="flex space-x-2">
+<input
+type="password"
+value={apiKeyDraft}
+onChange={(e) => setApiKeyDraft(e.target.value)}
+placeholder="AIza..."
+className="flex-grow min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-(--accent)"
+/>
+<button
+onClick={handleSaveApiKey}
+disabled={isSavingApiKey || !apiKeyDraft.trim()}
+className="px-3 py-1.5 bg-(--accent) text-white text-xs font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
+>
+{isSavingApiKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Speichern'}
+</button>
+</div>
+)}
+<a
+href="https://aistudio.google.com/apikey"
+target="_blank"
+rel="noopener noreferrer"
+className="text-[10px] text-gray-400 hover:text-gray-600 underline mt-1 inline-block"
+>
+Eigenen Key kostenlos erstellen (aistudio.google.com)
+</a>
+</div>
+<div className="flex justify-between space-x-2 mt-4">
 <button
 onClick={() => { setShowHistory(true); setShowProfile(false); }}
 className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition duration-300 text-sm transform active:scale-[0.98]"
@@ -2365,6 +2636,9 @@ isAnonymous: false,
 }}
 />
 )}
+{/* Anleitung zum Hinterlegen eines eigenen API-Keys (siehe
+    handleTrialExceededError) — öffnet sich automatisch bei Status 402. */}
+{showApiKeyOnboarding && <ApiKeyOnboardingModal />}
 {/* Header mit Profil-Button - Farbe folgt dem gewählten Beruf (weicher Übergang) */}
 <header className="w-full p-5 header-ornate relative transition-colors duration-700 ease-in-out">
 <HeaderPlate />
@@ -2382,26 +2656,34 @@ isAnonymous: false,
 </header>
 {/* Haupt-Content-Bereich */}
 <main className="p-4 space-y-6 w-full panel-parchment backdrop-blur-md overflow-y-auto">
-{/* DEMO-KONTINGENT-HINWEIS: informiert vorab über das Limit aus DEMO_LIFETIME_MAX
-    (shared/demoLimit.js), statt dass Nutzer erst beim Fehlschlagen der Analyse
-    davon erfahren. demoRemaining kommt live vom Server (api/demo-status.js
-    beim Start, X-Demo-Remaining-Header nach jeder Anfrage, siehe
-    updateDemoRemainingFromResponse) — solange es null ist (noch nicht
-    geladen bzw. Tracking serverseitig aus), zeigt der Text nur die Obergrenze. */}
-{showDemoNotice && (
-<div className="p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-xl shadow-md flex items-start space-x-3">
-<Info className="w-5 h-5 mt-1 flex-shrink-0 text-blue-500" />
+{/* PRO-KONTO-KONTINGENT-HINWEIS: informiert vorab über das Limit aus
+    FREE_TRIAL_MAX (shared/trialLimit.js), statt dass Nutzer erst beim
+    Fehlschlagen der Analyse davon erfahren. trialRemaining kommt live vom
+    Server (api/trial-status.js beim Start, X-Trial-Remaining-Header nach
+    jeder Anfrage, siehe updateTrialRemainingFromResponse) — solange es null
+    ist (noch nicht geladen bzw. Tracking serverseitig aus), zeigt der Text
+    nur die Obergrenze. Ist das Kontingent aufgebraucht und noch kein eigener
+    API-Key hinterlegt, wird der Hinweis zur Warnung (rot statt blau). */}
+{showTrialNotice && (
+<div className={`p-3 border-l-4 rounded-xl shadow-md flex items-start space-x-3 ${!ownApiKey && trialRemaining === 0 ? 'bg-red-50 border-red-400 text-red-800' : 'bg-blue-50 border-blue-400 text-blue-800'}`}>
+<Info className={`w-5 h-5 mt-1 flex-shrink-0 ${!ownApiKey && trialRemaining === 0 ? 'text-red-500' : 'text-blue-500'}`} />
 <div className="flex-grow">
-<p className="font-bold">Kostenlose Vorschau</p>
+<p className="font-bold">
+{ownApiKey ? 'Eigener API-Key aktiv' : trialRemaining === 0 ? 'Kostenloses Kontingent aufgebraucht' : 'Kostenloses Kontingent'}
+</p>
 <p className="text-xs">
-{demoRemaining !== null
-? `Noch ${demoRemaining} von ${DEMO_LIFETIME_MAX} kostenlosen KI-Anfragen für dieses Gerät übrig.`
-: `Diese Demo ist auf ${DEMO_LIFETIME_MAX} KI-Anfragen pro Gerät begrenzt, damit sie für alle Interessierten nutzbar bleibt.`}
+{ownApiKey
+? 'Analysen laufen über Ihren eigenen, im Profil hinterlegten Gemini-API-Key.'
+: trialRemaining !== null
+? (trialRemaining > 0
+? `Noch ${trialRemaining} von ${FREE_TRIAL_MAX} kostenlosen Analysen für dieses Konto übrig.`
+: `Bitte hinterlegen Sie im Profil einen eigenen Gemini-API-Key, um SmartCraft weiter zu nutzen.`)
+: `Dieses Konto hat ${FREE_TRIAL_MAX} kostenlose Analysen, danach wird ein eigener Gemini-API-Key benötigt.`}
 </p>
 </div>
 <button
-onClick={() => setShowDemoNotice(false)}
-className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 transition"
+onClick={() => setShowTrialNotice(false)}
+className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white transition ${!ownApiKey && trialRemaining === 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'}`}
 title="Hinweis ausblenden"
 >
 <X className="w-4 h-4" />
