@@ -8,6 +8,31 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.0] – 2026-08-26
+
+### Hinzugefügt
+- **Automatisierte Tests (Vitest) für die sicherheits-/kontingentkritische
+  Server-Logik.** Das Projekt hatte bis dahin keinerlei Testabdeckung — kein
+  Test-Framework, keine `*.test.js`-Dateien. Am riskantesten war das:
+  `api/tts.js` verifiziert Firebase-ID-Tokens komplett manuell (RS256 gegen
+  Googles öffentliche Zertifikate, ohne `firebase-admin`), ohne dass ein
+  falsch verschobenes `if` (z.B. bei `aud`/`iss`/`exp`) aufgefallen wäre. Jetzt
+  deckt `api/tts.test.js` `verifyFirebaseIdToken` gegen abgelaufene/zu junge/
+  manipulierte/falsch signierte Tokens, falschen Issuer/Audience und unbekannte
+  `kid` ab (Tokens werden dafür mit einem im Test generierten RSA-Schlüsselpaar
+  signiert, `crypto.verify` akzeptiert dafür direkt den öffentlichen Schlüssel
+  als Ersatz für Googles Zertifikat) sowie `chunkText` (Aufteilung am
+  Byte-Limit inkl. korrekter Zählung mehrbyteiger Umlaute). `api/gemini.test.js`
+  deckt `checkRateLimit` (Minuten-/Tagesfenster-Reset, Lebenszeit-Demo-Kontingent)
+  und `checkAndConsumeTrial` (Pro-Konto-Kontingent aus `FREE_TRIAL_MAX`) ab —
+  beides über eine In-Memory-Fake-Implementierung von
+  `firebase-admin/firestore` (`collection`/`doc`/`runTransaction`), ohne echtes
+  Firestore-Projekt. Dafür wurden `checkRateLimit`, `checkAndConsumeTrial`
+  (`api/gemini.js`) sowie `verifyFirebaseIdToken`, `checkRateLimit`,
+  `checkPremiumQuota`, `chunkText` (`api/tts.js`) exportiert (rein additiv,
+  keine Verhaltensänderung). Neue Scripts `npm test` (einmaliger Lauf) und
+  `npm run test:watch`, Konfiguration in `vitest.config.js`.
+
 ## [2.8.1] – 2026-08-26
 
 ### Geändert
