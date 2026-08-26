@@ -2816,7 +2816,12 @@ Problem analysieren
 </button>
 </div>
 </section>
-{/* Berufs-Spezial-Tools: direkt oberhalb des Analyseergebnisses, weiterhin
+{/* 3. Analyseergebnisse */}
+<section className="mt-6">
+<h2 className="mb-3"><span className="badge-pill">3. Ergebnis der KI-Analyse</span></h2>
+{ResultDisplay}
+</section>
+{/* Berufs-Spezial-Tools: direkt unterhalb des Analyseergebnisses, weiterhin
     schon ohne abgeschlossene Analyse nutzbar (siehe buildTradeToolQuery).
     Nur sichtbar, wenn der gewählte Beruf hinterlegte Tools hat. */}
 {currentTradeTools.length > 0 && (
@@ -2912,11 +2917,6 @@ Als PDF exportieren
 </div>
 </section>
 )}
-{/* 3. Analyseergebnisse */}
-<section className="mt-6">
-<h2 className="mb-3"><span className="badge-pill">3. Ergebnis der KI-Analyse</span></h2>
-{ResultDisplay}
-</section>
 </main>
 <footer className="w-full text-center py-3 relative z-10">
 <button
