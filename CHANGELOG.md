@@ -8,6 +8,34 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.5] – 2026-08-26
+
+### Geändert
+- **Zwei Wartbarkeitsprobleme aus einem Code-Review von `src/App.jsx` behoben,
+  ohne Verhaltensänderung für Nutzer:innen.**
+  - `ApiKeyOnboardingModal` und `UserProfileModal` waren als verschachtelte
+    Komponenten *innerhalb* der `App`-Funktion definiert statt auf
+    Modulebene. React behandelt eine verschachtelt definierte Komponente bei
+    jedem Re-Render der Elternkomponente als neuen Komponenten-Typ — das
+    erzwingt ein volles Unmount/Remount des Dialogs inklusive Verlust des
+    lokalen Eingabe-Entwurfs (`keyDraft`/`apiKeyDraft`), sobald sich
+    irgendein anderer `App`-State ändert, während der Dialog offen ist.
+    Beide Komponenten sind jetzt auf Modulebene definiert und bekommen ihre
+    bisher aus dem Closure gelesenen Werte (`authUser`, `userId`, `auth`,
+    `trialRemaining`, `ownApiKey`, `saveOwnApiKey`, `handleReset`,
+    `onClose`/`onShowHistory`/`onShowAdmin`) explizit als Props.
+  - Die sieben `/api/gemini`-Aufrufer (Hauptanalyse, TTS-Kurzfassung,
+    Materialien, Sicherheit, Kundenbericht, Berufs-Spezial-Tools,
+    Video-Suche) wiederholten je ~20-40 Zeilen praktisch identisches
+    Fetch-/Parse-/Fehlerbehandlungs-Boilerplate (insgesamt einige hundert
+    Zeilen Duplikation). Ausgelagert in drei gemeinsame Helfer
+    (`callGeminiApi`, `handleGeminiError`, `reportEmptyResult`) — jeder
+    Aufrufer behält nur noch seinen eigenen Payload-Aufbau und die für ihn
+    spezifische Erfolgs-/Ergebnis-Verarbeitung. Verhalten (Fehlermeldungen,
+    402-Onboarding, Admin-Fehlerreports) bleibt dabei unverändert; per
+    Playwright-Smoke-Test beider hoisteter Modals sowie `npm run build` und
+    `npm test` (23/23) verifiziert.
+
 ## [2.9.4] – 2026-08-26
 
 ### Behoben
