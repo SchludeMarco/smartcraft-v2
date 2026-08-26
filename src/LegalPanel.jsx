@@ -35,7 +35,7 @@ const LegalPanel = ({ onClose }) => {
             <ScrollText className="w-5 h-5 mr-2 text-gray-600" />
             Impressum &amp; Datenschutz
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} aria-label="Schließen" className="text-gray-400 hover:text-gray-600">
             <X className="w-6 h-6" />
           </button>
         </div>

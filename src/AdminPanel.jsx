@@ -150,7 +150,7 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
             <Bug className="w-5 h-5 mr-2 text-red-600" />
             Admin: Fehlerreports
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl font-light">
+          <button onClick={onClose} aria-label="Schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -180,6 +180,7 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
                       onClick={handleReviewStarts}
                       disabled={isReviewingStarts}
                       title="Alle als gelesen markieren"
+                      aria-label="Alle als gelesen markieren"
                       className="text-gray-400 hover:text-blue-600 disabled:opacity-50"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -188,6 +189,7 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
                       onClick={handleDeleteAllStarts}
                       disabled={isDeletingStarts}
                       title="Alle löschen"
+                      aria-label="Alle löschen"
                       className="text-gray-400 hover:text-red-600 disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

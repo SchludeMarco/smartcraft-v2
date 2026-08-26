@@ -8,6 +8,77 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.4] – 2026-08-26
+
+### Behoben
+- **Seitenhintergrund war in Produktion vermutlich schon unsichtbar: die
+  extern gehostete Bild-URL ist tot.** Der Seitenhintergrund (Lade-Screen,
+  Login-Gate, Hauptansicht in `src/App.jsx`) lud bislang ein Foto von
+  `https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg`.
+  Beim Versuch, dieses Bild für ein lokales Hosting herunterzuladen, stellte
+  sich heraus, dass die URL bereits mit `404 NoSuchBucket` fehlschlägt — der
+  Bucket `bacon-images-prod` existiert nicht mehr (auch im Wayback-Archiv
+  nicht auffindbar). Nutzer sahen damit vermutlich schon länger nur den
+  grauen `bg-gray-800`-Fallback statt des beabsichtigten Fotos. Da sich das
+  Originalbild nicht wiederherstellen ließ, ersetzt durch einen reinen
+  CSS-Verlauf (`.app-backdrop` in `src/index.css`) in den bestehenden
+  Wood-/Gold-Theme-Farbtönen — dusk-artiger Verlauf mit sanftem Glanz
+  hinter der Kopfzeile. Kein externer Request mehr nötig, funktioniert
+  damit auch offline oder wenn Drittanbieter-Hosts ausfallen.
+
+## [2.9.3] – 2026-08-26
+
+### Geändert
+- **Icon-only Buttons und Formularfelder ohne sichtbaren Text bekommen jetzt
+  durchgängig `aria-label`.** Bisher hatten von ~40 `<button>`-Elementen in
+  `src/App.jsx` nur 12 Stellen ein `aria-*`/`role`/`alt`-Attribut — reine
+  Icon-Buttons (Schließen-Kreuze in den Modals, "Ergebnis entfernen"/"Bild
+  entfernen"-Buttons, Hinweis-Ausblenden-Buttons, das Logo im Header, die
+  "Speichern"-Buttons für den eigenen API-Key, die während des Speicherns
+  nur noch einen Spinner ohne Text zeigen) waren für Screenreader-Nutzer
+  ohne zusätzlichen Kontext nicht erkennbar. Gleiches in `AdminPanel.jsx`
+  (Schließen-, "Alle als gelesen markieren"-, "Alle löschen"-Button),
+  `FeedbackModal.jsx` und `LegalPanel.jsx` (jeweils Schließen-Button).
+  Zusätzlich `aria-label` auf den bisher nur über Platzhaltertext
+  erkennbaren Eingabefeldern ergänzt (Gemini-API-Key-Inputs in
+  `App.jsx`, Feedback-Textarea in `FeedbackModal.jsx`).
+
+## [2.9.2] – 2026-08-26
+
+### Geändert
+- **Hauptansicht nutzt auf größeren Screens mehr Breite statt als schmale
+  Handy-Spalte zu verharren.** Der Content-Container in `src/App.jsx` war
+  hart auf `max-w-sm` (384px) begrenzt, obwohl das README Desktop-Nutzung
+  explizit bewirbt ("funktioniert genauso gut am Desktop — etwa im Büro").
+  Auf großen Screens blieb dadurch viel ungenutzter Leerraum links/rechts.
+  Der Container wächst jetzt stufenweise mit (`max-w-sm` →
+  `sm:max-w-xl` → `md:max-w-2xl` → `lg:max-w-3xl`), `main`- und
+  Seiten-Padding skalieren mit (`sm:p-6 lg:p-8`), und das
+  Berufs-Spezial-Tools-Grid nutzt ab `sm`/`lg` 3 bzw. 4 statt fix 2 Spalten.
+  Visuell per Playwright-Screenshots bei 390/640/768/1024/1440px geprüft
+  (kein Firebase-Login nötig, da `VITE_FIREBASE_*` in der Testumgebung
+  unkonfiguriert war und die App dann direkt die Hauptansicht ohne
+  Login-Gate zeigt).
+
+## [2.9.1] – 2026-08-26
+
+### Geändert
+- **Historie-, API-Key-Onboarding- und Profil-Modal folgen jetzt dem
+  Pergament/Gold-Theme statt generischem Tailwind-Grau/Blau.** Bisher
+  brachen diese drei Dialoge (`AnalysisHistoryModal`, `ApiKeyOnboardingModal`,
+  `UserProfileModal` in `src/App.jsx`) mit `bg-white`/`shadow-2xl`-Containern,
+  `text-blue-600`-Icons und `bg-blue-100 text-blue-800`-Badges aus dem sonst
+  durchgängigen Fantasy-/Handwerker-Look aus (`panel-parchment`, Gold-/
+  Pergament-Farbtokens aus `src/index.css`, siehe `TRADE_THEMES`-Akzentfarbe
+  pro Beruf). Jetzt nutzen alle drei die `panel-parchment`-Klasse als
+  Container, Icons/Verlinkungen/Badges laufen über die berufsabhängige
+  `--accent`/`--accent-dark`/`--accent-soft`-Variable statt fixem Blau, und
+  der "Historie"-Button im Profil-Modal nutzt `btn-parchment` statt
+  `bg-blue-600` (der rote "Abmelden"-Button bleibt bewusst Rot als
+  Warnfarbe). Zusätzlich `aria-label` auf den bisher unbeschrifteten
+  Schließen-Icon-Buttons dieser drei Modals sowie auf dem Profil-Button im
+  Header ergänzt.
+
 ## [2.9.0] – 2026-08-26
 
 ### Hinzugefügt

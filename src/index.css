@@ -103,4 +103,17 @@ body {
   }
 
   .font-display { font-family: var(--font-display); }
+
+  /* Seitenhintergrund hinter Header/Panel: ersetzt ein früher extern
+     gehostetes Werkzeug-Foto (dessen Bucket inzwischen gelöscht wurde, siehe
+     CHANGELOG) durch einen reinen CSS-Verlauf in Wood-/Gold-Tönen - kein
+     externer Request mehr nötig, funktioniert also auch offline/wenn
+     Drittanbieter-Hosts ausfallen. Dusk-artiger Verlauf von Wood-Blau oben zu
+     fast Schwarz unten, mit einem sehr sanften Gold-Schimmer hinter der
+     Kopfzeile. */
+  .app-backdrop {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -5%, rgba(111, 177, 232, 0.22), transparent 60%),
+      linear-gradient(165deg, #1c3a52 0%, #16324a 35%, #0f2334 65%, #081420 100%);
+  }
 }

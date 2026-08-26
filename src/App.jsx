@@ -474,19 +474,19 @@ fetchHistory();
 return (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
 <div
-className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md h-[80vh] flex flex-col transform transition-all duration-300 scale-100"
+className="panel-parchment p-6 rounded-2xl w-full max-w-md h-[80vh] flex flex-col transform transition-all duration-300 scale-100"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-center border-b pb-3 mb-4 flex-shrink-0">
+<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4 flex-shrink-0">
 <h3 className="text-xl font-bold text-gray-800 flex items-center">
-<List className="w-5 h-5 mr-2 text-blue-600" />
+<List className="w-5 h-5 mr-2 text-(--accent)" />
 Ihre Analyse-Historie
 </h3>
-<button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
+<button onClick={onClose} aria-label="Historie schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
 </div>
 {isLoading ? (
 <div className="flex items-center justify-center flex-grow">
-<Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+<Loader2 className="w-6 h-6 text-(--accent) animate-spin" />
 <p className="ml-2 text-gray-600">Historie wird geladen...</p>
 </div>
 ) : error ? (
@@ -503,7 +503,7 @@ Ihre Analyse-Historie
 {history.map((item) => (
 <li
 key={item.id}
-className="p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm hover:bg-gray-100 transition duration-150 cursor-pointer flex items-center justify-between"
+className="p-3 bg-parchment border border-gold/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
 onClick={() => onSelect(item)} // Ladefunktion wird bei Klick ausgelöst
 >
 <div>
@@ -513,11 +513,11 @@ onClick={() => onSelect(item)} // Ladefunktion wird bei Klick ausgelöst
 <p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
 {item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
 </p>
-<span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+<span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-(--accent-soft) text-(--accent-dark) rounded-full">
 {item.selectedTrade}
 </span>
 </div>
-<button className='flex items-center text-blue-600 hover:text-blue-800 text-sm font-semibold flex-shrink-0'>
+<button className='flex items-center text-(--accent) hover:text-(--accent-dark) text-sm font-semibold flex-shrink-0'>
 Laden
 </button>
 </li>
@@ -547,6 +547,7 @@ const SmarterCraftLogo = ({ onClick }) => (
 type="button"
 onClick={onClick}
 title="Eingaben zurücksetzen"
+aria-label="Eingaben zurücksetzen"
 className="appearance-none block relative w-10 h-10 p-0 m-0 leading-none rounded-full focus:outline-none focus:ring-2 focus:ring-white/70"
 >
 {/* Basis: Hammer */}
@@ -2113,6 +2114,7 @@ Benötigte Materialien und Werkzeuge
 onClick={() => setMaterialList(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2151,6 +2153,7 @@ Sicherheits-Check (PSA & Risiko)
 onClick={() => setSafetyTips(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2172,6 +2175,7 @@ Video-Anleitungen (YouTube)
 onClick={() => setVideoLinks(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2207,6 +2211,7 @@ Kundenbericht & Nächste Schritte
 onClick={() => setClientReport(null)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2275,10 +2280,10 @@ setIsSaving(false);
 return (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowApiKeyOnboarding(false)}>
 <div
-className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
+className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-start border-b pb-3 mb-4">
+<div className="flex justify-between items-start border-b border-gold/40 pb-3 mb-4">
 <div>
 <h3 className="text-lg font-bold text-gray-800 flex items-center">
 <Zap className="w-5 h-5 mr-2 text-(--accent)" />
@@ -2290,7 +2295,7 @@ einem eigenen, kostenlosen Gemini-API-Key können Sie SmartCraft sofort
 weiter nutzen — in 4 kurzen Schritten.
 </p>
 </div>
-<button onClick={() => setShowApiKeyOnboarding(false)} className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
+<button onClick={() => setShowApiKeyOnboarding(false)} aria-label="Schließen" className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
 <X className="w-5 h-5" />
 </button>
 </div>
@@ -2327,11 +2332,13 @@ type="password"
 value={keyDraft}
 onChange={(e) => setKeyDraft(e.target.value)}
 placeholder="AIza..."
+aria-label="Gemini-API-Key"
 className="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-(--accent)"
 />
 <button
 onClick={handleSave}
 disabled={isSaving || !keyDraft.trim()}
+aria-label="Speichern"
 className="px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
 >
 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Speichern'}
@@ -2413,6 +2420,7 @@ onClick={() => setShowProfile(true)} // Öffnet Profil-Modal
 className={`w-10 h-10 flex items-center justify-center rounded-full ring-2 ring-white/70 ring-offset-2 ring-offset-transparent transition duration-200 overflow-hidden ${userId ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-500/50 cursor-wait'}`}
 disabled={!userId}
 title="Benutzerprofil und Historie anzeigen"
+aria-label="Benutzerprofil und Historie anzeigen"
 >
 {showGooglePhoto ? (
 <img src={authUser.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
@@ -2425,18 +2433,18 @@ title="Benutzerprofil und Historie anzeigen"
 {showProfile && (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowProfile(false)}>
 <div
-className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-xs transform transition-all duration-300 scale-100"
+className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-all duration-300 scale-100"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-center border-b pb-3 mb-4">
+<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4">
 <h3 className="text-xl font-bold text-gray-800 flex items-center">
 {/* Profil-Icon folgt der Berufs-Akzentfarbe */}
 <User className="w-5 h-5 mr-2 text-(--accent) transition-colors duration-500 ease-in-out" />
 Mein Konto
 </h3>
-<button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
+<button onClick={() => setShowProfile(false)} aria-label="Schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
 </div>
-<div className="flex items-center space-x-3 mb-4 p-2 bg-gray-50 rounded-lg border border-gray-200">
+<div className="flex items-center space-x-3 mb-4 p-2 bg-parchment-dark/30 rounded-lg border border-gold/30">
 {showGooglePhoto ? (
 <img src={authUser.photoURL} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
 ) : (
@@ -2476,11 +2484,13 @@ type="password"
 value={apiKeyDraft}
 onChange={(e) => setApiKeyDraft(e.target.value)}
 placeholder="AIza..."
+aria-label="Gemini-API-Key"
 className="flex-grow min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-(--accent)"
 />
 <button
 onClick={handleSaveApiKey}
 disabled={isSavingApiKey || !apiKeyDraft.trim()}
+aria-label="Speichern"
 className="px-3 py-1.5 bg-(--accent) text-white text-xs font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
 >
 {isSavingApiKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Speichern'}
@@ -2499,7 +2509,7 @@ Eigenen Key kostenlos erstellen (aistudio.google.com)
 <div className="flex justify-between space-x-2 mt-4">
 <button
 onClick={() => { setShowHistory(true); setShowProfile(false); }}
-className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition duration-300 text-sm transform active:scale-[0.98]"
+className="flex items-center px-4 py-2 btn-parchment text-sm transform active:scale-[0.98]"
 disabled={!userId}
 >
 <List className="w-4 h-4 mr-2" />
@@ -2531,8 +2541,7 @@ if (!isAuthReady) {
 // Ladebildschirm während der Firebase-Authentifizierung
 return (
 <div
-className="min-h-screen flex justify-center items-center bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
-style={{ backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg)" }}
+className="min-h-screen flex justify-center items-center app-backdrop"
 >
 <div className="absolute inset-0 bg-black/40 z-0"></div>
 <div
@@ -2549,8 +2558,7 @@ if (showAuth) {
 // Login-Gate: Die App ist ohne Google-Anmeldung nicht nutzbar.
 return (
 <div
-className="min-h-screen flex justify-center items-center bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
-style={{ backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg)" }}
+className="min-h-screen flex justify-center items-center app-backdrop"
 >
 <div className="absolute inset-0 bg-black/40 z-0"></div>
 <div
@@ -2594,16 +2602,18 @@ Mit Google anmelden
 // Haupt-App-Ansicht
 return (
 <div
-className="min-h-screen p-4 sm:p-6 flex justify-center relative bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
+className="min-h-screen p-4 sm:p-6 lg:p-8 flex justify-center relative app-backdrop"
 style={{
-backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg)",
 '--accent': theme.accent,
 '--accent-dark': theme.accentDark,
 '--accent-soft': theme.accentSoft,
 }}
 >
 <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-[#14314a]/60 to-black/70 z-0"></div>
-<div className="w-full max-w-sm flex flex-col items-center relative z-10">
+{/* max-w wächst auf größeren Screens mit (statt fix max-w-sm), damit die App
+    auf Desktop/Tablet nicht als schmale Handy-Spalte mit viel Leerraum
+    drumherum hängt (siehe README: "funktioniert genauso gut am Desktop"). */}
+<div className="w-full max-w-sm sm:max-w-xl md:max-w-2xl lg:max-w-3xl flex flex-col items-center relative z-10">
 {/* Historie-Modal */}
 {showHistory && (
 <AnalysisHistoryModal
@@ -2655,7 +2665,7 @@ isAnonymous: false,
 <p className="text-sm text-white/80 mt-1 relative z-10 italic">Der Kollege in der Hosentasche.</p>
 </header>
 {/* Haupt-Content-Bereich */}
-<main className="p-4 space-y-6 w-full panel-parchment backdrop-blur-md overflow-y-auto">
+<main className="p-4 sm:p-6 lg:p-8 space-y-6 w-full panel-parchment backdrop-blur-md overflow-y-auto">
 {/* PRO-KONTO-KONTINGENT-HINWEIS: informiert vorab über das Limit aus
     FREE_TRIAL_MAX (shared/trialLimit.js), statt dass Nutzer erst beim
     Fehlschlagen der Analyse davon erfahren. trialRemaining kommt live vom
@@ -2685,6 +2695,7 @@ isAnonymous: false,
 onClick={() => setShowTrialNotice(false)}
 className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white transition ${!ownApiKey && trialRemaining === 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'}`}
 title="Hinweis ausblenden"
+aria-label="Hinweis ausblenden"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2702,6 +2713,7 @@ title="Hinweis ausblenden"
 onClick={() => setShowDisclaimer(false)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Hinweis ausblenden"
+aria-label="Hinweis ausblenden"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2767,6 +2779,7 @@ className="object-cover w-full h-full"
 onClick={() => setSelectedImageBase64(null)}
 className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full text-xs hover:bg-black/70 transition"
 title="Bild entfernen"
+aria-label="Bild entfernen"
 >
 <X className="w-4 h-4" />
 </button>
@@ -2837,7 +2850,7 @@ Problem analysieren
 Direkt nutzbar, sobald ein Beruf gewählt ist — je genauer die Grundlage
 (Diagnose &gt; Problembeschreibung &gt; nur der Beruf), desto konkreter die Antwort.
 </p>
-<div className="grid grid-cols-2 gap-3">
+<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
 {currentTradeTools.map((tool) => {
 const ToolIcon = tool.icon;
 const isToolLoading = !!loadingTradeToolIds[tool.id];
@@ -2885,6 +2898,7 @@ return (
 onClick={() => setTradeToolResults((prev) => ({ ...prev, [tool.id]: null }))}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
 title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
 >
 <X className="w-4 h-4" />
 </button>
