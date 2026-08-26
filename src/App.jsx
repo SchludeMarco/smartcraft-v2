@@ -612,6 +612,293 @@ email: user.email || googleProvider?.email || null,
 photoURL: user.photoURL || googleProvider?.photoURL || null,
 };
 };
+// Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen Gemini-API-Keys —
+// öffnet sich automatisch über handleTrialExceededError, sobald eine KI-Anfrage
+// mit Status 402 scheitert (Kontingent aufgebraucht, kein eigener Key). Nimmt
+// den Nutzer "an die Hand" statt nur auf die Profil-Einstellung zu verweisen:
+// Key lässt sich direkt in diesem Dialog anlegen und speichern.
+// Auf Modulebene statt innerhalb von App definiert: als verschachtelte
+// Komponente wäre sie bei jedem App-Re-Render ein neuer Komponenten-Typ
+// gewesen, was React zum vollständigen Unmount/Remount inkl. Verlust des
+// lokalen keyDraft-Eingabefelds gezwungen hätte, sobald sich während des
+// offenen Dialogs irgendein anderer App-State ändert.
+const ApiKeyOnboardingModal = ({ onClose, saveOwnApiKey }) => {
+const [keyDraft, setKeyDraft] = useState('');
+const [isSaving, setIsSaving] = useState(false);
+const handleSave = async () => {
+const trimmed = keyDraft.trim();
+if (!trimmed) return;
+setIsSaving(true);
+try {
+await saveOwnApiKey(trimmed);
+onClose();
+} finally {
+setIsSaving(false);
+}
+};
+return (
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
+<div
+className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
+onClick={e => e.stopPropagation()}
+>
+<div className="flex justify-between items-start border-b border-gold/40 pb-3 mb-4">
+<div>
+<h3 className="text-lg font-bold text-gray-800 flex items-center">
+<Zap className="w-5 h-5 mr-2 text-(--accent)" />
+Kostenloses Kontingent aufgebraucht
+</h3>
+<p className="text-xs text-gray-500 mt-1">
+Sie haben Ihre {FREE_TRIAL_MAX} kostenlosen Analysen aufgebraucht. Mit
+einem eigenen, kostenlosen Gemini-API-Key können Sie SmartCraft sofort
+weiter nutzen — in 4 kurzen Schritten.
+</p>
+</div>
+<button onClick={onClose} aria-label="Schließen" className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
+<X className="w-5 h-5" />
+</button>
+</div>
+<ol className="space-y-3 text-sm text-gray-700 mb-4">
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">1</span>
+<span>Öffnen Sie Google AI Studio und melden Sie sich mit einem Google-Konto an.</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">2</span>
+<span>Klicken Sie dort auf <strong>"Create API key"</strong> (kostenlos, kein Abo nötig).</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">3</span>
+<span>Kopieren Sie den erzeugten Key.</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">4</span>
+<span>Fügen Sie ihn unten ein und speichern Sie ihn.</span>
+</li>
+</ol>
+<a
+href="https://aistudio.google.com/apikey"
+target="_blank"
+rel="noopener noreferrer"
+className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl hover:bg-gray-200 transition duration-300 text-sm mb-4"
+>
+<ExternalLink className="w-4 h-4 mr-2" />
+Google AI Studio öffnen (aistudio.google.com/apikey)
+</a>
+<div className="flex space-x-2">
+<input
+type="password"
+value={keyDraft}
+onChange={(e) => setKeyDraft(e.target.value)}
+placeholder="AIza..."
+aria-label="Gemini-API-Key"
+className="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-(--accent)"
+/>
+<button
+onClick={handleSave}
+disabled={isSaving || !keyDraft.trim()}
+aria-label="Speichern"
+className="px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
+>
+{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Speichern'}
+</button>
+</div>
+<p className="text-[11px] text-gray-400 mt-3">
+Der Key wird nur für Ihr eigenes Konto gespeichert und ausschließlich
+serverseitig für Ihre eigenen KI-Anfragen genutzt. Google bietet für die
+Gemini API ein kostenloses Kontingent — für den privaten Gebrauch fallen
+in der Regel keine Kosten an.
+</p>
+<button
+onClick={onClose}
+className="w-full mt-3 text-xs text-gray-400 hover:text-gray-600 transition"
+>
+Später erledigen
+</button>
+</div>
+</div>
+);
+};
+// Profil-Modal-Komponente (angepasst an Rot/Blau). Wie ApiKeyOnboardingModal
+// oben aus demselben Grund auf Modulebene statt in App verschachtelt (siehe
+// dortiger Kommentar) — betraf hier zusätzlich den eigenen API-Key-Eingabe-
+// Entwurf (apiKeyDraft) und den Google-Foto-Fallback-State.
+const UserProfileModal = ({ authUser, userId, auth, trialRemaining, ownApiKey, saveOwnApiKey, handleReset, onShowHistory, onShowAdmin }) => {
+const [showProfile, setShowProfile] = useState(false);
+// Fällt auf das generische User-Icon zurück, falls das Google-Profilbild aus
+// irgendeinem Grund nicht lädt (Hotlink-Schutz, CSP, Netzwerk) — sonst bliebe
+// ein kaputtes Bild-Icon stehen statt eines brauchbaren Platzhalters.
+const [googlePhotoFailed, setGooglePhotoFailed] = useState(false);
+const showGooglePhoto = !!authUser?.photoURL && !googlePhotoFailed;
+useEffect(() => { setGooglePhotoFailed(false); }, [authUser?.photoURL]);
+// Eigener Gemini-API-Key (siehe ownApiKey/saveOwnApiKey oben in App): eigener
+// Eingabe-Entwurf, damit ein Tippfehler nicht sofort den gespeicherten Key
+// überschreibt — erst "Speichern" schreibt nach Firestore.
+const [apiKeyDraft, setApiKeyDraft] = useState('');
+const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+useEffect(() => { setApiKeyDraft(''); }, [showProfile]);
+const handleSaveApiKey = async () => {
+const trimmed = apiKeyDraft.trim();
+if (!trimmed) return;
+setIsSavingApiKey(true);
+try {
+await saveOwnApiKey(trimmed);
+setApiKeyDraft('');
+} finally {
+setIsSavingApiKey(false);
+}
+};
+const handleRemoveApiKey = async () => {
+setIsSavingApiKey(true);
+try {
+await saveOwnApiKey(null);
+} finally {
+setIsSavingApiKey(false);
+}
+};
+const handleSignOut = async () => {
+// Nur Abmeldung, wenn Firebase aktiv ist
+if (!auth || !userId) return;
+try {
+// Google-Login ist verpflichtend — nach der Abmeldung zeigt das Login-Gate
+// (siehe "if (!isAuthReady || showAuth)") direkt wieder den Anmelde-Button,
+// statt automatisch eine neue Sitzung zu starten.
+await signOut(auth);
+setShowProfile(false);
+handleReset(); // App zurücksetzen
+} catch (e) {
+console.error("Logout Error:", e);
+queueErrorReport('firebase-signout', e);
+}
+};
+return (
+<>
+{/* Profil-Button im Header — feste Kreisgröße (w-10 h-10), damit ein Google-Foto
+    randlos bis zum Rand füllt statt in einem gepolsterten Button zu "schweben" */}
+<div className="relative flex flex-col items-center">
+<span className="text-[10px] uppercase tracking-wide text-white/70 mb-0.5">PROFIL:</span>
+<button
+onClick={() => setShowProfile(true)} // Öffnet Profil-Modal
+className={`w-10 h-10 flex items-center justify-center rounded-full ring-2 ring-white/70 ring-offset-2 ring-offset-transparent transition duration-200 overflow-hidden ${userId ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-500/50 cursor-wait'}`}
+disabled={!userId}
+title="Benutzerprofil und Historie anzeigen"
+aria-label="Benutzerprofil und Historie anzeigen"
+>
+{showGooglePhoto ? (
+<img src={authUser.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
+) : (
+<User className="w-6 h-6 text-white" />
+)}
+</button>
+</div>
+{/* Profil Modal */}
+{showProfile && (
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowProfile(false)}>
+<div
+className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-all duration-300 scale-100"
+onClick={e => e.stopPropagation()}
+>
+<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4">
+<h3 className="text-xl font-bold text-gray-800 flex items-center">
+{/* Profil-Icon folgt der Berufs-Akzentfarbe */}
+<User className="w-5 h-5 mr-2 text-(--accent) transition-colors duration-500 ease-in-out" />
+Mein Konto
+</h3>
+<button onClick={() => setShowProfile(false)} aria-label="Schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
+</div>
+<div className="flex items-center space-x-3 mb-4 p-2 bg-parchment-dark/30 rounded-lg border border-gold/30">
+{showGooglePhoto ? (
+<img src={authUser.photoURL} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
+) : (
+<User className="w-10 h-10 p-2 bg-gray-200 rounded-full text-gray-500 flex-shrink-0" />
+)}
+<div className="min-w-0">
+<p className="text-sm font-semibold text-gray-800 truncate">{authUser?.displayName || 'Google-Konto'}</p>
+<p className="text-xs text-gray-500 truncate">{authUser?.email}</p>
+{userId && (
+<p className="text-[11px] text-gray-400 truncate" title={userId}>ID: {userId.slice(0, 6)}</p>
+)}
+</div>
+</div>
+{/* Eigener Gemini-API-Key: siehe api/gemini.js getUserOwnApiKey — greift,
+    sobald FREE_TRIAL_MAX (kostenlose Analysen pro Konto) aufgebraucht ist. */}
+<div className="pt-3 mt-1 border-t border-gray-200">
+<p className="text-xs font-semibold text-gray-700 flex items-center mb-1">
+<Zap className="w-3.5 h-3.5 mr-1 text-(--accent)" />
+Eigener Gemini-API-Key
+</p>
+<p className="text-[11px] text-gray-500 mb-2">
+{trialRemaining !== null && trialRemaining <= 0
+? `Ihr kostenloses Kontingent von ${FREE_TRIAL_MAX} Analysen ist aufgebraucht. Hinterlegen Sie hier einen eigenen, kostenlosen Gemini-API-Key, um SmartCraft weiter zu nutzen — die Kosten laufen dann über Ihr eigenes Google-Konto.`
+: `Optional: Hinterlegen Sie schon jetzt einen eigenen Gemini-API-Key. Nach den ersten ${FREE_TRIAL_MAX} kostenlosen Analysen wird automatisch dieser Key statt des zentralen Kontingents genutzt.`}
+</p>
+{ownApiKey ? (
+<div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+<span>Aktiv: ••••{ownApiKey.slice(-4)}</span>
+<button onClick={handleRemoveApiKey} disabled={isSavingApiKey} className="text-red-600 hover:text-red-800 font-semibold disabled:opacity-50">
+Entfernen
+</button>
+</div>
+) : (
+<div className="flex space-x-2">
+<input
+type="password"
+value={apiKeyDraft}
+onChange={(e) => setApiKeyDraft(e.target.value)}
+placeholder="AIza..."
+aria-label="Gemini-API-Key"
+className="flex-grow min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-(--accent)"
+/>
+<button
+onClick={handleSaveApiKey}
+disabled={isSavingApiKey || !apiKeyDraft.trim()}
+aria-label="Speichern"
+className="px-3 py-1.5 bg-(--accent) text-white text-xs font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
+>
+{isSavingApiKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Speichern'}
+</button>
+</div>
+)}
+<a
+href="https://aistudio.google.com/apikey"
+target="_blank"
+rel="noopener noreferrer"
+className="text-[10px] text-gray-400 hover:text-gray-600 underline mt-1 inline-block"
+>
+Eigenen Key kostenlos erstellen (aistudio.google.com)
+</a>
+</div>
+<div className="flex justify-between space-x-2 mt-4">
+<button
+onClick={() => { onShowHistory(); setShowProfile(false); }}
+className="flex items-center px-4 py-2 btn-parchment text-sm transform active:scale-[0.98]"
+disabled={!userId}
+>
+<List className="w-4 h-4 mr-2" />
+Historie
+</button>
+<button
+onClick={handleSignOut}
+// Rot, um auf den Verlust des Zugriffs bis zur erneuten Google-Anmeldung hinzuweisen
+className="flex items-center px-4 py-2 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition duration-300 text-sm transform active:scale-[0.98]"
+>
+<X className="w-4 h-4 mr-2" />
+Abmelden
+</button>
+</div>
+<button
+onClick={() => { onShowAdmin(); setShowProfile(false); }}
+className="w-full mt-3 flex items-center justify-center text-xs text-gray-400 hover:text-gray-600 transition"
+>
+<Lock className="w-3 h-3 mr-1" />
+Admin-Bereich
+</button>
+</div>
+</div>
+)}
+</>
+);
+};
 const App = () => {
 // --- Firebase States ---
 const [db, setDb] = useState(null);
@@ -904,6 +1191,63 @@ speakWithBrowserTts(text);
 setIsTtsLoading(false);
 }
 }, [ttsMode, ttsGender, fetchTtsAudio, playAudioQueue, speakWithBrowserTts, db, userId]);
+// Gemeinsamer Fetch/Parse-Kern für alle sieben /api/gemini-Aufrufer (Haupt-
+// analyse, TTS-Kurzfassung, Materialien, Sicherheit, Kundenbericht, Berufs-
+// Spezial-Tools, Video-Suche) — vorher praktisch identisch in jedem einzelnen
+// Aufrufer dupliziert. Schickt den Payload, aktualisiert den Live-Kontingent-
+// Zähler (X-Trial-Remaining-Header) und liefert das geparste JSON-Ergebnis
+// zurück. Wirft bei Server-/Parse-Fehlern einen Error mit .status (siehe
+// handleGeminiError unten, insbesondere 402 = Kontingent aufgebraucht).
+const callGeminiApi = async (payload, extraHeaders = {}) => {
+const response = await fetchWithRetry(apiUrl, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', ...extraHeaders },
+body: JSON.stringify(payload)
+});
+updateTrialRemainingFromResponse(response);
+const responseText = await response.text();
+if (!response.ok || !responseText) {
+// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
+// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
+// JSON-Strings.
+const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
+console.error("API Response Fehler:", errorMsg);
+const err = new Error(errorMsg);
+err.status = response.status;
+throw err;
+}
+try {
+return JSON.parse(responseText);
+} catch (parseError) {
+console.error("JSON-Parse-Fehler:", parseError, "Antworttext:", responseText);
+throw new Error("Ungültige Antwortstruktur von der KI.");
+}
+};
+// Gemeinsame Catch-Behandlung für alle sieben Gemini-Aufrufer: Status 402
+// (Kontingent aufgebraucht, siehe api/gemini.js) öffnet das API-Key-
+// Onboarding statt einer generischen Fehlermeldung, alles andere landet als
+// Admin-Fehlerreport plus Nutzer-Fehlermeldung.
+const handleGeminiError = (e, context, fallbackMessage) => {
+console.error(`API-Fehler (${context}):`, e);
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
+queueErrorReport(context, e);
+flushErrorReports(db, userId, appId);
+setError(fallbackMessage);
+}
+};
+// Meldet eine technisch erfolgreiche, aber inhaltlich leere/unbrauchbare
+// KI-Antwort (kein Kandidat, kein extrahierbares JSON, ...) an den Admin-
+// Bereich und zeigt dem Nutzer eine passende Meldung — der wiederkehrende
+// Teil hinter jedem "keine verwertbare Antwort"-Zweig der sieben Gemini-
+// Aufrufer. error darf ein String (wird zu new Error) oder ein bereits
+// vorhandenes Error-/Exception-Objekt (z.B. aus einem catch) sein.
+const reportEmptyResult = (context, error, userMessage) => {
+queueErrorReport(context, typeof error === 'string' ? new Error(error) : error);
+flushErrorReports(db, userId, appId);
+setError(userMessage);
+};
 // Erstellt bei Bedarf eine KI-Kurzfassung der Diagnose (nur die wichtigsten
 // Punkte) und liest sie vor; das Ergebnis wird für den aktuellen Diagnosetext
 // zwischengespeichert, damit nicht bei jedem Abspielen erneut angefragt wird.
@@ -914,36 +1258,13 @@ contents: [{ parts: [{ text: solutionText }] }],
 systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION_TTS_SUMMARY }] },
 };
 try {
-const response = await fetchWithRetry(apiUrl, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload)
-});
-updateTrialRemainingFromResponse(response);
-const responseText = await response.text();
-if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
-// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
-// JSON-Strings.
-const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-const err = new Error(errorMsg);
-err.status = response.status;
-throw err;
-}
-const result = JSON.parse(responseText);
+const result = await callGeminiApi(payload);
 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
 if (!text) throw new Error("Leere Antwort von der KI.");
 setTtsShortText(text);
 speakText(text);
 } catch (e) {
-console.error("API-Fehler (TTS-Kurzfassung):", e);
-if (e.status === 402) {
-handleTrialExceededError(e.message);
-} else {
-queueErrorReport('gemini-tts-summary-api', e);
-flushErrorReports(db, userId, appId);
-setError("Kurzfassung konnte nicht erstellt werden. Bitte erneut versuchen oder auf 'Vollständig' umschalten.");
-}
+handleGeminiError(e, 'gemini-tts-summary-api', "Kurzfassung konnte nicht erstellt werden. Bitte erneut versuchen oder auf 'Vollständig' umschalten.");
 } finally {
 setIsGeneratingTtsShort(false);
 }
@@ -1360,34 +1681,10 @@ parts: [{ text: SYSTEM_INSTRUCTION }]
 },
 };
 try {
-const response = await fetchWithRetry(apiUrl, {
-method: 'POST',
 // "X-Analysis-Kind: main" markiert diesen Aufruf als Haupt-Diagnose
 // gegenüber api/gemini.js — nur er verbraucht einen Slot des
 // Pro-Konto-Kontingents (FREE_TRIAL_MAX), Zusatz-Tools nicht.
-headers: { 'Content-Type': 'application/json', 'X-Analysis-Kind': 'main' },
-body: JSON.stringify(payload)
-});
-updateTrialRemainingFromResponse(response);
-// Robuste Verarbeitung der JSON-Antwort
-const responseText = await response.text();
-if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
-// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
-// JSON-Strings.
-const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-console.error("API Response Fehler:", errorMsg);
-const err = new Error(errorMsg);
-err.status = response.status;
-throw err;
-}
-let result;
-try {
-result = JSON.parse(responseText);
-} catch (parseError) {
-console.error("JSON-Parse-Fehler:", parseError, "Antworttext:", responseText);
-throw new Error("Ungültige Antwortstruktur von der KI.");
-}
+const result = await callGeminiApi(payload, { 'X-Analysis-Kind': 'main' });
 const candidate = result.candidates?.[0];
 if (candidate && candidate.content?.parts?.[0]?.text) {
 const solution = candidate.content.parts[0].text;
@@ -1400,23 +1697,14 @@ problemDescription,
 solutionText: solution,
 });
 } else {
-queueErrorReport('gemini-vision-api', new Error('Antwort ohne verwertbaren Kandidaten'));
-flushErrorReports(db, userId, appId);
-setError("Konnte keine gültige Antwort von der KI erhalten. Mögliches Problem: Das Bild ist zu unklar oder der Dienst ist nicht erreichbar.");
+reportEmptyResult('gemini-vision-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte keine gültige Antwort von der KI erhalten. Mögliches Problem: Das Bild ist zu unklar oder der Dienst ist nicht erreichbar.");
 }
 } catch (e) {
-console.error("API-Fehler:", e);
 // Status 402: kostenloses Kontingent aufgebraucht, kein eigener API-Key
 // hinterlegt (siehe api/gemini.js) — die reale, actionable Fehlermeldung
 // zeigen statt des generischen "erneut versuchen"-Texts, der hier nichts
 // bringt, solange kein eigener Key hinterlegt ist.
-if (e.status === 402) {
-handleTrialExceededError(e.message);
-} else {
-queueErrorReport('gemini-vision-api', e);
-flushErrorReports(db, userId, appId);
-setError("Die Analyse konnte nicht abgeschlossen werden. Bitte in ein paar Minuten erneut versuchen.");
-}
+handleGeminiError(e, 'gemini-vision-api', "Die Analyse konnte nicht abgeschlossen werden. Bitte in ein paar Minuten erneut versuchen.");
 } finally {
 setIsAnalyzing(false);
 }
@@ -1436,56 +1724,21 @@ responseSchema: MATERIAL_SCHEMA,
 }
 };
 try {
-const response = await fetchWithRetry(apiUrl, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload)
-});
-updateTrialRemainingFromResponse(response);
-const responseText = await response.text();
-if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
-// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
-// JSON-Strings.
-const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-console.error("API Response Fehler:", errorMsg);
-const err = new Error(errorMsg);
-err.status = response.status;
-throw err;
-}
-let result;
-try {
-result = JSON.parse(responseText);
-} catch (parseError) {
-console.error("JSON-Parse-Fehler:", parseError, "Antworttext:", responseText);
-throw new Error("Ungültige Antwortstruktur von der KI.");
-}
+const result = await callGeminiApi(payload);
 const jsonString = result.candidates?.[0]?.content?.parts?.[0]?.text;
 if (jsonString && jsonString.trim().length > 0) {
 try {
 // Robuster Parse-Versuch
-const parsedJson = JSON.parse(jsonString);
-setMaterialList(parsedJson);
+setMaterialList(JSON.parse(jsonString));
 } catch (parseError) {
 console.error("JSON Parsing Fehler (Material):", parseError);
-queueErrorReport('gemini-materials-api', parseError);
-flushErrorReports(db, userId, appId);
-setError("Fehler beim Verarbeiten der KI-Antwort (ungültiges JSON-Format oder unvollständige Antwort).");
+reportEmptyResult('gemini-materials-api', parseError, "Fehler beim Verarbeiten der KI-Antwort (ungültiges JSON-Format oder unvollständige Antwort).");
 }
 } else {
-queueErrorReport('gemini-materials-api', new Error('Antwort ohne strukturierte Materialliste'));
-flushErrorReports(db, userId, appId);
-setError("Konnte keine Materialliste erstellen. Die KI hat keine strukturierte Antwort geliefert.");
+reportEmptyResult('gemini-materials-api', 'Antwort ohne strukturierte Materialliste', "Konnte keine Materialliste erstellen. Die KI hat keine strukturierte Antwort geliefert.");
 }
 } catch (e) {
-console.error("API-Fehler (Material):", e);
-if (e.status === 402) {
-handleTrialExceededError(e.message);
-} else {
-queueErrorReport('gemini-materials-api', e);
-flushErrorReports(db, userId, appId);
-setError("Die Materialliste konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
-}
+handleGeminiError(e, 'gemini-materials-api', "Die Materialliste konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
 } finally {
 setIsGeneratingMaterials(false);
 }
@@ -1501,47 +1754,15 @@ contents: [{ parts: [{ text: userQuery }] }],
 systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION_SAFETY }] },
 };
 try {
-const response = await fetchWithRetry(apiUrl, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload)
-});
-updateTrialRemainingFromResponse(response);
-const responseText = await response.text();
-if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
-// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
-// JSON-Strings.
-const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-console.error("API Response Fehler:", errorMsg);
-const err = new Error(errorMsg);
-err.status = response.status;
-throw err;
-}
-let result;
-try {
-result = JSON.parse(responseText);
-} catch (parseError) {
-console.error("JSON-Parse-Fehler:", parseError, "Antworttext:", responseText);
-throw new Error("Ungültige Antwortstruktur von der KI.");
-}
+const result = await callGeminiApi(payload);
 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
 if (text) {
 setSafetyTips(text);
 } else {
-queueErrorReport('gemini-safety-api', new Error('Antwort ohne verwertbaren Kandidaten'));
-flushErrorReports(db, userId, appId);
-setError("Konnte den Sicherheits-Check nicht erstellen.");
+reportEmptyResult('gemini-safety-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte den Sicherheits-Check nicht erstellen.");
 }
 } catch (e) {
-console.error("API-Fehler (Sicherheit):", e);
-if (e.status === 402) {
-handleTrialExceededError(e.message);
-} else {
-queueErrorReport('gemini-safety-api', e);
-flushErrorReports(db, userId, appId);
-setError("Der Sicherheits-Check konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
-}
+handleGeminiError(e, 'gemini-safety-api', "Der Sicherheits-Check konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
 } finally {
 setIsGeneratingSafety(false);
 }
@@ -1557,47 +1778,15 @@ contents: [{ parts: [{ text: userQuery }] }],
 systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION_CLIENT_REPORT }] },
 };
 try {
-const response = await fetchWithRetry(apiUrl, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload)
-});
-updateTrialRemainingFromResponse(response);
-const responseText = await response.text();
-if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
-// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
-// JSON-Strings.
-const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-console.error("API Response Fehler:", errorMsg);
-const err = new Error(errorMsg);
-err.status = response.status;
-throw err;
-}
-let result;
-try {
-result = JSON.parse(responseText);
-} catch (parseError) {
-console.error("JSON-Parse-Fehler:", parseError, "Antworttext:", responseText);
-throw new Error("Ungültige Antwortstruktur von der KI.");
-}
+const result = await callGeminiApi(payload);
 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
 if (text) {
 setClientReport(text);
 } else {
-queueErrorReport('gemini-client-report-api', new Error('Antwort ohne verwertbaren Kandidaten'));
-flushErrorReports(db, userId, appId);
-setError("Konnte den Kundenbericht nicht erstellen.");
+reportEmptyResult('gemini-client-report-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte den Kundenbericht nicht erstellen.");
 }
 } catch (e) {
-console.error("API-Fehler (Kundenbericht):", e);
-if (e.status === 402) {
-handleTrialExceededError(e.message);
-} else {
-queueErrorReport('gemini-client-report-api', e);
-flushErrorReports(db, userId, appId);
-setError("Der Kundenbericht konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
-}
+handleGeminiError(e, 'gemini-client-report-api', "Der Kundenbericht konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
 } finally {
 setIsGeneratingReport(false);
 }
@@ -1613,47 +1802,15 @@ contents: [{ parts: [{ text: tool.buildQuery({ solutionText, problemDescription,
 systemInstruction: { parts: [{ text: tool.systemInstruction }] },
 };
 try {
-const response = await fetchWithRetry(apiUrl, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(payload)
-});
-updateTrialRemainingFromResponse(response);
-const responseText = await response.text();
-if (!response.ok || !responseText) {
-// Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
-// {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
-// JSON-Strings.
-const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-console.error("API Response Fehler:", errorMsg);
-const err = new Error(errorMsg);
-err.status = response.status;
-throw err;
-}
-let result;
-try {
-result = JSON.parse(responseText);
-} catch (parseError) {
-console.error("JSON-Parse-Fehler:", parseError, "Antworttext:", responseText);
-throw new Error("Ungültige Antwortstruktur von der KI.");
-}
+const result = await callGeminiApi(payload);
 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
 if (text) {
 setTradeToolResults((prev) => ({ ...prev, [tool.id]: text }));
 } else {
-queueErrorReport('gemini-trade-tool-api', new Error(`Antwort ohne verwertbaren Kandidaten (${tool.id})`));
-flushErrorReports(db, userId, appId);
-setError(`Konnte "${tool.label}" nicht erstellen.`);
+reportEmptyResult('gemini-trade-tool-api', `Antwort ohne verwertbaren Kandidaten (${tool.id})`, `Konnte "${tool.label}" nicht erstellen.`);
 }
 } catch (e) {
-console.error(`API-Fehler (${tool.label}):`, e);
-if (e.status === 402) {
-handleTrialExceededError(e.message);
-} else {
-queueErrorReport('gemini-trade-tool-api', e);
-flushErrorReports(db, userId, appId);
-setError(`"${tool.label}" konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.`);
-}
+handleGeminiError(e, 'gemini-trade-tool-api', `"${tool.label}" konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.`);
 } finally {
 setLoadingTradeToolIds((prev) => ({ ...prev, [tool.id]: false }));
 }
@@ -1673,38 +1830,13 @@ const callGeminiVideoSearch = useCallback(async () => {
     tools: [{ google_search: {} }],
   };
   try {
-    const response = await fetchWithRetry(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    updateTrialRemainingFromResponse(response);
-    const responseText = await response.text();
-    if (!response.ok || !responseText) {
-      // Server-Fehler (z.B. Kontingent aufgebraucht, Rate-Limit) kommen als
-      // {"error": "..."} — nur die Klartext-Message anzeigen statt des rohen
-      // JSON-Strings.
-      const errorMsg = extractApiErrorMessage(responseText, responseText || `API-Fehler mit Status: ${response.status}`);
-      console.error("API Response Fehler:", errorMsg);
-      const err = new Error(errorMsg);
-      err.status = response.status;
-      throw err;
-    }
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error("JSON-Parse-Fehler:", parseError, "Antworttext:", responseText);
-      throw new Error("Ungültige Antwortstruktur von der KI.");
-    }
+    const result = await callGeminiApi(payload);
     const responseTextContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
     if (responseTextContent && responseTextContent.trim().length > 0) {
       const jsonMatch = responseTextContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
       if (!jsonMatch || !jsonMatch[0]) {
         console.error("JSON Regex Match Fehler:", responseTextContent);
-        queueErrorReport('gemini-video-search-api', new Error('Antwort ohne extrahierbares JSON-Array'));
-        flushErrorReports(db, userId, appId);
-        setError("Die KI-Antwort enthielt kein gültiges JSON-Array. Bitte erneut versuchen.");
+        reportEmptyResult('gemini-video-search-api', 'Antwort ohne extrahierbares JSON-Array', "Die KI-Antwort enthielt kein gültiges JSON-Array. Bitte erneut versuchen.");
         return;
       }
       try {
@@ -1715,30 +1847,17 @@ const callGeminiVideoSearch = useCallback(async () => {
         if (validLinks.length > 0) {
           setVideoLinks(validLinks);
         } else {
-          queueErrorReport('gemini-video-search-api', new Error('Keine gültigen YouTube-Links im Ergebnis'));
-          flushErrorReports(db, userId, appId);
-          setError("Die KI hat keine passenden YouTube-Video-Links gefunden.");
+          reportEmptyResult('gemini-video-search-api', 'Keine gültigen YouTube-Links im Ergebnis', "Die KI hat keine passenden YouTube-Video-Links gefunden.");
         }
       } catch (parseError) {
         console.error("JSON Parsing Fehler (Video Search):", parseError);
-        queueErrorReport('gemini-video-search-api', parseError);
-        flushErrorReports(db, userId, appId);
-        setError("Fehler beim Verarbeiten der KI-Antwort (ungültiges JSON-Format).");
+        reportEmptyResult('gemini-video-search-api', parseError, "Fehler beim Verarbeiten der KI-Antwort (ungültiges JSON-Format).");
       }
     } else {
-      queueErrorReport('gemini-video-search-api', new Error('Antwort ohne verwertbaren Kandidaten'));
-      flushErrorReports(db, userId, appId);
-      setError("Konnte die Video-Links nicht generieren. Die KI hat keine verwertbare Antwort geliefert.");
+      reportEmptyResult('gemini-video-search-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte die Video-Links nicht generieren. Die KI hat keine verwertbare Antwort geliefert.");
     }
   } catch (e) {
-    console.error("API-Fehler (Video Search):", e);
-    if (e.status === 402) {
-      handleTrialExceededError(e.message);
-    } else {
-      queueErrorReport('gemini-video-search-api', e);
-      flushErrorReports(db, userId, appId);
-      setError("Die Video-Anleitungen konnten nicht gefunden werden. Bitte in ein paar Minuten erneut versuchen.");
-    }
+    handleGeminiError(e, 'gemini-video-search-api', "Die Video-Anleitungen konnten nicht gefunden werden. Bitte in ein paar Minuten erneut versuchen.");
   } finally {
     setIsGeneratingVideos(false);
   }
@@ -2258,285 +2377,6 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 </div>
 );
 }, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImageBase64, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey]);
-// Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen Gemini-API-Keys —
-// öffnet sich automatisch über handleTrialExceededError, sobald eine KI-Anfrage
-// mit Status 402 scheitert (Kontingent aufgebraucht, kein eigener Key). Nimmt
-// den Nutzer "an die Hand" statt nur auf die Profil-Einstellung zu verweisen:
-// Key lässt sich direkt in diesem Dialog anlegen und speichern.
-const ApiKeyOnboardingModal = () => {
-const [keyDraft, setKeyDraft] = useState('');
-const [isSaving, setIsSaving] = useState(false);
-const handleSave = async () => {
-const trimmed = keyDraft.trim();
-if (!trimmed) return;
-setIsSaving(true);
-try {
-await saveOwnApiKey(trimmed);
-setShowApiKeyOnboarding(false);
-} finally {
-setIsSaving(false);
-}
-};
-return (
-<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowApiKeyOnboarding(false)}>
-<div
-className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
-onClick={e => e.stopPropagation()}
->
-<div className="flex justify-between items-start border-b border-gold/40 pb-3 mb-4">
-<div>
-<h3 className="text-lg font-bold text-gray-800 flex items-center">
-<Zap className="w-5 h-5 mr-2 text-(--accent)" />
-Kostenloses Kontingent aufgebraucht
-</h3>
-<p className="text-xs text-gray-500 mt-1">
-Sie haben Ihre {FREE_TRIAL_MAX} kostenlosen Analysen aufgebraucht. Mit
-einem eigenen, kostenlosen Gemini-API-Key können Sie SmartCraft sofort
-weiter nutzen — in 4 kurzen Schritten.
-</p>
-</div>
-<button onClick={() => setShowApiKeyOnboarding(false)} aria-label="Schließen" className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
-<X className="w-5 h-5" />
-</button>
-</div>
-<ol className="space-y-3 text-sm text-gray-700 mb-4">
-<li className="flex space-x-2">
-<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">1</span>
-<span>Öffnen Sie Google AI Studio und melden Sie sich mit einem Google-Konto an.</span>
-</li>
-<li className="flex space-x-2">
-<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">2</span>
-<span>Klicken Sie dort auf <strong>"Create API key"</strong> (kostenlos, kein Abo nötig).</span>
-</li>
-<li className="flex space-x-2">
-<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">3</span>
-<span>Kopieren Sie den erzeugten Key.</span>
-</li>
-<li className="flex space-x-2">
-<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">4</span>
-<span>Fügen Sie ihn unten ein und speichern Sie ihn.</span>
-</li>
-</ol>
-<a
-href="https://aistudio.google.com/apikey"
-target="_blank"
-rel="noopener noreferrer"
-className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl hover:bg-gray-200 transition duration-300 text-sm mb-4"
->
-<ExternalLink className="w-4 h-4 mr-2" />
-Google AI Studio öffnen (aistudio.google.com/apikey)
-</a>
-<div className="flex space-x-2">
-<input
-type="password"
-value={keyDraft}
-onChange={(e) => setKeyDraft(e.target.value)}
-placeholder="AIza..."
-aria-label="Gemini-API-Key"
-className="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-(--accent)"
-/>
-<button
-onClick={handleSave}
-disabled={isSaving || !keyDraft.trim()}
-aria-label="Speichern"
-className="px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
->
-{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Speichern'}
-</button>
-</div>
-<p className="text-[11px] text-gray-400 mt-3">
-Der Key wird nur für Ihr eigenes Konto gespeichert und ausschließlich
-serverseitig für Ihre eigenen KI-Anfragen genutzt. Google bietet für die
-Gemini API ein kostenloses Kontingent — für den privaten Gebrauch fallen
-in der Regel keine Kosten an.
-</p>
-<button
-onClick={() => setShowApiKeyOnboarding(false)}
-className="w-full mt-3 text-xs text-gray-400 hover:text-gray-600 transition"
->
-Später erledigen
-</button>
-</div>
-</div>
-);
-};
-// Profil-Modal-Komponente (angepasst an Rot/Blau)
-const UserProfileModal = () => {
-const [showProfile, setShowProfile] = useState(false);
-// Fällt auf das generische User-Icon zurück, falls das Google-Profilbild aus
-// irgendeinem Grund nicht lädt (Hotlink-Schutz, CSP, Netzwerk) — sonst bliebe
-// ein kaputtes Bild-Icon stehen statt eines brauchbaren Platzhalters.
-const [googlePhotoFailed, setGooglePhotoFailed] = useState(false);
-const showGooglePhoto = !!authUser?.photoURL && !googlePhotoFailed;
-useEffect(() => { setGooglePhotoFailed(false); }, [authUser?.photoURL]);
-// Eigener Gemini-API-Key (siehe ownApiKey/saveOwnApiKey oben in App): eigener
-// Eingabe-Entwurf, damit ein Tippfehler nicht sofort den gespeicherten Key
-// überschreibt — erst "Speichern" schreibt nach Firestore.
-const [apiKeyDraft, setApiKeyDraft] = useState('');
-const [isSavingApiKey, setIsSavingApiKey] = useState(false);
-useEffect(() => { setApiKeyDraft(''); }, [showProfile]);
-const handleSaveApiKey = async () => {
-const trimmed = apiKeyDraft.trim();
-if (!trimmed) return;
-setIsSavingApiKey(true);
-try {
-await saveOwnApiKey(trimmed);
-setApiKeyDraft('');
-} finally {
-setIsSavingApiKey(false);
-}
-};
-const handleRemoveApiKey = async () => {
-setIsSavingApiKey(true);
-try {
-await saveOwnApiKey(null);
-} finally {
-setIsSavingApiKey(false);
-}
-};
-const handleSignOut = async () => {
-// Nur Abmeldung, wenn Firebase aktiv ist
-if (!auth || !userId) return;
-try {
-// Google-Login ist verpflichtend — nach der Abmeldung zeigt das Login-Gate
-// (siehe "if (!isAuthReady || showAuth)") direkt wieder den Anmelde-Button,
-// statt automatisch eine neue Sitzung zu starten.
-await signOut(auth);
-setShowProfile(false);
-handleReset(); // App zurücksetzen
-} catch (e) {
-console.error("Logout Error:", e);
-queueErrorReport('firebase-signout', e);
-}
-};
-return (
-<>
-{/* Profil-Button im Header — feste Kreisgröße (w-10 h-10), damit ein Google-Foto
-    randlos bis zum Rand füllt statt in einem gepolsterten Button zu "schweben" */}
-<div className="relative flex flex-col items-center">
-<span className="text-[10px] uppercase tracking-wide text-white/70 mb-0.5">PROFIL:</span>
-<button
-onClick={() => setShowProfile(true)} // Öffnet Profil-Modal
-className={`w-10 h-10 flex items-center justify-center rounded-full ring-2 ring-white/70 ring-offset-2 ring-offset-transparent transition duration-200 overflow-hidden ${userId ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-500/50 cursor-wait'}`}
-disabled={!userId}
-title="Benutzerprofil und Historie anzeigen"
-aria-label="Benutzerprofil und Historie anzeigen"
->
-{showGooglePhoto ? (
-<img src={authUser.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
-) : (
-<User className="w-6 h-6 text-white" />
-)}
-</button>
-</div>
-{/* Profil Modal */}
-{showProfile && (
-<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowProfile(false)}>
-<div
-className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-all duration-300 scale-100"
-onClick={e => e.stopPropagation()}
->
-<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4">
-<h3 className="text-xl font-bold text-gray-800 flex items-center">
-{/* Profil-Icon folgt der Berufs-Akzentfarbe */}
-<User className="w-5 h-5 mr-2 text-(--accent) transition-colors duration-500 ease-in-out" />
-Mein Konto
-</h3>
-<button onClick={() => setShowProfile(false)} aria-label="Schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
-</div>
-<div className="flex items-center space-x-3 mb-4 p-2 bg-parchment-dark/30 rounded-lg border border-gold/30">
-{showGooglePhoto ? (
-<img src={authUser.photoURL} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
-) : (
-<User className="w-10 h-10 p-2 bg-gray-200 rounded-full text-gray-500 flex-shrink-0" />
-)}
-<div className="min-w-0">
-<p className="text-sm font-semibold text-gray-800 truncate">{authUser?.displayName || 'Google-Konto'}</p>
-<p className="text-xs text-gray-500 truncate">{authUser?.email}</p>
-{userId && (
-<p className="text-[11px] text-gray-400 truncate" title={userId}>ID: {userId.slice(0, 6)}</p>
-)}
-</div>
-</div>
-{/* Eigener Gemini-API-Key: siehe api/gemini.js getUserOwnApiKey — greift,
-    sobald FREE_TRIAL_MAX (kostenlose Analysen pro Konto) aufgebraucht ist. */}
-<div className="pt-3 mt-1 border-t border-gray-200">
-<p className="text-xs font-semibold text-gray-700 flex items-center mb-1">
-<Zap className="w-3.5 h-3.5 mr-1 text-(--accent)" />
-Eigener Gemini-API-Key
-</p>
-<p className="text-[11px] text-gray-500 mb-2">
-{trialRemaining !== null && trialRemaining <= 0
-? `Ihr kostenloses Kontingent von ${FREE_TRIAL_MAX} Analysen ist aufgebraucht. Hinterlegen Sie hier einen eigenen, kostenlosen Gemini-API-Key, um SmartCraft weiter zu nutzen — die Kosten laufen dann über Ihr eigenes Google-Konto.`
-: `Optional: Hinterlegen Sie schon jetzt einen eigenen Gemini-API-Key. Nach den ersten ${FREE_TRIAL_MAX} kostenlosen Analysen wird automatisch dieser Key statt des zentralen Kontingents genutzt.`}
-</p>
-{ownApiKey ? (
-<div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
-<span>Aktiv: ••••{ownApiKey.slice(-4)}</span>
-<button onClick={handleRemoveApiKey} disabled={isSavingApiKey} className="text-red-600 hover:text-red-800 font-semibold disabled:opacity-50">
-Entfernen
-</button>
-</div>
-) : (
-<div className="flex space-x-2">
-<input
-type="password"
-value={apiKeyDraft}
-onChange={(e) => setApiKeyDraft(e.target.value)}
-placeholder="AIza..."
-aria-label="Gemini-API-Key"
-className="flex-grow min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-(--accent)"
-/>
-<button
-onClick={handleSaveApiKey}
-disabled={isSavingApiKey || !apiKeyDraft.trim()}
-aria-label="Speichern"
-className="px-3 py-1.5 bg-(--accent) text-white text-xs font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
->
-{isSavingApiKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Speichern'}
-</button>
-</div>
-)}
-<a
-href="https://aistudio.google.com/apikey"
-target="_blank"
-rel="noopener noreferrer"
-className="text-[10px] text-gray-400 hover:text-gray-600 underline mt-1 inline-block"
->
-Eigenen Key kostenlos erstellen (aistudio.google.com)
-</a>
-</div>
-<div className="flex justify-between space-x-2 mt-4">
-<button
-onClick={() => { setShowHistory(true); setShowProfile(false); }}
-className="flex items-center px-4 py-2 btn-parchment text-sm transform active:scale-[0.98]"
-disabled={!userId}
->
-<List className="w-4 h-4 mr-2" />
-Historie
-</button>
-<button
-onClick={handleSignOut}
-// Rot, um auf den Verlust des Zugriffs bis zur erneuten Google-Anmeldung hinzuweisen
-className="flex items-center px-4 py-2 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition duration-300 text-sm transform active:scale-[0.98]"
->
-<X className="w-4 h-4 mr-2" />
-Abmelden
-</button>
-</div>
-<button
-onClick={() => { setShowAdmin(true); setShowProfile(false); }}
-className="w-full mt-3 flex items-center justify-center text-xs text-gray-400 hover:text-gray-600 transition"
->
-<Lock className="w-3 h-3 mr-1" />
-Admin-Bereich
-</button>
-</div>
-</div>
-)}
-</>
-);
-};
 if (!isAuthReady) {
 // Ladebildschirm während der Firebase-Authentifizierung
 return (
@@ -2648,7 +2488,7 @@ isAnonymous: false,
 )}
 {/* Anleitung zum Hinterlegen eines eigenen API-Keys (siehe
     handleTrialExceededError) — öffnet sich automatisch bei Status 402. */}
-{showApiKeyOnboarding && <ApiKeyOnboardingModal />}
+{showApiKeyOnboarding && <ApiKeyOnboardingModal onClose={() => setShowApiKeyOnboarding(false)} saveOwnApiKey={saveOwnApiKey} />}
 {/* Header mit Profil-Button - Farbe folgt dem gewählten Beruf (weicher Übergang) */}
 <header className="w-full p-5 header-ornate relative transition-colors duration-700 ease-in-out">
 <HeaderPlate />
@@ -2660,7 +2500,17 @@ isAnonymous: false,
 <h1 className="text-2xl font-display font-bold text-gold-light tracking-wide" style={{ color: 'var(--color-gold-light)' }}>Sm@rt<span style={{ color: '#fff' }}>Craft</span>! <span className='text-xs font-sans font-light italic text-white/70'>(V{__APP_VERSION__})</span></h1>
 </div>
 {/* Profil-Button: Öffnet das Profil-Modal */}
-<UserProfileModal />
+<UserProfileModal
+authUser={authUser}
+userId={userId}
+auth={auth}
+trialRemaining={trialRemaining}
+ownApiKey={ownApiKey}
+saveOwnApiKey={saveOwnApiKey}
+handleReset={handleReset}
+onShowHistory={() => setShowHistory(true)}
+onShowAdmin={() => setShowAdmin(true)}
+/>
 </div>
 <p className="text-sm text-white/80 mt-1 relative z-10 italic">Der Kollege in der Hosentasche.</p>
 </header>
