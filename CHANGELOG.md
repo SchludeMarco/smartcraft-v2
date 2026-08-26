@@ -8,6 +8,31 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.6] – 2026-08-26
+
+### Geändert
+- **Duplizierte Server-Infrastruktur über alle sieben `/api/*`-Endpoints
+  (`gemini.js`, `tts.js`, `report-bug.js`, `send-feedback.js`,
+  `app-start.js`, `demo-status.js`, `trial-status.js`) in `api/_lib/`
+  gebündelt, ohne Verhaltensänderung.** `getAdminApp`/`verifyAppCheck` (Lazy-
+  Init der Firebase-Admin-App + App-Check-Verifikation) waren byte-identisch
+  in jeder Datei einzeln kopiert; der Same-Origin-Check (Origin- bzw. bei
+  GET-Requests Referer-Fallback-Prüfung) existierte in zwei leicht
+  auseinandergedrifteten Varianten; der einfache IP-Fixed-Window-Rate-
+  Limiter (Minute+Tag) war strukturell identisch, nur mit unterschiedlichem
+  Firestore-Doc-Präfix/Limits pro Endpoint dupliziert; `escapeHtml`/
+  `formatTimestamp`/der komplette Resend-Mail-Versand (Config-Check +
+  Fetch + Fehlerbehandlung) waren zwischen `report-bug.js` und
+  `send-feedback.js` dupliziert. Jetzt zentral in `api/_lib/adminApp.js`,
+  `sameOrigin.js`, `rateLimit.js`, `email.js` (Vercel behandelt
+  unterstrich-präfigierte Pfade wie `_lib/` nicht als eigene Endpoints).
+  `api/gemini.js`s `checkRateLimit`/`checkAndConsumeTrial` (test-abgedeckt,
+  zusätzliche Lebenszeit-Kontingent-Logik) bleiben bewusst unverändert und
+  nicht Teil dieser Extraktion. Verifiziert per `npm run build`, `npm test`
+  (23/23) sowie direkten Handler-Aufrufen mit gemockten `req`/`res` gegen
+  alle sieben Endpoints (falsche Methode → 405, Cross-Origin → 403,
+  Referer-Fallback, Fail-open ohne `FIREBASE_SERVICE_ACCOUNT_KEY`).
+
 ## [2.9.5] – 2026-08-26
 
 ### Geändert
