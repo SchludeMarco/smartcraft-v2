@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.7.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.8.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -185,6 +185,9 @@ nutzen (Live-Zähler direkt in der App). Danach kann im Profil-Menü freiwillig 
 eigener, bei Google AI Studio kostenlos erstellter Gemini-API-Key hinterlegt werden —
 alle weiteren Analysen sowie Zusatz-Tools laufen dann automatisch über diesen Key,
 die entstehenden Kosten also über das eigene Google-Konto statt über SmartCraft.
+Ist das Kontingent aufgebraucht, öffnet sich automatisch eine 4-Schritte-Anleitung,
+die direkt zu Google AI Studio verlinkt und den erzeugten Key im selben Dialog
+entgegennimmt — kein Suchen im Profil-Menü nötig.
 
 ## Ablauf in der Praxis
 

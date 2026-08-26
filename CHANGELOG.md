@@ -8,6 +8,21 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.8.0] – 2026-08-26
+
+### Hinzugefügt
+- **Geführte Anleitung zum Hinterlegen eines eigenen API-Keys.** Bisher zeigte
+  ein aufgebrauchtes Pro-Konto-Kontingent (siehe V2.7.0) nur eine Fehlermeldung
+  im roten Hinweisfeld — der Nutzer musste selbst wissen, dass dafür das
+  Profil-Menü der richtige Ort ist. Jetzt öffnet sich bei jedem mit Status 402
+  scheiternden KI-Aufruf automatisch ein neuer Dialog (`ApiKeyOnboardingModal`
+  in `src/App.jsx`, ausgelöst über die neue `handleTrialExceededError`), der in
+  4 Schritten durch das Erstellen eines eigenen, kostenlosen Gemini-API-Keys
+  bei Google AI Studio führt (Link öffnet direkt `aistudio.google.com/apikey`)
+  und den erzeugten Key direkt im selben Dialog entgegennimmt und speichert —
+  ohne Umweg über das Profil-Menü. Nach dem Speichern kann die zuvor
+  fehlgeschlagene Aktion sofort erneut gestartet werden.
+
 ## [2.7.0] – 2026-08-26
 
 ### Hinzugefügt

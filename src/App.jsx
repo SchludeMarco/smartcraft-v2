@@ -4,7 +4,8 @@ Camera, Image, Upload, Wrench, Loader2, Zap, AlertTriangle, CheckCircle,
 Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
 Settings, MoreHorizontal, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
-Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat
+Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
+ExternalLink
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
@@ -629,6 +630,20 @@ const [showHistory, setShowHistory] = useState(false); // Steuert das Historien-
 const [showAdmin, setShowAdmin] = useState(false); // Steuert das Admin-Modal (Fehlerreports)
 const [showLegal, setShowLegal] = useState(false); // Steuert das Impressum/Datenschutz-Modal
 const [showFeedback, setShowFeedback] = useState(false); // Steuert das Feedback-Modal
+// Steuert die Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen
+// Gemini-API-Keys — öffnet sich automatisch, sobald eine KI-Anfrage mit
+// Status 402 (Kontingent aufgebraucht, kein eigener Key, siehe
+// api/gemini.js) scheitert, statt dass der Nutzer die Profil-Einstellung
+// selbst suchen muss (siehe handleTrialExceededError unten).
+const [showApiKeyOnboarding, setShowApiKeyOnboarding] = useState(false);
+// Muss vor allen callGemini*API-Funktionen stehen, die sie in ihrer
+// useCallback-Deps-Liste referenzieren — sonst TDZ-Fehler beim Rendern
+// (const-Deklarationen sind nicht hoisted). Nutzt nur stabile State-Setter,
+// daher leeres Deps-Array.
+const handleTrialExceededError = useCallback((message) => {
+setError(message);
+setShowApiKeyOnboarding(true);
+}, []);
 // Echter Admin-Status (Firebase Custom Claim "admin: true", siehe
 // scripts/set-admin-claim.mjs + api/gemini.js), kein UI-Sichtschutz mehr —
 // AdminPanel.jsx verlässt sich hierauf statt auf einen PIN.
@@ -922,7 +937,7 @@ speakText(text);
 } catch (e) {
 console.error("API-Fehler (TTS-Kurzfassung):", e);
 if (e.status === 402) {
-setError(e.message);
+handleTrialExceededError(e.message);
 } else {
 queueErrorReport('gemini-tts-summary-api', e);
 flushErrorReports(db, userId, appId);
@@ -931,7 +946,7 @@ setError("Kurzfassung konnte nicht erstellt werden. Bitte erneut versuchen oder 
 } finally {
 setIsGeneratingTtsShort(false);
 }
-}, [solutionText, speakText, db, userId]);
+}, [solutionText, speakText, db, userId, handleTrialExceededError]);
 const handleToggleTts = useCallback(() => {
 if (isTtsPlaying) {
 stopSpeaking();
@@ -1395,7 +1410,7 @@ console.error("API-Fehler:", e);
 // zeigen statt des generischen "erneut versuchen"-Texts, der hier nichts
 // bringt, solange kein eigener Key hinterlegt ist.
 if (e.status === 402) {
-setError(e.message);
+handleTrialExceededError(e.message);
 } else {
 queueErrorReport('gemini-vision-api', e);
 flushErrorReports(db, userId, appId);
@@ -1404,7 +1419,7 @@ setError("Die Analyse konnte nicht abgeschlossen werden. Bitte in ein paar Minut
 } finally {
 setIsAnalyzing(false);
 }
-}, [selectedImageBase64, problemDescription, selectedTrade, saveAnalysis, db, userId]);
+}, [selectedImageBase64, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Materialliste generieren (JSON Mode) ---
 const callGeminiMaterialsAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1464,7 +1479,7 @@ setError("Konnte keine Materialliste erstellen. Die KI hat keine strukturierte A
 } catch (e) {
 console.error("API-Fehler (Material):", e);
 if (e.status === 402) {
-setError(e.message);
+handleTrialExceededError(e.message);
 } else {
 queueErrorReport('gemini-materials-api', e);
 flushErrorReports(db, userId, appId);
@@ -1473,7 +1488,7 @@ setError("Die Materialliste konnte nicht erstellt werden. Bitte in ein paar Minu
 } finally {
 setIsGeneratingMaterials(false);
 }
-}, [solutionText, db, userId]);
+}, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Sicherheits-Check generieren (Text Mode) ---
 const callGeminiSafetyAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1520,7 +1535,7 @@ setError("Konnte den Sicherheits-Check nicht erstellen.");
 } catch (e) {
 console.error("API-Fehler (Sicherheit):", e);
 if (e.status === 402) {
-setError(e.message);
+handleTrialExceededError(e.message);
 } else {
 queueErrorReport('gemini-safety-api', e);
 flushErrorReports(db, userId, appId);
@@ -1529,7 +1544,7 @@ setError("Der Sicherheits-Check konnte nicht erstellt werden. Bitte in ein paar 
 } finally {
 setIsGeneratingSafety(false);
 }
-}, [solutionText, db, userId]);
+}, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Kundenbericht generieren (Text Mode) ---
 const callGeminiClientReportAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1576,7 +1591,7 @@ setError("Konnte den Kundenbericht nicht erstellen.");
 } catch (e) {
 console.error("API-Fehler (Kundenbericht):", e);
 if (e.status === 402) {
-setError(e.message);
+handleTrialExceededError(e.message);
 } else {
 queueErrorReport('gemini-client-report-api', e);
 flushErrorReports(db, userId, appId);
@@ -1585,7 +1600,7 @@ setError("Der Kundenbericht konnte nicht erstellt werden. Bitte in ein paar Minu
 } finally {
 setIsGeneratingReport(false);
 }
-}, [solutionText, db, userId]);
+}, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Berufs-spezifisches KI-Tool aufrufen (TRADE_TOOLS, Text Mode) ---
 // Generisch statt eine eigene Funktion pro Tool, da systemInstruction/Query
 // je Tool (TRADE_TOOLS) variieren, Fetch/Fehlerbehandlung aber identisch sind.
@@ -1632,7 +1647,7 @@ setError(`Konnte "${tool.label}" nicht erstellen.`);
 } catch (e) {
 console.error(`API-Fehler (${tool.label}):`, e);
 if (e.status === 402) {
-setError(e.message);
+handleTrialExceededError(e.message);
 } else {
 queueErrorReport('gemini-trade-tool-api', e);
 flushErrorReports(db, userId, appId);
@@ -1641,7 +1656,7 @@ setError(`"${tool.label}" konnte nicht erstellt werden. Bitte in ein paar Minute
 } finally {
 setLoadingTradeToolIds((prev) => ({ ...prev, [tool.id]: false }));
 }
-}, [solutionText, problemDescription, selectedTrade, db, userId]);
+}, [solutionText, problemDescription, selectedTrade, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Video-Anleitungen suchen (Google-Search-Grounding) ---
 // Hinweis: responseSchema/responseMimeType lassen sich bei der Gemini API nicht mit
 // dem "tools"-Grounding kombinieren, daher wird das JSON-Array per Prompt erzwungen
@@ -1717,7 +1732,7 @@ const callGeminiVideoSearch = useCallback(async () => {
   } catch (e) {
     console.error("API-Fehler (Video Search):", e);
     if (e.status === 402) {
-      setError(e.message);
+      handleTrialExceededError(e.message);
     } else {
       queueErrorReport('gemini-video-search-api', e);
       flushErrorReports(db, userId, appId);
@@ -1726,7 +1741,7 @@ const callGeminiVideoSearch = useCallback(async () => {
   } finally {
     setIsGeneratingVideos(false);
   }
-}, [solutionText, selectedTrade, db, userId]);
+}, [solutionText, selectedTrade, db, userId, handleTrialExceededError]);
 // --- FUNKTION: PDF-EXPORT ---
 const handleExportPdf = useCallback(() => {
 // Export ist auch ohne abgeschlossene Diagnose möglich, sobald mindestens
@@ -2238,6 +2253,106 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 </div>
 );
 }, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImageBase64, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey]);
+// Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen Gemini-API-Keys —
+// öffnet sich automatisch über handleTrialExceededError, sobald eine KI-Anfrage
+// mit Status 402 scheitert (Kontingent aufgebraucht, kein eigener Key). Nimmt
+// den Nutzer "an die Hand" statt nur auf die Profil-Einstellung zu verweisen:
+// Key lässt sich direkt in diesem Dialog anlegen und speichern.
+const ApiKeyOnboardingModal = () => {
+const [keyDraft, setKeyDraft] = useState('');
+const [isSaving, setIsSaving] = useState(false);
+const handleSave = async () => {
+const trimmed = keyDraft.trim();
+if (!trimmed) return;
+setIsSaving(true);
+try {
+await saveOwnApiKey(trimmed);
+setShowApiKeyOnboarding(false);
+} finally {
+setIsSaving(false);
+}
+};
+return (
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowApiKeyOnboarding(false)}>
+<div
+className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
+onClick={e => e.stopPropagation()}
+>
+<div className="flex justify-between items-start border-b pb-3 mb-4">
+<div>
+<h3 className="text-lg font-bold text-gray-800 flex items-center">
+<Zap className="w-5 h-5 mr-2 text-(--accent)" />
+Kostenloses Kontingent aufgebraucht
+</h3>
+<p className="text-xs text-gray-500 mt-1">
+Sie haben Ihre {FREE_TRIAL_MAX} kostenlosen Analysen aufgebraucht. Mit
+einem eigenen, kostenlosen Gemini-API-Key können Sie SmartCraft sofort
+weiter nutzen — in 4 kurzen Schritten.
+</p>
+</div>
+<button onClick={() => setShowApiKeyOnboarding(false)} className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
+<X className="w-5 h-5" />
+</button>
+</div>
+<ol className="space-y-3 text-sm text-gray-700 mb-4">
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">1</span>
+<span>Öffnen Sie Google AI Studio und melden Sie sich mit einem Google-Konto an.</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">2</span>
+<span>Klicken Sie dort auf <strong>"Create API key"</strong> (kostenlos, kein Abo nötig).</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">3</span>
+<span>Kopieren Sie den erzeugten Key.</span>
+</li>
+<li className="flex space-x-2">
+<span className="flex-shrink-0 w-5 h-5 rounded-full bg-(--accent) text-white text-xs font-bold flex items-center justify-center">4</span>
+<span>Fügen Sie ihn unten ein und speichern Sie ihn.</span>
+</li>
+</ol>
+<a
+href="https://aistudio.google.com/apikey"
+target="_blank"
+rel="noopener noreferrer"
+className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl hover:bg-gray-200 transition duration-300 text-sm mb-4"
+>
+<ExternalLink className="w-4 h-4 mr-2" />
+Google AI Studio öffnen (aistudio.google.com/apikey)
+</a>
+<div className="flex space-x-2">
+<input
+type="password"
+value={keyDraft}
+onChange={(e) => setKeyDraft(e.target.value)}
+placeholder="AIza..."
+className="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-(--accent)"
+/>
+<button
+onClick={handleSave}
+disabled={isSaving || !keyDraft.trim()}
+className="px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-lg hover:bg-(--accent-dark) transition disabled:opacity-50 flex-shrink-0 flex items-center justify-center"
+>
+{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Speichern'}
+</button>
+</div>
+<p className="text-[11px] text-gray-400 mt-3">
+Der Key wird nur für Ihr eigenes Konto gespeichert und ausschließlich
+serverseitig für Ihre eigenen KI-Anfragen genutzt. Google bietet für die
+Gemini API ein kostenloses Kontingent — für den privaten Gebrauch fallen
+in der Regel keine Kosten an.
+</p>
+<button
+onClick={() => setShowApiKeyOnboarding(false)}
+className="w-full mt-3 text-xs text-gray-400 hover:text-gray-600 transition"
+>
+Später erledigen
+</button>
+</div>
+</div>
+);
+};
 // Profil-Modal-Komponente (angepasst an Rot/Blau)
 const UserProfileModal = () => {
 const [showProfile, setShowProfile] = useState(false);
@@ -2521,6 +2636,9 @@ isAnonymous: false,
 }}
 />
 )}
+{/* Anleitung zum Hinterlegen eines eigenen API-Keys (siehe
+    handleTrialExceededError) — öffnet sich automatisch bei Status 402. */}
+{showApiKeyOnboarding && <ApiKeyOnboardingModal />}
 {/* Header mit Profil-Button - Farbe folgt dem gewählten Beruf (weicher Übergang) */}
 <header className="w-full p-5 header-ornate relative transition-colors duration-700 ease-in-out">
 <HeaderPlate />
