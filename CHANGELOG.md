@@ -8,6 +8,28 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.7] – 2026-08-26
+
+### Behoben
+- **KI-Antworttext (und bei der PDF-Ausgabe zusätzlich die eigene
+  Problembeschreibung) wurde ungeescaped als HTML gerendert — potenzielles
+  Self-XSS-Risiko.** Die Diagnose-, Sicherheits-Check-, Kundenbericht- und
+  Berufs-Spezial-Tool-Anzeige (`dangerouslySetInnerHTML` in `src/App.jsx`)
+  ersetzte im Gemini-Antworttext bisher nur Zeilenumbrüche durch `<br/>`,
+  ohne HTML-Sonderzeichen zu escapen — enthielte eine (adversarielle oder
+  halluzinierte) KI-Antwort zufällig HTML-/Script-artigen Text, hätte er im
+  eigenen Browser als echtes Markup gerendert werden können. Der PDF-Export
+  (`handleExportPdf`) baute zusätzlich ein komplettes HTML-Dokument per
+  String-Interpolation von KI-Text UND der selbst eingegebenen
+  Problembeschreibung, geschrieben per `document.write` in ein Popup-Fenster
+  — dort hätte ein eingeschleustes `<script>`-Tag (anders als bei
+  `dangerouslySetInnerHTML`, das keine `<script>`-Tags ausführt) sogar
+  direkt ausgeführt werden können. Neue `escapeHtml`/`textToSafeHtml`/
+  `markdownToSafeHtml`-Helfer escapen jetzt vor jeder HTML-Einbettung; per
+  Playwright-Test mit einem `<img onerror=...>`-Test-Payload als
+  `solutionText` verifiziert (Payload erscheint als reiner Text, kein
+  Script-Trigger, `window.__xssFired` bleibt `false`).
+
 ## [2.9.6] – 2026-08-26
 
 ### Geändert

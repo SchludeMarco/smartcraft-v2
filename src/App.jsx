@@ -412,6 +412,21 @@ return fallback;
 return fallback;
 }
 };
+// Escaped HTML-Sonderzeichen — Grundlage für jede Stelle, die KI-Text oder
+// direkte Nutzereingaben (z.B. problemDescription) als HTML rendert
+// (dangerouslySetInnerHTML unten, PDF-Export in handleExportPdf). Ohne dieses
+// Escaping würde ein KI-Antworttext oder eine Nutzereingabe, der/die zufällig
+// wie HTML/Script aussieht (adversarielles Bild, manipulierte Beschreibung,
+// Modell-Halluzination), im eigenen Browser bzw. im PDF-Export-Popup als
+// echtes Markup — im PDF-Popup sogar als ausführbares <script> — landen statt
+// als reiner Text angezeigt zu werden.
+const escapeHtml = (str) =>
+String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Für die Ergebnis-Anzeige (dangerouslySetInnerHTML): nur Zeilenumbrüche zu <br/>.
+const textToSafeHtml = (text) => escapeHtml(text).replace(/\n/g, '<br/>');
+// Für den PDF-Export: zusätzlich **fett**-Markdown zu <strong>, wie bisher.
+const markdownToSafeHtml = (text) =>
+escapeHtml(text).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>');
 // Komponente für einen einzelnen Handwerker-Button
 // Nutzt eine per Button gesetzte CSS-Variable statt fixer Tailwind-Farbklassen,
 // damit Fläche/Hover/Ring aus der gedeckten TRADE_THEMES-Palette kommen und
@@ -1876,15 +1891,14 @@ return;
 }
 const date = new Date().toLocaleDateString('de-DE');
 const problemHtml = problemDescription.trim()
-? `<p class="mt-2 text-sm text-gray-600"><strong>Problembeschreibung:</strong> ${problemDescription.trim()}</p>`
+? `<p class="mt-2 text-sm text-gray-600"><strong>Problembeschreibung:</strong> ${escapeHtml(problemDescription.trim())}</p>`
 : '';
 const tradeHtml = selectedTrade
-? `<p class="meta"><strong>Beruf:</strong> ${selectedTrade}</p>`
+? `<p class="meta"><strong>Beruf:</strong> ${escapeHtml(selectedTrade)}</p>`
 : '';
-// Konvertiere Markdown-Formatierung in einfache HTML-Tags
-const solutionHtml = solutionText
-? solutionText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
-: '';
+// Konvertiere Markdown-Formatierung in einfache HTML-Tags (nach dem Escaping
+// der KI-Rohantwort, siehe markdownToSafeHtml)
+const solutionHtml = solutionText ? markdownToSafeHtml(solutionText) : '';
 let materialHtml = '';
 if (materialList && materialList.length > 0) {
 materialHtml = `
@@ -1900,9 +1914,9 @@ materialHtml = `
 <tbody>
 ${materialList.map(item => `
 <tr>
-<td style="border: 1px solid #ccc; padding: 8px;">${item.category}</td>
-<td style="border: 1px solid #ccc; padding: 8px;">${item.item}</td>
-<td style="border: 1px solid #ccc; padding: 8px;">${item.quantity}</td>
+<td style="border: 1px solid #ccc; padding: 8px;">${escapeHtml(item.category)}</td>
+<td style="border: 1px solid #ccc; padding: 8px;">${escapeHtml(item.item)}</td>
+<td style="border: 1px solid #ccc; padding: 8px;">${escapeHtml(item.quantity)}</td>
 </tr>
 `).join('')}
 </tbody>
@@ -1911,9 +1925,7 @@ ${materialList.map(item => `
 }
 let safetyHtml = '';
 if (safetyTips) {
-const safetyContent = safetyTips
-.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-.replace(/\n/g, '<br/>');
+const safetyContent = markdownToSafeHtml(safetyTips);
 safetyHtml = `
 <h2>4. Sicherheits-Check (PSA & Risiko)</h2>
 <div class="result-box">
@@ -1928,8 +1940,8 @@ videoHtml = `
 <ul style="list-style-type: none; padding-left: 0;">
 ${videoLinks.map(link => `
 <li style="margin-bottom: 10px; border-left: 3px solid #007bff; padding-left: 10px;">
-<strong style="display: block;">${link.title}</strong>
-<a href="${link.uri}" style="color: #007bff; font-size: 0.9em; text-decoration: none;">Link zum Video</a>
+<strong style="display: block;">${escapeHtml(link.title)}</strong>
+<a href="${escapeHtml(link.uri)}" style="color: #007bff; font-size: 0.9em; text-decoration: none;">Link zum Video</a>
 </li>
 `).join('')}
 </ul>
@@ -1937,9 +1949,7 @@ ${videoLinks.map(link => `
 }
 let reportHtml = '';
 if (clientReport) {
-const reportContent = clientReport
-.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-.replace(/\n/g, '<br/>');
+const reportContent = markdownToSafeHtml(clientReport);
 reportHtml = `
 <h2>6. Kundenbericht & Administrative Schritte</h2>
 <div class="result-box">
@@ -1954,7 +1964,7 @@ tradeToolsHtml = `
 ${tradeToolEntries.map(({ tool, text, trade }) => `
 <div class="result-box" style="margin-bottom: 15px;">
 <strong>${tool.label}</strong>${trade ? ` <span style="color:#999;font-weight:normal;">(${trade})</span>` : ''}
-<div>${text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')}</div>
+<div>${markdownToSafeHtml(text)}</div>
 </div>
 `).join('')}
 `;
@@ -2084,7 +2094,7 @@ Lösung und Diagnose
 {/* 1. Hauptlösung */}
 <div className="prose max-w-none text-gray-700 leading-relaxed max-h-96 overflow-y-auto p-3 border border-gray-200 rounded-lg bg-gray-50">
 {/* Anzeige des Lösungstextes */}
-<div dangerouslySetInnerHTML={{ __html: solutionText.replace(/\n/g, '<br/>') }} />
+<div dangerouslySetInnerHTML={{ __html: textToSafeHtml(solutionText) }} />
 </div>
 {/* Sprachausgabe (TTS) — läuft über api/tts.js (Google Cloud Text-to-Speech) */}
 <div className="p-3 bg-gray-50 border-l-4 rounded-lg shadow-md space-y-2" style={{ borderColor: theme.accent }}>
@@ -2278,7 +2288,7 @@ aria-label="Ergebnis entfernen"
 </button>
 </div>
 <div className="text-sm text-gray-700 leading-relaxed">
-<div dangerouslySetInnerHTML={{ __html: safetyTips.replace(/\n/g, '<br/>') }} />
+<div dangerouslySetInnerHTML={{ __html: textToSafeHtml(safetyTips) }} />
 </div>
 </div>
 )}
@@ -2336,7 +2346,7 @@ aria-label="Ergebnis entfernen"
 </button>
 </div>
 <div className="text-sm text-gray-700 leading-relaxed">
-<div dangerouslySetInnerHTML={{ __html: clientReport.replace(/\n/g, '<br/>') }} />
+<div dangerouslySetInnerHTML={{ __html: textToSafeHtml(clientReport) }} />
 </div>
 </div>
 )}
@@ -2754,7 +2764,7 @@ aria-label="Ergebnis entfernen"
 </button>
 </div>
 <div className="text-sm text-gray-700 leading-relaxed">
-<div dangerouslySetInnerHTML={{ __html: text.replace(/\n/g, '<br/>') }} />
+<div dangerouslySetInnerHTML={{ __html: textToSafeHtml(text) }} />
 </div>
 </div>
 );
