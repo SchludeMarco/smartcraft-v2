@@ -2541,8 +2541,7 @@ if (!isAuthReady) {
 // Ladebildschirm während der Firebase-Authentifizierung
 return (
 <div
-className="min-h-screen flex justify-center items-center bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
-style={{ backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg)" }}
+className="min-h-screen flex justify-center items-center app-backdrop"
 >
 <div className="absolute inset-0 bg-black/40 z-0"></div>
 <div
@@ -2559,8 +2558,7 @@ if (showAuth) {
 // Login-Gate: Die App ist ohne Google-Anmeldung nicht nutzbar.
 return (
 <div
-className="min-h-screen flex justify-center items-center bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
-style={{ backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg)" }}
+className="min-h-screen flex justify-center items-center app-backdrop"
 >
 <div className="absolute inset-0 bg-black/40 z-0"></div>
 <div
@@ -2604,9 +2602,8 @@ Mit Google anmelden
 // Haupt-App-Ansicht
 return (
 <div
-className="min-h-screen p-4 sm:p-6 lg:p-8 flex justify-center relative bg-gray-800 bg-cover bg-center bg-fixed bg-no-repeat"
+className="min-h-screen p-4 sm:p-6 lg:p-8 flex justify-center relative app-backdrop"
 style={{
-backgroundImage: "url(https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg)",
 '--accent': theme.accent,
 '--accent-dark': theme.accentDark,
 '--accent-soft': theme.accentSoft,

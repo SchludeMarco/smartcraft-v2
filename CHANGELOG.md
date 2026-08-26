@@ -8,6 +8,24 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.9.4] – 2026-08-26
+
+### Behoben
+- **Seitenhintergrund war in Produktion vermutlich schon unsichtbar: die
+  extern gehostete Bild-URL ist tot.** Der Seitenhintergrund (Lade-Screen,
+  Login-Gate, Hauptansicht in `src/App.jsx`) lud bislang ein Foto von
+  `https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg`.
+  Beim Versuch, dieses Bild für ein lokales Hosting herunterzuladen, stellte
+  sich heraus, dass die URL bereits mit `404 NoSuchBucket` fehlschlägt — der
+  Bucket `bacon-images-prod` existiert nicht mehr (auch im Wayback-Archiv
+  nicht auffindbar). Nutzer sahen damit vermutlich schon länger nur den
+  grauen `bg-gray-800`-Fallback statt des beabsichtigten Fotos. Da sich das
+  Originalbild nicht wiederherstellen ließ, ersetzt durch einen reinen
+  CSS-Verlauf (`.app-backdrop` in `src/index.css`) in den bestehenden
+  Wood-/Gold-Theme-Farbtönen — dusk-artiger Verlauf mit sanftem Glanz
+  hinter der Kopfzeile. Kein externer Request mehr nötig, funktioniert
+  damit auch offline oder wenn Drittanbieter-Hosts ausfallen.
+
 ## [2.9.3] – 2026-08-26
 
 ### Geändert
