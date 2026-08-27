@@ -5,7 +5,7 @@ Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
 Settings, MoreHorizontal, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
 Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
-ExternalLink, Share2, Save, Trash2, HardDrive, Cloud
+ExternalLink, Share2, Save, Trash2, HardDrive, Cloud, Euro
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
@@ -59,6 +59,7 @@ const SYSTEM_INSTRUCTION = "Du bist ein erfahrener Bauingenieur und Zimmermann, 
 const SYSTEM_INSTRUCTION_MATERIAL = "Du bist ein Einkaufsmanager für Handwerksbetriebe. Analysiere den folgenden Lösungsvorschlag und erstelle eine JSON-Liste der benötigten Materialien und Werkzeuge. Gib nur das JSON-Array aus.";
 const SYSTEM_INSTRUCTION_SAFETY = "Du bist ein Arbeitsschutz-Experte (Sicherheitstechniker). Analysiere den folgenden Lösungsvorschlag und identifiziere alle potenziellen Risiken. Erstelle eine kurze Liste von Sicherheitstipps und notwendiger persönlicher Schutzausrüstung (PSA). Antworte im Markdown-Format.";
 const SYSTEM_INSTRUCTION_CLIENT_REPORT = "Du bist ein Projektmanager mit ausgezeichneten Kommunikationsfähigkeiten. Nimm die technische Lösung und formuliere eine professionelle, jargonfreie Zusammenfassung für den Endkunden oder Projektleiter. Füge am Ende eine Liste der administrativen nächsten Schritte (z.B. Genehmigungen, Abnahmen) hinzu, die erforderlich sind. Antworte im Markdown-Format.";
+const SYSTEM_INSTRUCTION_COST = "Du bist ein Kalkulator für Handwerksleistungen. Analysiere den folgenden Lösungsvorschlag und erstelle eine grobe Kostenschätzung in Euro. Gliedere die Antwort in die Abschnitte 'Material' (Preisspanne), 'Arbeitszeit' (geschätzte Stunden UND Kosten bei üblichem Handwerker-Stundensatz) und 'Gesamt' (Preisspanne, keine feste Summe, da Region und Anbieter stark abweichen). Weise abschließend in einem kurzen Satz darauf hin, dass es sich um eine grobe Orientierung ohne Gewähr handelt und keinen verbindlichen Kostenvoranschlag ersetzt. Antworte im Markdown-Format.";
 const SYSTEM_INSTRUCTION_VIDEO_FINAL = "Du bist ein YouTube-Experte für Handwerks-Tutorials. Basierend auf dem folgenden Lösungsvorschlag, suche und wähle die 3-5 relevantesten und aktuellsten YouTube-Video-Links aus, die eine visuelle Anleitung zur Reparatur bieten. Ignoriere alle Nicht-YouTube-Links. Antworte AUSSCHLIESSLICH mit einem JSON-Array im Format [{\"title\": \"...\", \"uri\": \"https://www.youtube.com/watch?v=...\"}], ohne zusätzlichen Text davor oder danach.";
 const SYSTEM_INSTRUCTION_TTS_SUMMARY = "Du bist ein erfahrener Handwerksmeister. Fasse die folgende Diagnose und Lösung für eine mündliche Vorlesung auf das Wesentliche zusammen: das Problem und die wichtigsten Lösungsschritte, in maximal 5 kurzen Sätzen. Antworte ausschließlich in reinem Fließtext ohne Markdown, Überschriften oder Aufzählungszeichen, da der Text direkt vorgelesen wird.";
 // Bekannte deutsche Stimmnamen, um bei der Browser-Sprachausgabe (Fallback,
@@ -1085,10 +1086,12 @@ const [materialList, setMaterialList] = useState(null);
 const [safetyTips, setSafetyTips] = useState(null);
 const [videoLinks, setVideoLinks] = useState(null);
 const [clientReport, setClientReport] = useState(null);
+const [costEstimate, setCostEstimate] = useState(null);
 const [isGeneratingMaterials, setIsGeneratingMaterials] = useState(false);
 const [isGeneratingSafety, setIsGeneratingSafety] = useState(false);
 const [isGeneratingVideos, setIsGeneratingVideos] = useState(false);
 const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+const [isGeneratingCost, setIsGeneratingCost] = useState(false);
 // Berufs-spezifische KI-Tools (TRADE_TOOLS): Ergebnisse/Ladezustand pro
 // Tool-ID statt einzelner States, da die Anzahl der Tools pro Beruf variiert.
 const [tradeToolResults, setTradeToolResults] = useState({});
@@ -1627,10 +1630,12 @@ setMaterialList(null);
 setSafetyTips(null);
 setVideoLinks(null);
 setClientReport(null);
+setCostEstimate(null);
 setIsGeneratingMaterials(false);
 setIsGeneratingSafety(false);
 setIsGeneratingVideos(false);
 setIsGeneratingReport(false);
+setIsGeneratingCost(false);
 setTradeToolResults({});
 setLoadingTradeToolIds({});
 }, []);
@@ -1822,6 +1827,7 @@ setMaterialList(null);
 setSafetyTips(null);
 setVideoLinks(null);
 setClientReport(null);
+setCostEstimate(null);
 setTradeToolResults({});
 setLoadingTradeToolIds({});
 setSources([]);
@@ -1941,6 +1947,30 @@ reportEmptyResult('gemini-safety-api', 'Antwort ohne verwertbaren Kandidaten', "
 handleGeminiError(e, 'gemini-safety-api', "Der Sicherheits-Check konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
 } finally {
 setIsGeneratingSafety(false);
+}
+}, [solutionText, db, userId, handleTrialExceededError]);
+// --- FUNKTION: Kostenschätzung generieren (Text Mode) ---
+const callGeminiCostAPI = useCallback(async () => {
+if (!solutionText) return;
+setIsGeneratingCost(true);
+setCostEstimate(null);
+const userQuery = `Erstelle eine grobe Kostenschätzung (Material und Arbeitszeit) für diese Lösung: ${solutionText}`;
+const payload = {
+contents: [{ parts: [{ text: userQuery }] }],
+systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION_COST }] },
+};
+try {
+const result = await callGeminiApi(payload);
+const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+if (text) {
+setCostEstimate(text);
+} else {
+reportEmptyResult('gemini-cost-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte die Kostenschätzung nicht erstellen.");
+}
+} catch (e) {
+handleGeminiError(e, 'gemini-cost-api', "Die Kostenschätzung konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
+} finally {
+setIsGeneratingCost(false);
 }
 }, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Kundenbericht generieren (Text Mode) ---
@@ -2097,10 +2127,22 @@ ${safetyContent}
 </div>
 `;
 }
+let costHtml = '';
+if (costEstimate) {
+const costContent = costEstimate
+.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+.replace(/\n/g, '<br/>');
+costHtml = `
+<h2>5. Grobe Kostenschätzung</h2>
+<div class="result-box">
+${costContent}
+</div>
+`;
+}
 let videoHtml = '';
 if (videoLinks && videoLinks.length > 0) {
 videoHtml = `
-<h2>5. Video-Anleitungen (YouTube)</h2>
+<h2>6. Video-Anleitungen (YouTube)</h2>
 <ul style="list-style-type: none; padding-left: 0;">
 ${videoLinks.map(link => `
 <li style="margin-bottom: 10px; border-left: 3px solid #007bff; padding-left: 10px;">
@@ -2117,7 +2159,7 @@ const reportContent = clientReport
 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 .replace(/\n/g, '<br/>');
 reportHtml = `
-<h2>6. Kundenbericht & Administrative Schritte</h2>
+<h2>7. Kundenbericht & Administrative Schritte</h2>
 <div class="result-box">
 ${reportContent}
 </div>
@@ -2126,7 +2168,7 @@ ${reportContent}
 let tradeToolsHtml = '';
 if (tradeToolEntries.length > 0) {
 tradeToolsHtml = `
-<h2>7. Berufs-Spezial-Tools</h2>
+<h2>8. Berufs-Spezial-Tools</h2>
 ${tradeToolEntries.map(({ tool, text, trade }) => `
 <div class="result-box" style="margin-bottom: 15px;">
 <strong>${tool.label}</strong>${trade ? ` <span style="color:#999;font-weight:normal;">(${trade})</span>` : ''}
@@ -2180,6 +2222,7 @@ ${solutionHtml}
 ` : ''}
 ${materialHtml}
 ${safetyHtml}
+${costHtml}
 ${videoHtml}
 ${reportHtml}
 ${tradeToolsHtml}
@@ -2198,7 +2241,7 @@ printWindow.print();
 } else {
 setError("Der Browser hat das Popup-Fenster blockiert. Bitte erlauben Sie Popups.");
 }
-}, [solutionText, problemDescription, selectedImages, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
+}, [solutionText, problemDescription, selectedImages, selectedTrade, materialList, safetyTips, costEstimate, videoLinks, clientReport, tradeToolResultEntries]);
 // --- FUNKTION: TEILEN (WhatsApp, Telegram, E-Mail, ...) ---
 // Reiner Text statt HTML wie beim PDF-Export (handleExportPdf), da Messenger
 // und E-Mail-Clients kein HTML-Markup aus einem geteilten Text-Payload rendern.
@@ -2213,6 +2256,7 @@ if (materialList && materialList.length > 0) {
 parts.push(`\nMaterialien:\n${materialList.map((m) => `- ${m.item} (${m.quantity}) [${m.category}]`).join('\n')}`);
 }
 if (safetyTips) parts.push(`\nSicherheit:\n${stripMd(safetyTips)}`);
+if (costEstimate) parts.push(`\nKostenschätzung:\n${stripMd(costEstimate)}`);
 if (videoLinks && videoLinks.length > 0) {
 parts.push(`\nVideos:\n${videoLinks.map((v) => `- ${v.title}: ${v.uri}`).join('\n')}`);
 }
@@ -2222,7 +2266,7 @@ parts.push(`\nBerufs-Tools:\n${tradeToolResultEntries.map(({ tool, text, trade }
 }
 parts.push('\n– Erstellt mit der Sm@rtCraft App');
 return parts.join('\n');
-}, [solutionText, problemDescription, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
+}, [solutionText, problemDescription, selectedTrade, materialList, safetyTips, costEstimate, videoLinks, clientReport, tradeToolResultEntries]);
 // Dünne Abstraktion für die Anzeige des Ergebniszustands (Laden, Fehler, Lösung)
 const ResultDisplay = useMemo(() => {
 // NEUE PRÜFUNG: Mindestens ein Element muss vorhanden sein
@@ -2358,8 +2402,8 @@ Stimme: Premium (Google Cloud TTS, WaveNet)
 {/* 2. Generische KI-Tools (Berufs-Spezial-Tools sitzen jetzt direkt unter der Berufsauswahl, siehe TradeToolsSection) */}
 <div className="border-t pt-4 border-gray-100">
 <h3 className="text-lg font-semibold text-gray-700 mb-3">Zusätzliche KI-Tools:</h3>
-<div className="grid grid-cols-2 gap-3">
-{/* Materialliste Button (1/4) - Farbe: Indigo */}
+<div className="grid grid-cols-3 gap-3">
+{/* Materialliste Button (1/5) - Farbe: Indigo */}
 <button
 onClick={callGeminiMaterialsAPI}
 disabled={isGeneratingMaterials || !solutionText}
@@ -2374,7 +2418,7 @@ isGeneratingMaterials ? 'bg-indigo-400 cursor-wait' : 'bg-indigo-600 hover:bg-in
 )}
 <span className="mt-1">✨ Materialliste</span>
 </button>
-{/* Sicherheits-Check Button (2/4) - Farbe: Teal */}
+{/* Sicherheits-Check Button (2/5) - Farbe: Teal */}
 <button
 onClick={callGeminiSafetyAPI}
 disabled={isGeneratingSafety || !solutionText}
@@ -2389,7 +2433,22 @@ isGeneratingSafety ? 'bg-teal-400 cursor-wait' : 'bg-teal-600 hover:bg-teal-700'
 )}
 <span className="mt-1">✨ Sicherheits-Check</span>
 </button>
-{/* Video-Anleitung Button (3/4) - Farbe: Amber */}
+{/* Kostenschätzung Button (3/5) - Farbe: Emerald */}
+<button
+onClick={callGeminiCostAPI}
+disabled={isGeneratingCost || !solutionText}
+className={`flex flex-col items-center justify-center p-2 rounded-xl font-bold text-white shadow-md transition duration-300 text-xs transform active:scale-[0.98] ${
+isGeneratingCost ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'
+}`}
+>
+{isGeneratingCost ? (
+<Loader2 className="w-4 h-4 animate-spin" />
+) : (
+<Euro className="w-4 h-4" />
+)}
+<span className="mt-1">✨ Kostenschätzung</span>
+</button>
+{/* Video-Anleitung Button (4/5) - Farbe: Amber */}
 <button
 onClick={callGeminiVideoSearch}
 disabled={isGeneratingVideos || !solutionText}
@@ -2482,7 +2541,29 @@ aria-label="Ergebnis entfernen"
 </div>
 </div>
 )}
-{/* 5. Video-Anleitungen Ergebnis */}
+{/* 5. Kostenschätzung Ergebnis */}
+{costEstimate && (
+<div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
+<div className="flex items-start justify-between mb-3">
+<h4 className="text-md font-bold text-gray-800 flex items-center">
+<Euro className="w-5 h-5 mr-2 text-emerald-600" />
+Grobe Kostenschätzung
+</h4>
+<button
+onClick={() => setCostEstimate(null)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
+<div className="text-sm text-gray-700 leading-relaxed">
+<div dangerouslySetInnerHTML={{ __html: costEstimate.replace(/\n/g, '<br/>') }} />
+</div>
+</div>
+)}
+{/* 6. Video-Anleitungen Ergebnis */}
 {videoLinks && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
 <div className="flex items-start justify-between mb-3">
@@ -2517,7 +2598,7 @@ className="text-sm text-blue-600 hover:text-blue-800 font-medium truncate block"
 </ul>
 </div>
 )}
-{/* 6. Kundenbericht Ergebnis */}
+{/* 7. Kundenbericht Ergebnis */}
 {clientReport && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
 <div className="flex items-start justify-between mb-3">
@@ -2541,7 +2622,7 @@ aria-label="Ergebnis entfernen"
 </div>
 )}
 {/* Berufs-Spezial-Tool-Ergebnisse: siehe TradeToolsSection direkt unter der Berufsauswahl */}
-{/* 7. TEILEN & PDF EXPORT BUTTONS */}
+{/* 8. TEILEN & PDF EXPORT BUTTONS */}
 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-2">
 <button
 onClick={() => setShowShare(true)}
@@ -2568,7 +2649,7 @@ className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold r
 </button>
 <button
 onClick={handleExportPdf}
-disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport}
+disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport || isGeneratingCost}
 // Primärfarbe folgt dem gewählten Beruf
 className="flex items-center px-4 py-2 bg-(--accent) text-white font-semibold rounded-xl shadow-md hover:bg-(--accent-dark) transition-colors duration-500 ease-in-out transform active:scale-[0.98]"
 >
@@ -2599,7 +2680,7 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 <p className="text-xs mt-4 text-gray-500">Wählen Sie zuerst Ihren Beruf (Abschnitt 1) für eine präzisere Diagnose.</p>
 </div>
 );
-}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImages, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey, handleSaveLocally, localSaveStatus]);
+}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, costEstimate, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, isGeneratingCost, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiCostAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImages, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey, handleSaveLocally, localSaveStatus]);
 if (!isAuthReady) {
 // Ladebildschirm während der Firebase-Authentifizierung
 return (

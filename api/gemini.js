@@ -29,7 +29,7 @@ export const config = { maxDuration: 30 };
 const MODEL_NAME = 'gemini-flash-lite-latest';
 
 // Rate-Limit-Fenster: 12/Minute deckt einen legitimen Burst (Hauptanalyse +
-// die 4 Zusatz-Tools) locker ab, 200/Tag bremst zusätzlich Slow-Drip-Missbrauch.
+// die 5 Zusatz-Tools) locker ab, 200/Tag bremst zusätzlich Slow-Drip-Missbrauch.
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_PER_WINDOW = 12;
 const RATE_LIMIT_DAY_MS = 24 * 60 * 60 * 1000;

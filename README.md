@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.12.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.13.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -155,20 +155,23 @@ gewählten Berufs und liefert eine präzise, schrittweise Lösung, formuliert f�
 erfahrenen Handwerker (kein Laien-Geschwurbel, direkt und praxisnah) — verständlich
 genug, dass auch Laien ihr zuhause folgen können.
 
-**4. Vier KI-Zusatzwerkzeuge**, jeweils auf Basis der Diagnose per Knopfdruck abrufbar:
+**4. Fünf KI-Zusatzwerkzeuge**, jeweils auf Basis der Diagnose per Knopfdruck abrufbar:
 - **Materialliste** — strukturierte Liste aus Material und Werkzeug inkl.
   Mengenangabe, direkt als Einkaufszettel für den nächsten Baumarkt-Besuch nutzbar
 - **Sicherheits-Check** — Risikoeinschätzung und notwendige persönliche
   Schutzausrüstung (PSA); für Privatnutzer die wichtigste Orientierung, ob eine
   Arbeit noch selbst zu machen ist oder besser einem Fachmann überlassen wird
+- **Kostenschätzung** — grobe Preisspanne für Material und Arbeitszeit (inkl.
+  geschätztem Stundenaufwand), als unverbindliche erste Orientierung, ob sich
+  Selbermachen lohnt oder ein Kostenvoranschlag vom Fachmann sinnvoller ist
 - **Kundenbericht** — dieselbe Lösung, jargonfrei für Auftraggeber oder Endkunden
   formuliert, inklusive administrativer nächster Schritte (Genehmigungen, Abnahmen)
 - **Video-Anleitungs-Suche** — passende YouTube-Tutorials zur Lösung, per
   Google-Search-Grounding gefunden
 
 **5. PDF-Export** — der komplette Bericht (Diagnose, Materialliste, Sicherheits-Check,
-Video-Anleitungen, Kundenbericht, Berufs-Spezial-Tool-Ergebnisse, alle ausgewählten
-Fotos) lässt sich als
+Kostenschätzung, Video-Anleitungen, Kundenbericht, Berufs-Spezial-Tool-Ergebnisse,
+alle ausgewählten Fotos) lässt sich als
 druckfertiges PDF exportieren —
 direkt weitergebbar an Kunden, an den Handwerker des Vertrauens oder fürs eigene
 Archiv.

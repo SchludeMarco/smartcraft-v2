@@ -8,6 +8,19 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.13.0] – 2026-08-27
+
+### Hinzugefügt
+- **Fünftes KI-Zusatzwerkzeug: Kostenschätzung.** Neben Materialliste,
+  Sicherheits-Check, Video-Anleitung und Kundenbericht liefert ein neuer
+  Button (`callGeminiCostAPI` in `src/App.jsx`, `SYSTEM_INSTRUCTION_COST`)
+  auf Basis der Diagnose eine grobe Kostenspanne für Material und
+  Arbeitszeit inkl. Stundensatz-Schätzung — mit ausdrücklichem Hinweis, dass
+  es sich um eine unverbindliche Orientierung handelt, gerade für
+  Privatnutzer, die vor einer Handwerker-Beauftragung eine erste Hausnummer
+  brauchen. Ergebnis ist wie bei Sicherheits-Check/Kundenbericht in
+  PDF-Export und "Teilen"-Text eingebunden.
+
 ## [2.12.0] – 2026-08-27
 
 ### Hinzugefügt
