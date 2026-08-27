@@ -5,7 +5,7 @@ Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
 Settings, MoreHorizontal, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
 Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
-ExternalLink, Share2, Save, Trash2, HardDrive, Cloud
+ExternalLink, Share2, Save, Trash2, HardDrive, Cloud, Euro, MapPin
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
@@ -59,6 +59,7 @@ const SYSTEM_INSTRUCTION = "Du bist ein erfahrener Bauingenieur und Zimmermann, 
 const SYSTEM_INSTRUCTION_MATERIAL = "Du bist ein Einkaufsmanager für Handwerksbetriebe. Analysiere den folgenden Lösungsvorschlag und erstelle eine JSON-Liste der benötigten Materialien und Werkzeuge. Gib nur das JSON-Array aus.";
 const SYSTEM_INSTRUCTION_SAFETY = "Du bist ein Arbeitsschutz-Experte (Sicherheitstechniker). Analysiere den folgenden Lösungsvorschlag und identifiziere alle potenziellen Risiken. Erstelle eine kurze Liste von Sicherheitstipps und notwendiger persönlicher Schutzausrüstung (PSA). Antworte im Markdown-Format.";
 const SYSTEM_INSTRUCTION_CLIENT_REPORT = "Du bist ein Projektmanager mit ausgezeichneten Kommunikationsfähigkeiten. Nimm die technische Lösung und formuliere eine professionelle, jargonfreie Zusammenfassung für den Endkunden oder Projektleiter. Füge am Ende eine Liste der administrativen nächsten Schritte (z.B. Genehmigungen, Abnahmen) hinzu, die erforderlich sind. Antworte im Markdown-Format.";
+const SYSTEM_INSTRUCTION_COST = "Du bist ein Kalkulator für Handwerksleistungen. Analysiere den folgenden Lösungsvorschlag und erstelle eine grobe Kostenschätzung in Euro. Gliedere die Antwort in die Abschnitte 'Material' (Preisspanne), 'Arbeitszeit' (geschätzte Stunden UND Kosten bei üblichem Handwerker-Stundensatz) und 'Gesamt' (Preisspanne, keine feste Summe, da Region und Anbieter stark abweichen). Weise abschließend in einem kurzen Satz darauf hin, dass es sich um eine grobe Orientierung ohne Gewähr handelt und keinen verbindlichen Kostenvoranschlag ersetzt. Antworte im Markdown-Format.";
 const SYSTEM_INSTRUCTION_VIDEO_FINAL = "Du bist ein YouTube-Experte für Handwerks-Tutorials. Basierend auf dem folgenden Lösungsvorschlag, suche und wähle die 3-5 relevantesten und aktuellsten YouTube-Video-Links aus, die eine visuelle Anleitung zur Reparatur bieten. Ignoriere alle Nicht-YouTube-Links. Antworte AUSSCHLIESSLICH mit einem JSON-Array im Format [{\"title\": \"...\", \"uri\": \"https://www.youtube.com/watch?v=...\"}], ohne zusätzlichen Text davor oder danach.";
 const SYSTEM_INSTRUCTION_TTS_SUMMARY = "Du bist ein erfahrener Handwerksmeister. Fasse die folgende Diagnose und Lösung für eine mündliche Vorlesung auf das Wesentliche zusammen: das Problem und die wichtigsten Lösungsschritte, in maximal 5 kurzen Sätzen. Antworte ausschließlich in reinem Fließtext ohne Markdown, Überschriften oder Aufzählungszeichen, da der Text direkt vorgelesen wird.";
 // Bekannte deutsche Stimmnamen, um bei der Browser-Sprachausgabe (Fallback,
@@ -67,6 +68,40 @@ const SYSTEM_INSTRUCTION_TTS_SUMMARY = "Du bist ein erfahrener Handwerksmeister.
 // (plattformabhängigen) Anzeigenamen.
 const FEMALE_VOICE_HINTS = ['anna', 'petra', 'katja', 'female', 'hedda', 'helena', 'marlene'];
 const MALE_VOICE_HINTS = ['stefan', 'markus', 'male', 'yannick', 'conrad'];
+// Umkreis, innerhalb dessen zwei GPS-Koordinaten als "gleicher Standort"
+// gelten (Standort-Erkennung, siehe UserProfileModal/AnalysisHistoryModal) —
+// 75m deckt GPS-Ungenauigkeit auf dem Handy ab, ohne z.B. Nachbargrundstücke
+// fälschlich als "schon mal hier gewesen" zu erkennen.
+const LOCATION_MATCH_RADIUS_METERS = 75;
+// Haversine-Formel für die Distanz zweier Koordinaten in Metern — reicht für
+// den kleinen Umkreis-Vergleich hier locker aus, keine Geo-Library nötig.
+function haversineDistanceMeters(a, b) {
+const EARTH_RADIUS_M = 6371000;
+const toRad = (deg) => (deg * Math.PI) / 180;
+const dLat = toRad(b.lat - a.lat);
+const dLng = toRad(b.lng - a.lng);
+const sinDLat = Math.sin(dLat / 2);
+const sinDLng = Math.sin(dLng / 2);
+const h = sinDLat * sinDLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinDLng * sinDLng;
+return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
+}
+// Liefert die aktuelle Geräteposition oder null (kein Support, Berechtigung
+// verweigert, Timeout) — nie ein rejected Promise, damit Aufrufer nicht bei
+// jeder Ablehnung einen try/catch brauchen (gleicher "still degradieren"-Stil
+// wie pickBrowserVoice/speakWithBrowserTts weiter unten).
+function getCurrentCoords() {
+return new Promise((resolve) => {
+if (typeof navigator === 'undefined' || !navigator.geolocation) {
+resolve(null);
+return;
+}
+navigator.geolocation.getCurrentPosition(
+(pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+() => resolve(null),
+{ enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+);
+});
+}
 // JSON Schema für die Materialliste
 const MATERIAL_SCHEMA = {
 type: "ARRAY",
@@ -442,8 +477,8 @@ ${isSelected ? 'border-gold ring-2 ring-offset-2 ring-offset-parchment ring-gold
 // NEUE Komponente: Historische Analysen anzeigen (liest aus Firestore, ohne
 // Bilder - siehe saveAnalysis) UND aus der optionalen lokalen IndexedDB-Ablage
 // (mit Bildern - siehe localAnalyses.js/saveAnalysisLocally), je nach Tab.
-const AnalysisHistoryModal = ({ db, userId, appId, onClose, onSelect, onSelectLocal }) => {
-const [tab, setTab] = useState('cloud');
+const AnalysisHistoryModal = ({ db, userId, appId, onClose, onSelect, onSelectLocal, locationFeatureEnabled, currentCoords, initialTab }) => {
+const [tab, setTab] = useState(initialTab || 'cloud');
 const [history, setHistory] = useState([]);
 const [isLoading, setIsLoading] = useState(true);
 const [error, setError] = useState(null);
@@ -498,6 +533,14 @@ useEffect(() => {
 fetchHistory();
 fetchLocalHistory();
 }, [fetchHistory, fetchLocalHistory]);
+// Kein eigener Firestore-Query nötig: die "In der Nähe"-Ansicht filtert nur
+// die ohnehin schon geladenen (max. 20) Cloud-Analysen client-seitig nach
+// Distanz — Geo-Radius-Queries würden ein Geohash-Setup in Firestore
+// erfordern, das sich bei dieser kleinen Menge nicht lohnt.
+const nearbyHistory = useMemo(() => {
+if (!currentCoords) return [];
+return history.filter((item) => item.location && haversineDistanceMeters(currentCoords, item.location) <= LOCATION_MATCH_RADIUS_METERS);
+}, [history, currentCoords]);
 const handleDeleteLocal = useCallback(async (e, id) => {
 e.stopPropagation(); // Nicht gleichzeitig den Eintrag laden
 try {
@@ -528,6 +571,15 @@ className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text
 >
 <Cloud className="w-4 h-4" /> Cloud
 </button>
+{locationFeatureEnabled && (
+<button
+type="button"
+onClick={() => setTab('nearby')}
+className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'nearby' ? 'bg-(--accent) text-white' : 'bg-parchment text-gray-600 hover:bg-parchment-dark/50'}`}
+>
+<MapPin className="w-4 h-4" /> In der Nähe
+</button>
+)}
 <button
 type="button"
 onClick={() => setTab('local')}
@@ -562,6 +614,49 @@ onClick={() => onSelect(item)} // Ladefunktion wird bei Klick ausgelöst
 <div>
 <p className="text-xs text-gray-500">
 {item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleString('de-DE') : 'Unbekanntes Datum'}
+</p>
+<p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
+{item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
+</p>
+<span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-(--accent-soft) text-(--accent-dark) rounded-full">
+{item.selectedTrade}
+</span>
+</div>
+<button className='flex items-center text-(--accent) hover:text-(--accent-dark) text-sm font-semibold flex-shrink-0'>
+Laden
+</button>
+</li>
+))}
+</ul>
+)
+) : tab === 'nearby' ? (
+!currentCoords ? (
+<div className="text-center p-8 text-gray-500 flex-grow">
+<MapPin className="w-8 h-8 mx-auto mb-3" />
+<p>Standort konnte nicht ermittelt werden. Bitte den Standortzugriff für diese Seite im Browser erlauben.</p>
+</div>
+) : isLoading ? (
+<div className="flex items-center justify-center flex-grow">
+<Loader2 className="w-6 h-6 text-(--accent) animate-spin" />
+<p className="ml-2 text-gray-600">Historie wird geladen...</p>
+</div>
+) : nearbyHistory.length === 0 ? (
+<div className="text-center p-8 text-gray-500 flex-grow">
+<MapPin className="w-8 h-8 mx-auto mb-3" />
+<p>Keine früheren Analysen im Umkreis von {LOCATION_MATCH_RADIUS_METERS}m gefunden.</p>
+</div>
+) : (
+<ul className="space-y-3 overflow-y-auto flex-grow pr-1">
+{nearbyHistory.map((item) => (
+<li
+key={item.id}
+className="p-3 bg-parchment border border-gold/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
+onClick={() => onSelect(item)}
+>
+<div>
+<p className="text-xs text-gray-500">
+{item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleString('de-DE') : 'Unbekanntes Datum'}
+{' '}· ~{Math.round(haversineDistanceMeters(currentCoords, item.location))}m entfernt
 </p>
 <p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
 {item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
@@ -639,7 +734,11 @@ Laden
 )}
 <div className="text-center mt-4 flex-shrink-0">
 <p className="text-xs text-gray-400">
-{tab === 'cloud' ? 'Zeigt die letzten 20 Analysen.' : 'Nur auf diesem Gerät/Browser gespeichert.'}
+{tab === 'cloud'
+? 'Zeigt die letzten 20 Analysen.'
+: tab === 'nearby'
+? `Analysen aus den letzten 20, die im Umkreis von ${LOCATION_MATCH_RADIUS_METERS}m um Ihren aktuellen Standort liegen.`
+: 'Nur auf diesem Gerät/Browser gespeichert.'}
 </p>
 </div>
 </div>
@@ -838,7 +937,7 @@ Später erledigen
 // oben aus demselben Grund auf Modulebene statt in App verschachtelt (siehe
 // dortiger Kommentar) — betraf hier zusätzlich den eigenen API-Key-Eingabe-
 // Entwurf (apiKeyDraft) und den Google-Foto-Fallback-State.
-const UserProfileModal = ({ authUser, userId, auth, trialRemaining, ownApiKey, saveOwnApiKey, handleReset, onShowHistory, onShowAdmin }) => {
+const UserProfileModal = ({ authUser, userId, auth, trialRemaining, ownApiKey, saveOwnApiKey, locationFeatureEnabled, saveLocationFeaturePreference, handleReset, onShowHistory, onShowAdmin }) => {
 const [showProfile, setShowProfile] = useState(false);
 // Fällt auf das generische User-Icon zurück, falls das Google-Profilbild aus
 // irgendeinem Grund nicht lädt (Hotlink-Schutz, CSP, Netzwerk) — sonst bliebe
@@ -869,6 +968,26 @@ try {
 await saveOwnApiKey(null);
 } finally {
 setIsSavingApiKey(false);
+}
+};
+// Standort-Erkennung: die Firestore-Einstellung wird unabhängig vom
+// Berechtigungs-Ergebnis gespeichert (Nutzerwunsch bleibt bestehen, auch
+// wenn die Berechtigung gerade fehlt und später im Browser nachgeholt wird)
+// — nur die Warnung zeigt an, ob der Browser den Standort gerade freigibt.
+const [isTogglingLocation, setIsTogglingLocation] = useState(false);
+const [locationPermissionWarning, setLocationPermissionWarning] = useState(false);
+const handleToggleLocationFeature = async (e) => {
+const checked = e.target.checked;
+setIsTogglingLocation(true);
+setLocationPermissionWarning(false);
+try {
+await saveLocationFeaturePreference(checked);
+if (checked) {
+const coords = await getCurrentCoords();
+if (!coords) setLocationPermissionWarning(true);
+}
+} finally {
+setIsTogglingLocation(false);
 }
 };
 const handleSignOut = async () => {
@@ -983,6 +1102,41 @@ className="text-[10px] text-gray-400 hover:text-gray-600 underline mt-1 inline-b
 Eigenen Key kostenlos erstellen (aistudio.google.com)
 </a>
 </div>
+{/* Standort-Erkennung (opt-in): siehe LegalPanel.jsx §17 für die
+    Datenschutz-Details, hier nur der Ein/Aus-Schalter. */}
+<div className="pt-3 mt-1 border-t border-gray-200">
+<div className="flex items-start justify-between gap-3">
+<div className="min-w-0">
+<p className="text-xs font-semibold text-gray-700 flex items-center mb-1">
+<MapPin className="w-3.5 h-3.5 mr-1 text-(--accent)" />
+Standort-Erkennung
+</p>
+<p className="text-[11px] text-gray-500">
+Speichert mit Ihrer Zustimmung den GPS-Standort neuer Analysen, damit Sie
+frühere Analysen an derselben Stelle wiederfinden ("Du warst hier schon
+X Mal"). Nur in Ihrem eigenen Verlauf sichtbar, jederzeit abschaltbar.
+</p>
+</div>
+<label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
+<input
+type="checkbox"
+checked={locationFeatureEnabled}
+onChange={handleToggleLocationFeature}
+disabled={isTogglingLocation}
+className="sr-only peer"
+aria-label="Standort-Erkennung aktivieren"
+/>
+<div className="w-9 h-5 bg-gray-300 peer-checked:bg-(--accent) rounded-full transition-colors"></div>
+<div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+</label>
+</div>
+{locationPermissionWarning && (
+<p className="text-[11px] text-red-600 mt-1.5">
+Standortzugriff wurde nicht erlaubt. Bitte in den Browser-Einstellungen
+für diese Seite freigeben, damit die Funktion greift.
+</p>
+)}
+</div>
 <div className="flex justify-between space-x-2 mt-4">
 <button
 onClick={() => { onShowHistory(); setShowProfile(false); }}
@@ -1062,6 +1216,18 @@ const [trialRemaining, setTrialRemaining] = useState(null);
 // Vom Nutzer selbst hinterlegter Gemini-API-Key (Firestore-Profil, siehe
 // loadProfile-Effect unten) — leerer String, solange keiner gespeichert ist.
 const [ownApiKey, setOwnApiKey] = useState('');
+// Standort-Erkennung (opt-in, Firestore-Profil): speichert bei neuen
+// Analysen den GPS-Standort und erkennt frühere Analysen in der Nähe wieder.
+const [locationFeatureEnabled, setLocationFeatureEnabled] = useState(false);
+// Zuletzt ermittelte Position (siehe Effect unten) — wird an
+// AnalysisHistoryModal weitergereicht, damit der "In der Nähe"-Tab keine
+// erneute Standortabfrage auslösen muss.
+const [currentCoords, setCurrentCoords] = useState(null);
+const [nearbyAnalysisCount, setNearbyAnalysisCount] = useState(0);
+const [showLocationBanner, setShowLocationBanner] = useState(true); // wegklickbar (pro Sitzung)
+// Welcher Tab beim Öffnen von AnalysisHistoryModal aktiv sein soll — wird auf
+// 'nearby' gesetzt, wenn der Standort-Hinweis-Banner direkt dorthin verlinkt.
+const [historyInitialTab, setHistoryInitialTab] = useState('cloud');
 // --- App States ---
 // Mehrere Bilder pro Analyse: {id, base64}[], id für stabile React-Keys beim
 // einzelnen Entfernen (siehe MAX_IMAGES oben für die Obergrenze).
@@ -1085,10 +1251,12 @@ const [materialList, setMaterialList] = useState(null);
 const [safetyTips, setSafetyTips] = useState(null);
 const [videoLinks, setVideoLinks] = useState(null);
 const [clientReport, setClientReport] = useState(null);
+const [costEstimate, setCostEstimate] = useState(null);
 const [isGeneratingMaterials, setIsGeneratingMaterials] = useState(false);
 const [isGeneratingSafety, setIsGeneratingSafety] = useState(false);
 const [isGeneratingVideos, setIsGeneratingVideos] = useState(false);
 const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+const [isGeneratingCost, setIsGeneratingCost] = useState(false);
 // Berufs-spezifische KI-Tools (TRADE_TOOLS): Ergebnisse/Ladezustand pro
 // Tool-ID statt einzelner States, da die Anzahl der Tools pro Beruf variiert.
 const [tradeToolResults, setTradeToolResults] = useState({});
@@ -1627,10 +1795,12 @@ setMaterialList(null);
 setSafetyTips(null);
 setVideoLinks(null);
 setClientReport(null);
+setCostEstimate(null);
 setIsGeneratingMaterials(false);
 setIsGeneratingSafety(false);
 setIsGeneratingVideos(false);
 setIsGeneratingReport(false);
+setIsGeneratingCost(false);
 setTradeToolResults({});
 setLoadingTradeToolIds({});
 }, []);
@@ -1726,6 +1896,10 @@ timestamp: serverTimestamp(),
 selectedTrade: analysisData.selectedTrade,
 problemDescription: analysisData.problemDescription,
 solutionText: analysisData.solutionText,
+// Nur gesetzt, wenn die Standort-Erkennung aktiv ist UND die
+// Geolocation-Abfrage erfolgreich war (siehe callGeminiVisionAPI) — kein
+// "location: null"-Feld, wenn kein Standort vorliegt.
+...(analysisData.location ? { location: analysisData.location } : {}),
 });
 } catch (e) {
 console.error("Fehler beim Speichern der Analyse:", e);
@@ -1783,6 +1957,18 @@ setOwnApiKey(key || '');
 console.error("Fehler beim Speichern des eigenen API-Keys:", e);
 }
 }, [db, userId, appId]);
+// Speichert die Opt-in-Einstellung für die Standort-Erkennung (siehe
+// UserProfileModal) — gleiches Muster wie saveOwnApiKey.
+const saveLocationFeaturePreference = useCallback(async (enabled) => {
+setLocationFeatureEnabled(enabled);
+if (!db || !userId) return;
+const profileRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'data');
+try {
+await setDoc(profileRef, { locationFeatureEnabled: enabled }, { merge: true });
+} catch (e) {
+console.error("Fehler beim Speichern der Standort-Einstellung:", e);
+}
+}, [db, userId, appId]);
 useEffect(() => {
 if (!isAuthReady || !db || !userId) return;
 const loadProfile = async () => {
@@ -1798,6 +1984,9 @@ setSelectedTradeState(data.preferredTrade);
 if (data.geminiApiKey) {
 setOwnApiKey(data.geminiApiKey);
 }
+if (data.locationFeatureEnabled) {
+setLocationFeatureEnabled(true);
+}
 }
 } catch (e) {
 console.error("Fehler beim Laden des Profils:", e);
@@ -1805,6 +1994,36 @@ console.error("Fehler beim Laden des Profils:", e);
 };
 loadProfile();
 }, [isAuthReady, db, userId, appId]);
+// --- EFFECT: FRÜHERE ANALYSEN AM AKTUELLEN STANDORT PRÜFEN ---
+// Läuft nur, wenn die Standort-Erkennung im Profil aktiv ist (Opt-in). Fragt
+// die Geräteposition ab und vergleicht sie client-seitig mit den letzten 20
+// Cloud-Analysen (kein Geohash-Setup nötig bei dieser kleinen Menge) — siehe
+// nearbyHistory in AnalysisHistoryModal für dieselbe Logik im Verlauf-Modal.
+useEffect(() => {
+if (!isAuthReady || !db || !userId || !locationFeatureEnabled) return;
+let cancelled = false;
+(async () => {
+const coords = await getCurrentCoords();
+if (cancelled || !coords) return;
+setCurrentCoords(coords);
+try {
+const analysesCol = collection(db, 'artifacts', appId, 'users', userId, 'analyses');
+const q = query(analysesCol, orderBy('timestamp', 'desc'), limit(20));
+const snapshot = await getDocs(q);
+let count = 0;
+snapshot.forEach((docSnap) => {
+const data = docSnap.data();
+if (data.location && haversineDistanceMeters(coords, data.location) <= LOCATION_MATCH_RADIUS_METERS) {
+count += 1;
+}
+});
+if (!cancelled) setNearbyAnalysisCount(count);
+} catch (e) {
+console.error("Fehler beim Prüfen früherer Analysen am Standort:", e);
+}
+})();
+return () => { cancelled = true; };
+}, [isAuthReady, db, userId, appId, locationFeatureEnabled]);
 // --- FUNKTION: BILDANALYSE (Haupt-API-Aufruf) ---
 const callGeminiVisionAPI = useCallback(async () => {
 // Prüfung, ob mindestens ein Eingabeelement vorhanden ist
@@ -1822,6 +2041,7 @@ setMaterialList(null);
 setSafetyTips(null);
 setVideoLinks(null);
 setClientReport(null);
+setCostEstimate(null);
 setTradeToolResults({});
 setLoadingTradeToolIds({});
 setSources([]);
@@ -1871,6 +2091,9 @@ await saveAnalysis({
 selectedTrade,
 problemDescription,
 solutionText: solution,
+// Standort nur abfragen, wenn die Standort-Erkennung aktiv ist — sonst
+// keine unnötige Geolocation-Berechtigungsabfrage im Browser.
+location: locationFeatureEnabled ? await getCurrentCoords() : null,
 });
 } else {
 reportEmptyResult('gemini-vision-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte keine gültige Antwort von der KI erhalten. Mögliches Problem: Das Bild ist zu unklar oder der Dienst ist nicht erreichbar.");
@@ -1884,7 +2107,7 @@ handleGeminiError(e, 'gemini-vision-api', "Die Analyse konnte nicht abgeschlosse
 } finally {
 setIsAnalyzing(false);
 }
-}, [selectedImages, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError]);
+}, [selectedImages, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError, locationFeatureEnabled]);
 // --- FUNKTION: Materialliste generieren (JSON Mode) ---
 const callGeminiMaterialsAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1941,6 +2164,30 @@ reportEmptyResult('gemini-safety-api', 'Antwort ohne verwertbaren Kandidaten', "
 handleGeminiError(e, 'gemini-safety-api', "Der Sicherheits-Check konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
 } finally {
 setIsGeneratingSafety(false);
+}
+}, [solutionText, db, userId, handleTrialExceededError]);
+// --- FUNKTION: Kostenschätzung generieren (Text Mode) ---
+const callGeminiCostAPI = useCallback(async () => {
+if (!solutionText) return;
+setIsGeneratingCost(true);
+setCostEstimate(null);
+const userQuery = `Erstelle eine grobe Kostenschätzung (Material und Arbeitszeit) für diese Lösung: ${solutionText}`;
+const payload = {
+contents: [{ parts: [{ text: userQuery }] }],
+systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION_COST }] },
+};
+try {
+const result = await callGeminiApi(payload);
+const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+if (text) {
+setCostEstimate(text);
+} else {
+reportEmptyResult('gemini-cost-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte die Kostenschätzung nicht erstellen.");
+}
+} catch (e) {
+handleGeminiError(e, 'gemini-cost-api', "Die Kostenschätzung konnte nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen.");
+} finally {
+setIsGeneratingCost(false);
 }
 }, [solutionText, db, userId, handleTrialExceededError]);
 // --- FUNKTION: Kundenbericht generieren (Text Mode) ---
@@ -2097,10 +2344,22 @@ ${safetyContent}
 </div>
 `;
 }
+let costHtml = '';
+if (costEstimate) {
+const costContent = costEstimate
+.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+.replace(/\n/g, '<br/>');
+costHtml = `
+<h2>5. Grobe Kostenschätzung</h2>
+<div class="result-box">
+${costContent}
+</div>
+`;
+}
 let videoHtml = '';
 if (videoLinks && videoLinks.length > 0) {
 videoHtml = `
-<h2>5. Video-Anleitungen (YouTube)</h2>
+<h2>6. Video-Anleitungen (YouTube)</h2>
 <ul style="list-style-type: none; padding-left: 0;">
 ${videoLinks.map(link => `
 <li style="margin-bottom: 10px; border-left: 3px solid #007bff; padding-left: 10px;">
@@ -2117,7 +2376,7 @@ const reportContent = clientReport
 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 .replace(/\n/g, '<br/>');
 reportHtml = `
-<h2>6. Kundenbericht & Administrative Schritte</h2>
+<h2>7. Kundenbericht & Administrative Schritte</h2>
 <div class="result-box">
 ${reportContent}
 </div>
@@ -2126,7 +2385,7 @@ ${reportContent}
 let tradeToolsHtml = '';
 if (tradeToolEntries.length > 0) {
 tradeToolsHtml = `
-<h2>7. Berufs-Spezial-Tools</h2>
+<h2>8. Berufs-Spezial-Tools</h2>
 ${tradeToolEntries.map(({ tool, text, trade }) => `
 <div class="result-box" style="margin-bottom: 15px;">
 <strong>${tool.label}</strong>${trade ? ` <span style="color:#999;font-weight:normal;">(${trade})</span>` : ''}
@@ -2180,6 +2439,7 @@ ${solutionHtml}
 ` : ''}
 ${materialHtml}
 ${safetyHtml}
+${costHtml}
 ${videoHtml}
 ${reportHtml}
 ${tradeToolsHtml}
@@ -2198,7 +2458,7 @@ printWindow.print();
 } else {
 setError("Der Browser hat das Popup-Fenster blockiert. Bitte erlauben Sie Popups.");
 }
-}, [solutionText, problemDescription, selectedImages, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
+}, [solutionText, problemDescription, selectedImages, selectedTrade, materialList, safetyTips, costEstimate, videoLinks, clientReport, tradeToolResultEntries]);
 // --- FUNKTION: TEILEN (WhatsApp, Telegram, E-Mail, ...) ---
 // Reiner Text statt HTML wie beim PDF-Export (handleExportPdf), da Messenger
 // und E-Mail-Clients kein HTML-Markup aus einem geteilten Text-Payload rendern.
@@ -2213,6 +2473,7 @@ if (materialList && materialList.length > 0) {
 parts.push(`\nMaterialien:\n${materialList.map((m) => `- ${m.item} (${m.quantity}) [${m.category}]`).join('\n')}`);
 }
 if (safetyTips) parts.push(`\nSicherheit:\n${stripMd(safetyTips)}`);
+if (costEstimate) parts.push(`\nKostenschätzung:\n${stripMd(costEstimate)}`);
 if (videoLinks && videoLinks.length > 0) {
 parts.push(`\nVideos:\n${videoLinks.map((v) => `- ${v.title}: ${v.uri}`).join('\n')}`);
 }
@@ -2222,7 +2483,7 @@ parts.push(`\nBerufs-Tools:\n${tradeToolResultEntries.map(({ tool, text, trade }
 }
 parts.push('\n– Erstellt mit der Sm@rtCraft App');
 return parts.join('\n');
-}, [solutionText, problemDescription, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
+}, [solutionText, problemDescription, selectedTrade, materialList, safetyTips, costEstimate, videoLinks, clientReport, tradeToolResultEntries]);
 // Dünne Abstraktion für die Anzeige des Ergebniszustands (Laden, Fehler, Lösung)
 const ResultDisplay = useMemo(() => {
 // NEUE PRÜFUNG: Mindestens ein Element muss vorhanden sein
@@ -2358,8 +2619,8 @@ Stimme: Premium (Google Cloud TTS, WaveNet)
 {/* 2. Generische KI-Tools (Berufs-Spezial-Tools sitzen jetzt direkt unter der Berufsauswahl, siehe TradeToolsSection) */}
 <div className="border-t pt-4 border-gray-100">
 <h3 className="text-lg font-semibold text-gray-700 mb-3">Zusätzliche KI-Tools:</h3>
-<div className="grid grid-cols-2 gap-3">
-{/* Materialliste Button (1/4) - Farbe: Indigo */}
+<div className="grid grid-cols-3 gap-3">
+{/* Materialliste Button (1/5) - Farbe: Indigo */}
 <button
 onClick={callGeminiMaterialsAPI}
 disabled={isGeneratingMaterials || !solutionText}
@@ -2374,7 +2635,7 @@ isGeneratingMaterials ? 'bg-indigo-400 cursor-wait' : 'bg-indigo-600 hover:bg-in
 )}
 <span className="mt-1">✨ Materialliste</span>
 </button>
-{/* Sicherheits-Check Button (2/4) - Farbe: Teal */}
+{/* Sicherheits-Check Button (2/5) - Farbe: Teal */}
 <button
 onClick={callGeminiSafetyAPI}
 disabled={isGeneratingSafety || !solutionText}
@@ -2389,7 +2650,22 @@ isGeneratingSafety ? 'bg-teal-400 cursor-wait' : 'bg-teal-600 hover:bg-teal-700'
 )}
 <span className="mt-1">✨ Sicherheits-Check</span>
 </button>
-{/* Video-Anleitung Button (3/4) - Farbe: Amber */}
+{/* Kostenschätzung Button (3/5) - Farbe: Emerald */}
+<button
+onClick={callGeminiCostAPI}
+disabled={isGeneratingCost || !solutionText}
+className={`flex flex-col items-center justify-center p-2 rounded-xl font-bold text-white shadow-md transition duration-300 text-xs transform active:scale-[0.98] ${
+isGeneratingCost ? 'bg-emerald-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'
+}`}
+>
+{isGeneratingCost ? (
+<Loader2 className="w-4 h-4 animate-spin" />
+) : (
+<Euro className="w-4 h-4" />
+)}
+<span className="mt-1">✨ Kostenschätzung</span>
+</button>
+{/* Video-Anleitung Button (4/5) - Farbe: Amber */}
 <button
 onClick={callGeminiVideoSearch}
 disabled={isGeneratingVideos || !solutionText}
@@ -2482,7 +2758,29 @@ aria-label="Ergebnis entfernen"
 </div>
 </div>
 )}
-{/* 5. Video-Anleitungen Ergebnis */}
+{/* 5. Kostenschätzung Ergebnis */}
+{costEstimate && (
+<div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
+<div className="flex items-start justify-between mb-3">
+<h4 className="text-md font-bold text-gray-800 flex items-center">
+<Euro className="w-5 h-5 mr-2 text-emerald-600" />
+Grobe Kostenschätzung
+</h4>
+<button
+onClick={() => setCostEstimate(null)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Ergebnis entfernen"
+aria-label="Ergebnis entfernen"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
+<div className="text-sm text-gray-700 leading-relaxed">
+<div dangerouslySetInnerHTML={{ __html: costEstimate.replace(/\n/g, '<br/>') }} />
+</div>
+</div>
+)}
+{/* 6. Video-Anleitungen Ergebnis */}
 {videoLinks && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
 <div className="flex items-start justify-between mb-3">
@@ -2517,7 +2815,7 @@ className="text-sm text-blue-600 hover:text-blue-800 font-medium truncate block"
 </ul>
 </div>
 )}
-{/* 6. Kundenbericht Ergebnis */}
+{/* 7. Kundenbericht Ergebnis */}
 {clientReport && (
 <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-inner">
 <div className="flex items-start justify-between mb-3">
@@ -2541,7 +2839,7 @@ aria-label="Ergebnis entfernen"
 </div>
 )}
 {/* Berufs-Spezial-Tool-Ergebnisse: siehe TradeToolsSection direkt unter der Berufsauswahl */}
-{/* 7. TEILEN & PDF EXPORT BUTTONS */}
+{/* 8. TEILEN & PDF EXPORT BUTTONS */}
 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-2">
 <button
 onClick={() => setShowShare(true)}
@@ -2568,7 +2866,7 @@ className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold r
 </button>
 <button
 onClick={handleExportPdf}
-disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport}
+disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport || isGeneratingCost}
 // Primärfarbe folgt dem gewählten Beruf
 className="flex items-center px-4 py-2 bg-(--accent) text-white font-semibold rounded-xl shadow-md hover:bg-(--accent-dark) transition-colors duration-500 ease-in-out transform active:scale-[0.98]"
 >
@@ -2599,7 +2897,7 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 <p className="text-xs mt-4 text-gray-500">Wählen Sie zuerst Ihren Beruf (Abschnitt 1) für eine präzisere Diagnose.</p>
 </div>
 );
-}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImages, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey, handleSaveLocally, localSaveStatus]);
+}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, costEstimate, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, isGeneratingCost, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiCostAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImages, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey, handleSaveLocally, localSaveStatus]);
 if (!isAuthReady) {
 // Ladebildschirm während der Firebase-Authentifizierung
 return (
@@ -2686,6 +2984,9 @@ appId={appId}
 onClose={() => setShowHistory(false)}
 onSelect={handleSelectAnalysis}
 onSelectLocal={handleSelectLocalAnalysis}
+locationFeatureEnabled={locationFeatureEnabled}
+currentCoords={currentCoords}
+initialTab={historyInitialTab}
 />
 )}
 {/* Admin-Modal (Fehlerreports) */}
@@ -2733,8 +3034,10 @@ auth={auth}
 trialRemaining={trialRemaining}
 ownApiKey={ownApiKey}
 saveOwnApiKey={saveOwnApiKey}
+locationFeatureEnabled={locationFeatureEnabled}
+saveLocationFeaturePreference={saveLocationFeaturePreference}
 handleReset={handleReset}
-onShowHistory={() => setShowHistory(true)}
+onShowHistory={() => { setHistoryInitialTab('cloud'); setShowHistory(true); }}
 onShowAdmin={() => setShowAdmin(true)}
 />
 </div>
@@ -2788,6 +3091,35 @@ aria-label="Hinweis ausblenden"
 <button
 onClick={() => setShowDisclaimer(false)}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+title="Hinweis ausblenden"
+aria-label="Hinweis ausblenden"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
+)}
+{/* STANDORT-HINWEIS: nur bei aktivierter Standort-Erkennung (Opt-in im
+    Profil-Menü) und mindestens einer erkannten früheren Analyse in der
+    Nähe. Wegklickbar pro Sitzung, gleiches Muster wie die Hinweise oben. */}
+{locationFeatureEnabled && showLocationBanner && nearbyAnalysisCount > 0 && (
+<div className="p-3 bg-(--accent-soft) border-l-4 border-(--accent) rounded-xl shadow-md flex items-start space-x-3">
+<MapPin className="w-5 h-5 mt-1 flex-shrink-0 text-(--accent)" />
+<div className="flex-grow">
+<p className="font-bold text-(--accent-dark)">Standort wiedererkannt</p>
+<p className="text-xs text-gray-700">
+Sie waren hier schon {nearbyAnalysisCount}× —{' '}
+<button
+type="button"
+onClick={() => { setHistoryInitialTab('nearby'); setShowHistory(true); }}
+className="underline font-semibold text-(--accent-dark) hover:text-(--accent)"
+>
+frühere Analysen ansehen
+</button>
+</p>
+</div>
+<button
+onClick={() => setShowLocationBanner(false)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white bg-(--accent) hover:bg-(--accent-dark) transition"
 title="Hinweis ausblenden"
 aria-label="Hinweis ausblenden"
 >

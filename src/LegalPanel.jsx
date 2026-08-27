@@ -118,7 +118,9 @@ const LegalPanel = ({ onClose }) => {
               dieses Gerät/Konto einsehbar. Ein optional hochgeladenes Foto
               wird dabei bewusst <em>nicht</em> mitgespeichert (zu groß für
               Firestore) — es bleibt nur für die laufende Sitzung im Browser
-              vorhanden. Zweck: Verlaufsfunktion innerhalb der App.
+              vorhanden. Ist die optionale Standort-Erkennung aktiviert (siehe
+              Punkt 17), wird zusätzlich der GPS-Standort der Analyse
+              gespeichert. Zweck: Verlaufsfunktion innerhalb der App.
               Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).
             </p>
           </Section>
@@ -299,6 +301,28 @@ const LegalPanel = ({ onClose }) => {
               kann im Profil jederzeit entfernt werden. Rechtsgrundlage:
               Einwilligung durch aktives Hinterlegen (Art. 6 Abs. 1 lit. a
               DSGVO).
+            </p>
+          </Section>
+
+          <Section title="17. Standort-Erkennung (optional, GPS)">
+            <p>
+              Im Profil kann freiwillig eine Standort-Erkennung aktiviert
+              werden. Ist sie eingeschaltet, fragt die App bei einer neuen
+              Analyse über die Geolocation-Funktion des Browsers den exakten
+              GPS-Standort des Geräts ab und speichert ihn zusammen mit der
+              Analyse in Cloud Firestore (siehe Punkt 4) — ausschließlich
+              unter der eigenen Konto-Kennung. Damit lassen sich frühere
+              Analysen an derselben Stelle wiederfinden: Beim Öffnen der App
+              wird der aktuelle Standort mit den zuletzt gespeicherten
+              Standorten desselben Kontos verglichen (Umkreis von ca. 75
+              Metern); bei einer Übereinstimmung erscheint ein Hinweis
+              ("Sie waren hier schon X Mal") mit direktem Zugriff auf diese
+              Analysen. Dieser Abgleich erfolgt ausschließlich innerhalb des
+              eigenen Kontos, nicht kontoübergreifend. Ohne aktivierte
+              Standort-Erkennung wird kein Standort abgefragt oder
+              gespeichert; die Einstellung kann im Profil jederzeit wieder
+              deaktiviert werden. Rechtsgrundlage: Einwilligung durch aktive
+              Aktivierung (Art. 6 Abs. 1 lit. a DSGVO).
             </p>
           </Section>
         </div>
