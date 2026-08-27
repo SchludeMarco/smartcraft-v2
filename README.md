@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.13.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.14.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -188,6 +188,16 @@ per Knopfdruck ("Lokal speichern") optional **inklusive aller Fotos** rein lokal
 Browser ablegen (IndexedDB, kein Upload) — die beiden Ablagen erscheinen im
 Verlauf-Modal als getrennte Reiter ("Cloud" / "Lokal"), lokale Einträge lassen sich
 dort auch wieder einzeln löschen.
+
+**7b. Standort-Erkennung (optional)** — im Profil-Menü lässt sich freiwillig eine
+Standort-Erkennung aktivieren. Ist sie an, wird bei jeder neuen Analyse der
+GPS-Standort mitgespeichert; erkennt die App beim App-Start denselben Standort
+(Umkreis ca. 75m) bei einer früheren Analyse wieder, erscheint ein Hinweis
+("Sie waren hier schon X Mal") mit direktem Zugriff auf diese Analysen —
+zusätzlich lässt sich das Verlauf-Modal über einen dritten Reiter ("In der
+Nähe") gezielt danach filtern. Ohne aktivierte Einstellung wird kein Standort
+abgefragt oder gespeichert (siehe `src/LegalPanel.jsx` §17 für die
+Datenschutz-Details).
 
 **8. Haftungsausschluss fest im UI** — ein sichtbarer EU-AI-Act-Hinweis macht klar:
 die KI-Diagnose ist ein unterstützender Vorschlag, kein Ersatz für die Prüfung durch

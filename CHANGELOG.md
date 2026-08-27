@@ -8,6 +8,28 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.14.0] – 2026-08-27
+
+### Hinzugefügt
+- **Standort-Erkennung (optional, GPS).** Neuer Opt-in-Schalter im
+  Profil-Menü (`UserProfileModal` in `src/App.jsx`, Firestore-Feld
+  `locationFeatureEnabled` im Profil-Dokument): ist er aktiv, wird bei jeder
+  neuen Analyse über die Geolocation-API des Browsers der GPS-Standort
+  ermittelt und zusammen mit der Analyse in Firestore gespeichert
+  (`saveAnalysis`, Feld `location: {lat, lng}`). Beim App-Start prüft ein
+  neuer Effect, ob der aktuelle Standort einer früheren Analyse desselben
+  Kontos entspricht (Umkreis 75m, Haversine-Distanz, rein client-seitig über
+  die ohnehin geladenen letzten 20 Cloud-Analysen — kein Geohash-Setup
+  nötig) und zeigt bei einem Treffer
+  einen Hinweis-Banner ("Sie waren hier schon X Mal") mit direktem Link in
+  einen neuen dritten Reiter "In der Nähe" im Verlauf-Modal
+  (`AnalysisHistoryModal`). Fehlt die Browser-Berechtigung, degradiert die
+  Funktion still (kein Absturz, kein Standort gespeichert) — passend zum
+  bisherigen Datensparsamkeits-Ansatz der App ist die Funktion standardmäßig
+  **aus** und erfordert eine explizite Zustimmung, nicht nur die
+  Browser-Berechtigungsabfrage. Datenschutz-Text ergänzt in
+  `src/LegalPanel.jsx` §17 (und §4 um das neue Feld erweitert).
+
 ## [2.13.0] – 2026-08-27
 
 ### Hinzugefügt
