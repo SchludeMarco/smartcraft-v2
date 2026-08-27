@@ -2,9 +2,19 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Deckt auch profile/data.geminiApiKey ab (siehe UserProfileModal in
+    // App.jsx, api/gemini.js getUserOwnApiKey): der vom Nutzer selbst
+    // hinterlegte Gemini-API-Key ist ein gewöhnliches Feld im eigenen
+    // Profil-Dokument, kein separater Regel-Eintrag nötig.
     match /artifacts/{appId}/users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // _rateLimits/{ip} (api/gemini.js) und _analysisQuota/{uid} (Pro-Konto-
+    // Kontingent, ebenfalls api/gemini.js) sind hier bewusst NICHT erwähnt —
+    // Firestores Produktionsmodus sperrt beide Collections damit per
+    // Default-Deny fürs Client-SDK; Zugriff erfolgt ausschließlich
+    // serverseitig über das Firebase-Admin-SDK, das firestore.rules umgeht.
 
     // Admin-Bereich (siehe AdminPanel.jsx): Lesezugriff auf ALLE Fehlerreports per
     // Collection-Group-Query, beschränkt auf Konten mit Custom Claim "admin: true"

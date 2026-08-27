@@ -35,7 +35,7 @@ const LegalPanel = ({ onClose }) => {
             <ScrollText className="w-5 h-5 mr-2 text-gray-600" />
             Impressum &amp; Datenschutz
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} aria-label="Schließen" className="text-gray-400 hover:text-gray-600">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -208,8 +208,11 @@ const LegalPanel = ({ onClose }) => {
               Um Missbrauch der KI-Funktionen und Massenanfragen zu verhindern,
               wird zu einzelnen Anfragen vorübergehend ein Zähler zur
               IP-Adresse in Cloud Firestore geführt (z. B. Anfragen pro
-              Minute/Tag, Gesamtkontingent für nicht angemeldete
-              Demo-Nutzung, Feedback- und Fehlerreport-Versand). Die
+              Minute/Tag, Feedback- und Fehlerreport-Versand sowie —
+              ausschließlich für Anfragen ohne gültige Anmeldung — ein
+              Gesamtkontingent). Für angemeldete Konten wird zusätzlich unter
+              der eigenen Konto-Kennung gezählt, wie viele der 20 kostenlosen
+              Haupt-Diagnosen bereits genutzt wurden (siehe Punkt 16). Die
               IP-Adresse selbst wird dabei nur für diesen Zweck verarbeitet,
               nicht mit den übrigen unter Punkt 4–9 genannten Daten verknüpft.
               Rechtsgrundlage: berechtigtes Interesse an der Abwehr von
@@ -277,6 +280,25 @@ const LegalPanel = ({ onClose }) => {
               Die KI-Analyse ist ein rein unterstützendes Hilfsmittel und
               stellt keine automatisierte Entscheidung mit rechtlicher Wirkung
               im Sinne von Art. 22 DSGVO dar.
+            </p>
+          </Section>
+
+          <Section title="16. Eigener Gemini-API-Key (optional)">
+            <p>
+              Jedes Konto erhält ein kostenloses Kontingent von 20 Haupt-
+              Diagnosen. Danach kann im Profil freiwillig ein selbst bei
+              Google AI Studio erstellter, eigener Gemini-API-Key hinterlegt
+              werden, damit die App weiter genutzt werden kann — die dadurch
+              entstehenden Kosten laufen dann direkt über das eigene
+              Google-Konto der nutzenden Person, nicht über SmartCraft. Der
+              Key wird in Cloud Firestore ausschließlich unter der eigenen
+              Konto-Kennung gespeichert und ausschließlich serverseitig
+              gelesen, um die eigenen KI-Anfragen dieses Kontos an die
+              Gemini API weiterzuleiten — er wird nicht an Dritte
+              weitergegeben und nicht für andere Konten verwendet. Der Key
+              kann im Profil jederzeit entfernt werden. Rechtsgrundlage:
+              Einwilligung durch aktives Hinterlegen (Art. 6 Abs. 1 lit. a
+              DSGVO).
             </p>
           </Section>
         </div>

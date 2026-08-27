@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.7.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.10.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -183,6 +183,16 @@ einen zertifizierten Fachmann bei sicherheitsrelevanten Arbeiten. Das gilt für
 Profis genauso wie für Privatnutzer — gerade bei Elektro- oder Statik-Themen ist die
 App eine Einschätzung, keine Freigabe.
 
+**8. Kostenmodell: 20 kostenlose Analysen pro Konto, danach eigener API-Key** —
+jedes Konto kann 20 Haupt-Diagnosen kostenlos über den zentralen Gemini-API-Key
+nutzen (Live-Zähler direkt in der App). Danach kann im Profil-Menü freiwillig ein
+eigener, bei Google AI Studio kostenlos erstellter Gemini-API-Key hinterlegt werden —
+alle weiteren Analysen sowie Zusatz-Tools laufen dann automatisch über diesen Key,
+die entstehenden Kosten also über das eigene Google-Konto statt über SmartCraft.
+Ist das Kontingent aufgebraucht, öffnet sich automatisch eine 4-Schritte-Anleitung,
+die direkt zu Google AI Studio verlinkt und den erzeugten Key im selben Dialog
+entgegennimmt — kein Suchen im Profil-Menü nötig.
+
 ## Ablauf in der Praxis
 
 1. Beruf auswählen (oder aus dem gemerkten Profil übernehmen)
@@ -199,14 +209,21 @@ React 18 + Vite, Tailwind CSS (per `@tailwindcss/vite` zur Build-Zeit kompiliert
 nicht per CDN), Firebase (verpflichtender Google-Login + Firestore),
 Google Gemini API (`gemini-flash-lite-latest`) über eine Vercel Serverless Function als
 Proxy — der API-Key bleibt dadurch server-seitig und wird nie im Browser sichtbar.
-Der Proxy ist zusätzlich per Origin-Check, Firebase App Check (reCAPTCHA v3),
-IP-basiertem Rate-Limiting und einem dauerhaften Demo-Kontingent (30 KI-Anfragen
-pro IP, siehe `DEMO_LIFETIME_MAX` in `api/gemini.js`) gegen automatisierten
-Missbrauch abgesichert (Details unten unter "Entstehung & technische Hürden"). Ein
-per Firebase Custom Claim (`admin: true`, vergeben über
-`scripts/set-admin-claim.mjs`, siehe unten) ausgezeichnetes Konto umgeht dieses
-Demo-Kontingent vollständig — der Claim wird serverseitig aus dem Firebase-ID-Token
-gelesen (`api/gemini.js`), nirgends im Code hinterlegt. Technische Fehler
+Der Proxy ist zusätzlich per Origin-Check, Firebase App Check (reCAPTCHA v3) und
+IP-basiertem Rate-Limiting (12 Anfragen/Minute, 200/Tag, auch für eingeloggte
+Nutzer) gegen automatisierten Missbrauch abgesichert (Details unten unter
+"Entstehung & technische Hürden"). Für Requests OHNE gültiges Firebase-ID-Token
+(z.B. ein Direktzugriff auf den Endpoint am UI vorbei) gilt zusätzlich ein
+dauerhaftes IP-Kontingent (30 KI-Anfragen pro IP, siehe `DEMO_LIFETIME_MAX` in
+`api/gemini.js`). Echte, per Google eingeloggte Nutzer laufen stattdessen über ein
+Pro-Konto-Kontingent von 20 kostenlosen Haupt-Diagnosen (`FREE_TRIAL_MAX` in
+`shared/trialLimit.js`, Firestore-Zähler `_analysisQuota/{uid}`) — danach greift
+automatisch ein im Profil hinterlegter eigener Gemini-API-Key (siehe oben,
+Punkt 8 unter "Was die App kann"). Ein per Firebase Custom Claim (`admin: true`,
+vergeben über `scripts/set-admin-claim.mjs`, siehe unten) ausgezeichnetes Konto
+umgeht sowohl das Rate-Limiting als auch jedes Kontingent vollständig — der Claim
+wird serverseitig aus dem Firebase-ID-Token gelesen (`api/gemini.js`), nirgends im
+Code hinterlegt. Technische Fehler
 (React-Crashes, Firebase-/Gemini-API-Fehler) werden lokal gepuffert, sobald online
 automatisch nach Firestore gemeldet und zusätzlich per Mail zugestellt — pro
 Fehlerkontext aber nur einmal, bis er im Admin-Bereich als "gelöst" markiert
@@ -233,6 +250,21 @@ npm run dev
 Die Serverless-Function unter `api/gemini.js` läuft lokal nur über
 `vercel dev` (nicht über `npm run dev` allein) — für reines Frontend-Testen
 reicht `npm run dev`, für die volle KI-Funktion lokal: `vercel dev`.
+
+## Tests
+
+```bash
+npm test          # einmaliger Lauf (Vitest)
+npm run test:watch
+```
+
+Aktuell abgedeckt: die sicherheits-/kontingentkritischen Teile der
+Serverless-Functions — `verifyFirebaseIdToken` und `chunkText` in
+`api/tts.test.js`, `checkRateLimit`/`checkAndConsumeTrial` in
+`api/gemini.test.js` (gegen eine In-Memory-Fake-Implementierung von
+`firebase-admin/firestore`, kein echtes Firestore-Projekt nötig). Weitere
+Bereiche (Frontend-Komponenten, restliche `api/*.js`-Endpoints) haben noch
+keine Tests.
 
 ## Firestore Security Rules
 

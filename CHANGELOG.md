@@ -8,7 +8,7 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
-## [2.7.0] – 2026-08-27
+## [2.10.0] – 2026-08-27
 
 ### Hinzugefügt
 - **Mehrere Bilder pro Analyse.** Bisher ließ sich nur ein einzelnes Foto
@@ -24,6 +24,185 @@ demselben Versionsstand.
   4,5MB-Payload-Limit der Vercel-Serverless-Function (siehe
   FUNCTION_PAYLOAD_TOO_LARGE in `error_log.md`), da jedes einzelne Bild
   bereits auf max. 1600px/JPEG-Qualität 0.82 herunterskaliert ist.
+
+## [2.9.5] – 2026-08-26
+
+### Geändert
+- **Zwei Wartbarkeitsprobleme aus einem Code-Review von `src/App.jsx` behoben,
+  ohne Verhaltensänderung für Nutzer:innen.**
+  - `ApiKeyOnboardingModal` und `UserProfileModal` waren als verschachtelte
+    Komponenten *innerhalb* der `App`-Funktion definiert statt auf
+    Modulebene. React behandelt eine verschachtelt definierte Komponente bei
+    jedem Re-Render der Elternkomponente als neuen Komponenten-Typ — das
+    erzwingt ein volles Unmount/Remount des Dialogs inklusive Verlust des
+    lokalen Eingabe-Entwurfs (`keyDraft`/`apiKeyDraft`), sobald sich
+    irgendein anderer `App`-State ändert, während der Dialog offen ist.
+    Beide Komponenten sind jetzt auf Modulebene definiert und bekommen ihre
+    bisher aus dem Closure gelesenen Werte (`authUser`, `userId`, `auth`,
+    `trialRemaining`, `ownApiKey`, `saveOwnApiKey`, `handleReset`,
+    `onClose`/`onShowHistory`/`onShowAdmin`) explizit als Props.
+  - Die sieben `/api/gemini`-Aufrufer (Hauptanalyse, TTS-Kurzfassung,
+    Materialien, Sicherheit, Kundenbericht, Berufs-Spezial-Tools,
+    Video-Suche) wiederholten je ~20-40 Zeilen praktisch identisches
+    Fetch-/Parse-/Fehlerbehandlungs-Boilerplate (insgesamt einige hundert
+    Zeilen Duplikation). Ausgelagert in drei gemeinsame Helfer
+    (`callGeminiApi`, `handleGeminiError`, `reportEmptyResult`) — jeder
+    Aufrufer behält nur noch seinen eigenen Payload-Aufbau und die für ihn
+    spezifische Erfolgs-/Ergebnis-Verarbeitung. Verhalten (Fehlermeldungen,
+    402-Onboarding, Admin-Fehlerreports) bleibt dabei unverändert; per
+    Playwright-Smoke-Test beider hoisteter Modals sowie `npm run build` und
+    `npm test` (23/23) verifiziert.
+
+## [2.9.4] – 2026-08-26
+
+### Behoben
+- **Seitenhintergrund war in Produktion vermutlich schon unsichtbar: die
+  extern gehostete Bild-URL ist tot.** Der Seitenhintergrund (Lade-Screen,
+  Login-Gate, Hauptansicht in `src/App.jsx`) lud bislang ein Foto von
+  `https://storage.googleapis.com/bacon-images-prod/gemini/app_builder/werkzeuge.jpg`.
+  Beim Versuch, dieses Bild für ein lokales Hosting herunterzuladen, stellte
+  sich heraus, dass die URL bereits mit `404 NoSuchBucket` fehlschlägt — der
+  Bucket `bacon-images-prod` existiert nicht mehr (auch im Wayback-Archiv
+  nicht auffindbar). Nutzer sahen damit vermutlich schon länger nur den
+  grauen `bg-gray-800`-Fallback statt des beabsichtigten Fotos. Da sich das
+  Originalbild nicht wiederherstellen ließ, ersetzt durch einen reinen
+  CSS-Verlauf (`.app-backdrop` in `src/index.css`) in den bestehenden
+  Wood-/Gold-Theme-Farbtönen — dusk-artiger Verlauf mit sanftem Glanz
+  hinter der Kopfzeile. Kein externer Request mehr nötig, funktioniert
+  damit auch offline oder wenn Drittanbieter-Hosts ausfallen.
+
+## [2.9.3] – 2026-08-26
+
+### Geändert
+- **Icon-only Buttons und Formularfelder ohne sichtbaren Text bekommen jetzt
+  durchgängig `aria-label`.** Bisher hatten von ~40 `<button>`-Elementen in
+  `src/App.jsx` nur 12 Stellen ein `aria-*`/`role`/`alt`-Attribut — reine
+  Icon-Buttons (Schließen-Kreuze in den Modals, "Ergebnis entfernen"/"Bild
+  entfernen"-Buttons, Hinweis-Ausblenden-Buttons, das Logo im Header, die
+  "Speichern"-Buttons für den eigenen API-Key, die während des Speicherns
+  nur noch einen Spinner ohne Text zeigen) waren für Screenreader-Nutzer
+  ohne zusätzlichen Kontext nicht erkennbar. Gleiches in `AdminPanel.jsx`
+  (Schließen-, "Alle als gelesen markieren"-, "Alle löschen"-Button),
+  `FeedbackModal.jsx` und `LegalPanel.jsx` (jeweils Schließen-Button).
+  Zusätzlich `aria-label` auf den bisher nur über Platzhaltertext
+  erkennbaren Eingabefeldern ergänzt (Gemini-API-Key-Inputs in
+  `App.jsx`, Feedback-Textarea in `FeedbackModal.jsx`).
+
+## [2.9.2] – 2026-08-26
+
+### Geändert
+- **Hauptansicht nutzt auf größeren Screens mehr Breite statt als schmale
+  Handy-Spalte zu verharren.** Der Content-Container in `src/App.jsx` war
+  hart auf `max-w-sm` (384px) begrenzt, obwohl das README Desktop-Nutzung
+  explizit bewirbt ("funktioniert genauso gut am Desktop — etwa im Büro").
+  Auf großen Screens blieb dadurch viel ungenutzter Leerraum links/rechts.
+  Der Container wächst jetzt stufenweise mit (`max-w-sm` →
+  `sm:max-w-xl` → `md:max-w-2xl` → `lg:max-w-3xl`), `main`- und
+  Seiten-Padding skalieren mit (`sm:p-6 lg:p-8`), und das
+  Berufs-Spezial-Tools-Grid nutzt ab `sm`/`lg` 3 bzw. 4 statt fix 2 Spalten.
+  Visuell per Playwright-Screenshots bei 390/640/768/1024/1440px geprüft
+  (kein Firebase-Login nötig, da `VITE_FIREBASE_*` in der Testumgebung
+  unkonfiguriert war und die App dann direkt die Hauptansicht ohne
+  Login-Gate zeigt).
+
+## [2.9.1] – 2026-08-26
+
+### Geändert
+- **Historie-, API-Key-Onboarding- und Profil-Modal folgen jetzt dem
+  Pergament/Gold-Theme statt generischem Tailwind-Grau/Blau.** Bisher
+  brachen diese drei Dialoge (`AnalysisHistoryModal`, `ApiKeyOnboardingModal`,
+  `UserProfileModal` in `src/App.jsx`) mit `bg-white`/`shadow-2xl`-Containern,
+  `text-blue-600`-Icons und `bg-blue-100 text-blue-800`-Badges aus dem sonst
+  durchgängigen Fantasy-/Handwerker-Look aus (`panel-parchment`, Gold-/
+  Pergament-Farbtokens aus `src/index.css`, siehe `TRADE_THEMES`-Akzentfarbe
+  pro Beruf). Jetzt nutzen alle drei die `panel-parchment`-Klasse als
+  Container, Icons/Verlinkungen/Badges laufen über die berufsabhängige
+  `--accent`/`--accent-dark`/`--accent-soft`-Variable statt fixem Blau, und
+  der "Historie"-Button im Profil-Modal nutzt `btn-parchment` statt
+  `bg-blue-600` (der rote "Abmelden"-Button bleibt bewusst Rot als
+  Warnfarbe). Zusätzlich `aria-label` auf den bisher unbeschrifteten
+  Schließen-Icon-Buttons dieser drei Modals sowie auf dem Profil-Button im
+  Header ergänzt.
+
+## [2.9.0] – 2026-08-26
+
+### Hinzugefügt
+- **Automatisierte Tests (Vitest) für die sicherheits-/kontingentkritische
+  Server-Logik.** Das Projekt hatte bis dahin keinerlei Testabdeckung — kein
+  Test-Framework, keine `*.test.js`-Dateien. Am riskantesten war das:
+  `api/tts.js` verifiziert Firebase-ID-Tokens komplett manuell (RS256 gegen
+  Googles öffentliche Zertifikate, ohne `firebase-admin`), ohne dass ein
+  falsch verschobenes `if` (z.B. bei `aud`/`iss`/`exp`) aufgefallen wäre. Jetzt
+  deckt `api/tts.test.js` `verifyFirebaseIdToken` gegen abgelaufene/zu junge/
+  manipulierte/falsch signierte Tokens, falschen Issuer/Audience und unbekannte
+  `kid` ab (Tokens werden dafür mit einem im Test generierten RSA-Schlüsselpaar
+  signiert, `crypto.verify` akzeptiert dafür direkt den öffentlichen Schlüssel
+  als Ersatz für Googles Zertifikat) sowie `chunkText` (Aufteilung am
+  Byte-Limit inkl. korrekter Zählung mehrbyteiger Umlaute). `api/gemini.test.js`
+  deckt `checkRateLimit` (Minuten-/Tagesfenster-Reset, Lebenszeit-Demo-Kontingent)
+  und `checkAndConsumeTrial` (Pro-Konto-Kontingent aus `FREE_TRIAL_MAX`) ab —
+  beides über eine In-Memory-Fake-Implementierung von
+  `firebase-admin/firestore` (`collection`/`doc`/`runTransaction`), ohne echtes
+  Firestore-Projekt. Dafür wurden `checkRateLimit`, `checkAndConsumeTrial`
+  (`api/gemini.js`) sowie `verifyFirebaseIdToken`, `checkRateLimit`,
+  `checkPremiumQuota`, `chunkText` (`api/tts.js`) exportiert (rein additiv,
+  keine Verhaltensänderung). Neue Scripts `npm test` (einmaliger Lauf) und
+  `npm run test:watch`, Konfiguration in `vitest.config.js`.
+
+## [2.8.1] – 2026-08-26
+
+### Geändert
+- **Berufs-Spezial-Tools sitzen jetzt unter dem Analyseergebnis statt
+  darüber.** Bisher erschienen die Berufs-Spezial-Tools (`currentTradeTools`
+  in `src/App.jsx`) zwischen dem Analyse-Formular ("2. Problem
+  dokumentieren & analysieren") und dem Ergebnis-Abschnitt ("3. Ergebnis
+  der KI-Analyse") — wer erst die KI-Diagnose sehen wollte, musste daran
+  vorbeiscrollen. Die Sektion wurde unverändert (inkl. ihrer Ergebnisliste
+  und dem bedingten PDF-Export-Button) hinter den KI-Analyse-Abschnitt
+  verschoben, sodass die Reihenfolge jetzt Formular → KI-Analyse →
+  Spezial-Tools lautet.
+
+## [2.8.0] – 2026-08-26
+
+### Hinzugefügt
+- **Geführte Anleitung zum Hinterlegen eines eigenen API-Keys.** Bisher zeigte
+  ein aufgebrauchtes Pro-Konto-Kontingent (siehe V2.7.0) nur eine Fehlermeldung
+  im roten Hinweisfeld — der Nutzer musste selbst wissen, dass dafür das
+  Profil-Menü der richtige Ort ist. Jetzt öffnet sich bei jedem mit Status 402
+  scheiternden KI-Aufruf automatisch ein neuer Dialog (`ApiKeyOnboardingModal`
+  in `src/App.jsx`, ausgelöst über die neue `handleTrialExceededError`), der in
+  4 Schritten durch das Erstellen eines eigenen, kostenlosen Gemini-API-Keys
+  bei Google AI Studio führt (Link öffnet direkt `aistudio.google.com/apikey`)
+  und den erzeugten Key direkt im selben Dialog entgegennimmt und speichert —
+  ohne Umweg über das Profil-Menü. Nach dem Speichern kann die zuvor
+  fehlgeschlagene Aktion sofort erneut gestartet werden.
+
+## [2.7.0] – 2026-08-26
+
+### Hinzugefügt
+- **Rollout-Kostenmodell: 20 kostenlose Analysen pro Konto, danach eigener
+  Gemini-API-Key.** Bisher lief jede KI-Anfrage über einen einzigen
+  zentralen `GEMINI_API_KEY`, geschützt nur durch ein IP-weites
+  Lebenszeit-Kontingent (`DEMO_LIFETIME_MAX`, gedacht für den anonymen
+  Demo-Link) — bei echtem Rollout an mehrere Nutzer hätte das entweder
+  unbegrenzte Kosten auf den eigenen Account bedeutet oder mehrere Nutzer
+  hinter derselben IP/demselben Firmennetz gegenseitig blockiert. Jetzt
+  zählt `api/gemini.js` Haupt-Diagnosen pro Konto (Firestore
+  `_analysisQuota/{uid}`, per verifiziertem Firebase-ID-Token, neue
+  Konstante `FREE_TRIAL_MAX` in `shared/trialLimit.js`, Stand: 20). Ist das
+  Kontingent aufgebraucht, nutzt der Server automatisch einen vom Nutzer
+  selbst im Profil hinterlegten Gemini-API-Key (`UserProfileModal` in
+  `src/App.jsx`, neues Feld `geminiApiKey` im Firestore-Profil) statt des
+  zentralen Keys — die Kosten laufen dann über das eigene Google-Konto der
+  Person. Ohne hinterlegten Key liefert der Server einen klaren 402-Fehler
+  mit Hinweis statt eines generischen "später erneut versuchen". Ein neuer
+  Endpoint `api/trial-status.js` (Zwilling zu `api/demo-status.js`, aber
+  pro Konto statt pro IP) zeigt den aktuellen Stand schon beim App-Start.
+  Das alte IP-basierte `DEMO_LIFETIME_MAX`-Kontingent bleibt als Schutz für
+  Anfragen ohne gültiges Login bestehen (z. B. ein Direktzugriff auf den
+  Endpoint am UI vorbei); das Burst-/Tages-Fenster pro IP (12/Minute,
+  200/Tag) gilt weiterhin für alle, auch eingeloggte Nutzer.
+>>>>>>> origin/master
 
 ## [2.6.0] – 2026-08-24
 
