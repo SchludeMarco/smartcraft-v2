@@ -2547,6 +2547,35 @@ Lösung und Diagnose
 {/* Anzeige des Lösungstextes */}
 <div dangerouslySetInnerHTML={{ __html: solutionText.replace(/\n/g, '<br/>') }} />
 </div>
+{/* PDF-Export & Lokal speichern: direkt nach der KI-Analyse und vor der
+    Sprachausgabe, damit das Ergebnis sofort gesichert werden kann. "Teilen"
+    bleibt unten im Ergebnis-Bereich (siehe Ende dieser Ansicht). */}
+<div className="flex flex-col gap-2">
+<button
+onClick={handleExportPdf}
+disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport || isGeneratingCost}
+// Primärfarbe folgt dem gewählten Beruf
+className="flex items-center justify-center px-4 py-2 bg-(--accent) text-white font-semibold rounded-xl shadow-md hover:bg-(--accent-dark) transition-colors duration-500 ease-in-out transform active:scale-[0.98]"
+>
+<FileText className="w-4 h-4 mr-2" />
+Als PDF exportieren
+</button>
+<button
+onClick={handleSaveLocally}
+disabled={!solutionText || localSaveStatus === 'saving'}
+title="Analyse inkl. Bilder nur auf diesem Gerät speichern (kein Upload)"
+className="flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl shadow-md hover:bg-gray-200 transition-colors duration-500 ease-in-out transform active:scale-[0.98] disabled:opacity-60"
+>
+{localSaveStatus === 'saved' ? (
+<CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+) : localSaveStatus === 'error' ? (
+<AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
+) : (
+<Save className="w-4 h-4 mr-2" />
+)}
+{localSaveStatus === 'saved' ? 'Gespeichert!' : localSaveStatus === 'error' ? 'Fehler' : 'Lokal speichern'}
+</button>
+</div>
 {/* Sprachausgabe (TTS) — läuft über api/tts.js (Google Cloud Text-to-Speech) */}
 <div className="p-3 bg-gray-50 border-l-4 rounded-lg shadow-md space-y-2" style={{ borderColor: theme.accent }}>
 <audio ref={audioRef} className="hidden" />
@@ -2839,7 +2868,8 @@ aria-label="Ergebnis entfernen"
 </div>
 )}
 {/* Berufs-Spezial-Tool-Ergebnisse: siehe TradeToolsSection direkt unter der Berufsauswahl */}
-{/* 8. TEILEN & PDF EXPORT BUTTONS */}
+{/* 8. TEILEN BUTTON (PDF-Export & Lokal speichern sitzen jetzt direkt nach
+    der KI-Analyse, vor der Sprachausgabe — siehe oben) */}
 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-2">
 <button
 onClick={() => setShowShare(true)}
@@ -2848,30 +2878,6 @@ className="flex items-center px-4 py-2 bg-gray-700 text-white font-semibold roun
 >
 <Share2 className="w-4 h-4 mr-2" />
 Teilen
-</button>
-<button
-onClick={handleSaveLocally}
-disabled={!solutionText || localSaveStatus === 'saving'}
-title="Analyse inkl. Bilder nur auf diesem Gerät speichern (kein Upload)"
-className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl shadow-md hover:bg-gray-200 transition-colors duration-500 ease-in-out transform active:scale-[0.98] disabled:opacity-60"
->
-{localSaveStatus === 'saved' ? (
-<CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-) : localSaveStatus === 'error' ? (
-<AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
-) : (
-<Save className="w-4 h-4 mr-2" />
-)}
-{localSaveStatus === 'saved' ? 'Gespeichert!' : localSaveStatus === 'error' ? 'Fehler' : 'Lokal speichern'}
-</button>
-<button
-onClick={handleExportPdf}
-disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport || isGeneratingCost}
-// Primärfarbe folgt dem gewählten Beruf
-className="flex items-center px-4 py-2 bg-(--accent) text-white font-semibold rounded-xl shadow-md hover:bg-(--accent-dark) transition-colors duration-500 ease-in-out transform active:scale-[0.98]"
->
-<FileText className="w-4 h-4 mr-2" />
-Als PDF exportieren
 </button>
 </div>
 </div>

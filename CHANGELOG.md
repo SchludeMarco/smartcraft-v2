@@ -8,6 +8,17 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.14.2] – 2026-08-27
+
+### Geändert
+- **Button-Reihenfolge im Analyseergebnis:** "Als PDF exportieren" und
+  "Lokal speichern" (`src/App.jsx`, `ResultDisplay`) sitzen jetzt direkt nach
+  dem KI-Analyse-Text und vor dem Sprachausgabe-Bereich ("Diagnose
+  vorlesen") statt wie bisher ganz unten nach allen Zusatz-Tool-Ergebnissen.
+  "Lokal speichern" steht dabei unterhalb von "Als PDF exportieren" (beide
+  Buttons jetzt untereinander statt nebeneinander). Der "Teilen"-Button
+  bleibt unverändert am Ende des Ergebnis-Bereichs.
+
 ## [2.14.1] – 2026-08-27
 
 ### Dokumentation
