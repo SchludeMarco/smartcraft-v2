@@ -5,7 +5,7 @@ Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
 Settings, MoreHorizontal, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
 Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
-ExternalLink
+ExternalLink, Share2, Save, Trash2, HardDrive, Cloud
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
@@ -24,6 +24,8 @@ import { queueErrorReport, flushErrorReports, setErrorReportingAppCheck } from '
 import AdminPanel from './AdminPanel';
 import LegalPanel from './LegalPanel';
 import FeedbackModal from './FeedbackModal';
+import ShareModal from './ShareModal';
+import { saveAnalysisLocally, getLocalAnalyses, deleteLocalAnalysis } from './localAnalyses';
 import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
 import { APP_ID as appId } from '../shared/appId.js';
 
@@ -437,11 +439,17 @@ ${isSelected ? 'border-gold ring-2 ring-offset-2 ring-offset-parchment ring-gold
 <span className="text-white text-[10px] sm:text-xs font-semibold text-center mt-1">{name}</span>
 </button>
 );
-// NEUE Komponente: Historische Analysen anzeigen (liest aus Firestore)
-const AnalysisHistoryModal = ({ db, userId, appId, onClose, onSelect }) => {
+// NEUE Komponente: Historische Analysen anzeigen (liest aus Firestore, ohne
+// Bilder - siehe saveAnalysis) UND aus der optionalen lokalen IndexedDB-Ablage
+// (mit Bildern - siehe localAnalyses.js/saveAnalysisLocally), je nach Tab.
+const AnalysisHistoryModal = ({ db, userId, appId, onClose, onSelect, onSelectLocal }) => {
+const [tab, setTab] = useState('cloud');
 const [history, setHistory] = useState([]);
 const [isLoading, setIsLoading] = useState(true);
 const [error, setError] = useState(null);
+const [localHistory, setLocalHistory] = useState([]);
+const [isLocalLoading, setIsLocalLoading] = useState(true);
+const [localError, setLocalError] = useState(null);
 const fetchHistory = useCallback(async () => {
 if (!db || !userId) {
 setError('Benutzer ist nicht authentifiziert oder Datenbank nicht bereit.');
@@ -474,9 +482,31 @@ setError("Fehler beim Laden der Analyse-Historie: " + e.message);
 setIsLoading(false);
 }
 }, [db, userId, appId]);
+const fetchLocalHistory = useCallback(async () => {
+setIsLocalLoading(true);
+setLocalError(null);
+try {
+setLocalHistory(await getLocalAnalyses());
+} catch (e) {
+console.error("Fehler beim Laden der lokalen Analysen:", e);
+setLocalError("Lokale Analysen konnten nicht geladen werden: " + e.message);
+} finally {
+setIsLocalLoading(false);
+}
+}, []);
 useEffect(() => {
 fetchHistory();
-}, [fetchHistory]);
+fetchLocalHistory();
+}, [fetchHistory, fetchLocalHistory]);
+const handleDeleteLocal = useCallback(async (e, id) => {
+e.stopPropagation(); // Nicht gleichzeitig den Eintrag laden
+try {
+await deleteLocalAnalysis(id);
+setLocalHistory((prev) => prev.filter((item) => item.id !== id));
+} catch (e2) {
+console.error("Fehler beim Löschen der lokalen Analyse:", e2);
+}
+}, []);
 return (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
 <div
@@ -490,7 +520,24 @@ Ihre Analyse-Historie
 </h3>
 <button onClick={onClose} aria-label="Historie schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
 </div>
-{isLoading ? (
+<div className="flex gap-2 mb-4 flex-shrink-0">
+<button
+type="button"
+onClick={() => setTab('cloud')}
+className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'cloud' ? 'bg-(--accent) text-white' : 'bg-parchment text-gray-600 hover:bg-parchment-dark/50'}`}
+>
+<Cloud className="w-4 h-4" /> Cloud
+</button>
+<button
+type="button"
+onClick={() => setTab('local')}
+className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'local' ? 'bg-(--accent) text-white' : 'bg-parchment text-gray-600 hover:bg-parchment-dark/50'}`}
+>
+<HardDrive className="w-4 h-4" /> Lokal (mit Bildern)
+</button>
+</div>
+{tab === 'cloud' ? (
+isLoading ? (
 <div className="flex items-center justify-center flex-grow">
 <Loader2 className="w-6 h-6 text-(--accent) animate-spin" />
 <p className="ml-2 text-gray-600">Historie wird geladen...</p>
@@ -529,9 +576,71 @@ Laden
 </li>
 ))}
 </ul>
+)
+) : (
+isLocalLoading ? (
+<div className="flex items-center justify-center flex-grow">
+<Loader2 className="w-6 h-6 text-(--accent) animate-spin" />
+<p className="ml-2 text-gray-600">Lokale Analysen werden geladen...</p>
+</div>
+) : localError ? (
+<div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg">
+<p className="text-sm">{localError}</p>
+</div>
+) : localHistory.length === 0 ? (
+<div className="text-center p-8 text-gray-500 flex-grow">
+<HardDrive className="w-8 h-8 mx-auto mb-3" />
+<p>Noch keine lokal gespeicherten Analysen. Nutzen Sie "Lokal speichern" beim Analyseergebnis, um Analysen inkl. Bildern auf diesem Gerät abzulegen.</p>
+</div>
+) : (
+<ul className="space-y-3 overflow-y-auto flex-grow pr-1">
+{localHistory.map((item) => (
+<li
+key={item.id}
+className="p-3 bg-parchment border border-gold/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
+onClick={() => onSelectLocal(item)} // Ladefunktion wird bei Klick ausgelöst
+>
+<div>
+<p className="text-xs text-gray-500">
+{new Date(item.timestamp).toLocaleString('de-DE')}
+</p>
+<p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
+{(item.problemDescription || '').trim() || `Analyse für Beruf: ${item.selectedTrade}`}
+</p>
+<div className="flex items-center gap-2 mt-1">
+<span className="inline-block px-2 py-0.5 text-xs font-medium bg-(--accent-soft) text-(--accent-dark) rounded-full">
+{item.selectedTrade}
+</span>
+{item.images?.length > 0 && (
+<span className="inline-flex items-center gap-1 text-xs text-gray-500">
+<Image className="w-3.5 h-3.5" /> {item.images.length}
+</span>
+)}
+</div>
+</div>
+<div className="flex items-center gap-2 flex-shrink-0">
+<button
+type="button"
+onClick={(e) => handleDeleteLocal(e, item.id)}
+aria-label="Lokale Analyse löschen"
+title="Lokale Analyse löschen"
+className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+>
+<Trash2 className="w-4 h-4" />
+</button>
+<span className='flex items-center text-(--accent) hover:text-(--accent-dark) text-sm font-semibold'>
+Laden
+</span>
+</div>
+</li>
+))}
+</ul>
+)
 )}
 <div className="text-center mt-4 flex-shrink-0">
-<p className="text-xs text-gray-400">Zeigt die letzten 20 Analysen.</p>
+<p className="text-xs text-gray-400">
+{tab === 'cloud' ? 'Zeigt die letzten 20 Analysen.' : 'Nur auf diesem Gerät/Browser gespeichert.'}
+</p>
 </div>
 </div>
 </div>
@@ -924,6 +1033,7 @@ const [showHistory, setShowHistory] = useState(false); // Steuert das Historien-
 const [showAdmin, setShowAdmin] = useState(false); // Steuert das Admin-Modal (Fehlerreports)
 const [showLegal, setShowLegal] = useState(false); // Steuert das Impressum/Datenschutz-Modal
 const [showFeedback, setShowFeedback] = useState(false); // Steuert das Feedback-Modal
+const [showShare, setShowShare] = useState(false); // Steuert das Teilen-Modal
 // Steuert die Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen
 // Gemini-API-Keys — öffnet sich automatisch, sobald eine KI-Anfrage mit
 // Status 402 (Kontingent aufgebraucht, kein eigener Key, siehe
@@ -1550,6 +1660,17 @@ setSolutionText(item.solutionText || null);
 setSelectedImages([]);
 setShowHistory(false);
 }, [handleReset]);
+// --- FUNKTION: LOKAL GESPEICHERTEN VERLAUFSEINTRAG LADEN ---
+// Im Gegensatz zu handleSelectAnalysis (Cloud) bringt der lokale Eintrag
+// (siehe localAnalyses.js) den vollständigen Bildsatz mit.
+const handleSelectLocalAnalysis = useCallback((item) => {
+handleReset();
+setProblemDescription(item.problemDescription || '');
+setSelectedTradeState(item.selectedTrade || 'Allround-Handwerker');
+setSolutionText(item.solutionText || null);
+setSelectedImages(item.images || []);
+setShowHistory(false);
+}, [handleReset]);
 // --- FUNKTION: DATEIAUSWAHL ---
 // Fügt die neu ausgewählten Bilder den bereits vorhandenen hinzu (statt sie
 // zu ersetzen), damit Kamera/Galerie mehrfach nacheinander genutzt werden
@@ -2055,6 +2176,30 @@ printWindow.print();
 setError("Der Browser hat das Popup-Fenster blockiert. Bitte erlauben Sie Popups.");
 }
 }, [solutionText, problemDescription, selectedImages, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
+// --- FUNKTION: TEILEN (WhatsApp, Telegram, E-Mail, ...) ---
+// Reiner Text statt HTML wie beim PDF-Export (handleExportPdf), da Messenger
+// und E-Mail-Clients kein HTML-Markup aus einem geteilten Text-Payload rendern.
+const shareText = useMemo(() => {
+if (!solutionText && tradeToolResultEntries.length === 0) return '';
+const stripMd = (s) => s.replace(/\*\*(.*?)\*\*/g, '$1');
+const parts = ['Sm@rtCraft – Diagnose & Lösungsvorschlag'];
+if (selectedTrade) parts.push(`Beruf: ${selectedTrade}`);
+if (problemDescription.trim()) parts.push(`Problem: ${problemDescription.trim()}`);
+if (solutionText) parts.push(`\nLösung:\n${stripMd(solutionText)}`);
+if (materialList && materialList.length > 0) {
+parts.push(`\nMaterialien:\n${materialList.map((m) => `- ${m.item} (${m.quantity}) [${m.category}]`).join('\n')}`);
+}
+if (safetyTips) parts.push(`\nSicherheit:\n${stripMd(safetyTips)}`);
+if (videoLinks && videoLinks.length > 0) {
+parts.push(`\nVideos:\n${videoLinks.map((v) => `- ${v.title}: ${v.uri}`).join('\n')}`);
+}
+if (clientReport) parts.push(`\nKundenbericht:\n${stripMd(clientReport)}`);
+if (tradeToolResultEntries.length > 0) {
+parts.push(`\nBerufs-Tools:\n${tradeToolResultEntries.map(({ tool, text, trade }) => `${tool.label}${trade ? ` (${trade})` : ''}:\n${stripMd(text)}`).join('\n\n')}`);
+}
+parts.push('\n– Erstellt mit der Sm@rtCraft App');
+return parts.join('\n');
+}, [solutionText, problemDescription, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
 // Dünne Abstraktion für die Anzeige des Ergebniszustands (Laden, Fehler, Lösung)
 const ResultDisplay = useMemo(() => {
 // NEUE PRÜFUNG: Mindestens ein Element muss vorhanden sein
@@ -2373,8 +2518,16 @@ aria-label="Ergebnis entfernen"
 </div>
 )}
 {/* Berufs-Spezial-Tool-Ergebnisse: siehe TradeToolsSection direkt unter der Berufsauswahl */}
-{/* 7. PDF EXPORT BUTTON */}
-<div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+{/* 7. TEILEN & PDF EXPORT BUTTONS */}
+<div className="mt-4 pt-4 border-t border-gray-100 flex justify-end gap-2">
+<button
+onClick={() => setShowShare(true)}
+disabled={!shareText}
+className="flex items-center px-4 py-2 bg-gray-700 text-white font-semibold rounded-xl shadow-md hover:bg-gray-600 transition-colors duration-500 ease-in-out transform active:scale-[0.98] disabled:opacity-60"
+>
+<Share2 className="w-4 h-4 mr-2" />
+Teilen
+</button>
 <button
 onClick={handleExportPdf}
 disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport}
@@ -2518,6 +2671,8 @@ isAnonymous: false,
 }}
 />
 )}
+{/* Teilen-Modal (WhatsApp, Telegram, E-Mail, Kopieren, natives Share-Sheet) */}
+{showShare && <ShareModal onClose={() => setShowShare(false)} shareText={shareText} />}
 {/* Anleitung zum Hinterlegen eines eigenen API-Keys (siehe
     handleTrialExceededError) — öffnet sich automatisch bei Status 402. */}
 {showApiKeyOnboarding && <ApiKeyOnboardingModal onClose={() => setShowApiKeyOnboarding(false)} saveOwnApiKey={saveOwnApiKey} />}
@@ -2808,7 +2963,15 @@ aria-label="Ergebnis entfernen"
     Spezial-Tool-Ergebnissen funktioniert. Nur hier zeigen, solange keine
     Diagnose vorliegt — sonst gibt es den Export-Button doppelt. */}
 {!solutionText && tradeToolResultEntries.length > 0 && (
-<div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+<div className="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">
+<button
+onClick={() => setShowShare(true)}
+disabled={!shareText}
+className="flex items-center px-4 py-2 bg-gray-700 text-white font-semibold rounded-xl shadow-md hover:bg-gray-600 transition-colors duration-500 ease-in-out transform active:scale-[0.98] disabled:opacity-60"
+>
+<Share2 className="w-4 h-4 mr-2" />
+Teilen
+</button>
 <button
 onClick={handleExportPdf}
 disabled={Object.values(loadingTradeToolIds).some(Boolean)}

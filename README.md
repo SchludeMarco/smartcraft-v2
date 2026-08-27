@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.10.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.11.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -173,17 +173,22 @@ druckfertiges PDF exportieren —
 direkt weitergebbar an Kunden, an den Handwerker des Vertrauens oder fürs eigene
 Archiv.
 
-**6. Verlauf** — jede Analyse wird pro Google-Konto in Firestore gespeichert; die
+**6. Analyse teilen** — derselbe Bericht lässt sich per Knopfdruck auch direkt als
+Text teilen: WhatsApp, Telegram, E-Mail und In-die-Zwischenablage-Kopieren stehen
+immer zur Verfügung, auf Mobilgeräten zusätzlich das native Geräte-Share-Sheet mit
+Zugriff auf alle dort installierten Apps.
+
+**7. Verlauf** — jede Analyse wird pro Google-Konto in Firestore gespeichert; die
 letzten 20 Analysen lassen sich später erneut aufrufen, ohne Foto oder Beschreibung neu
 eingeben zu müssen.
 
-**7. Haftungsausschluss fest im UI** — ein sichtbarer EU-AI-Act-Hinweis macht klar:
+**8. Haftungsausschluss fest im UI** — ein sichtbarer EU-AI-Act-Hinweis macht klar:
 die KI-Diagnose ist ein unterstützender Vorschlag, kein Ersatz für die Prüfung durch
 einen zertifizierten Fachmann bei sicherheitsrelevanten Arbeiten. Das gilt für
 Profis genauso wie für Privatnutzer — gerade bei Elektro- oder Statik-Themen ist die
 App eine Einschätzung, keine Freigabe.
 
-**8. Kostenmodell: 20 kostenlose Analysen pro Konto, danach eigener API-Key** —
+**9. Kostenmodell: 20 kostenlose Analysen pro Konto, danach eigener API-Key** —
 jedes Konto kann 20 Haupt-Diagnosen kostenlos über den zentralen Gemini-API-Key
 nutzen (Live-Zähler direkt in der App). Danach kann im Profil-Menü freiwillig ein
 eigener, bei Google AI Studio kostenlos erstellter Gemini-API-Key hinterlegt werden —

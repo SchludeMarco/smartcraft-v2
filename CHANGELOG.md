@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.11.0] – 2026-08-27
+
+### Hinzugefügt
+- **Analysen teilen (WhatsApp, Telegram, E-Mail & Co.).** Neuer "Teilen"-
+  Button neben dem PDF-Export (sowohl im Hauptergebnis-Bereich als auch bei
+  reinen Berufs-Spezial-Tool-Ergebnissen ohne abgeschlossene Diagnose) öffnet
+  ein neues `src/ShareModal.jsx` (nach dem Modal-Muster von
+  `FeedbackModal.jsx`). Das Analyseergebnis (Lösung, Materialien,
+  Sicherheits-Tipps, Video-Links, Kundenbericht, Berufs-Tool-Ergebnisse) wird
+  in `src/App.jsx` als reiner Text aufbereitet (`shareText`, analog zur
+  HTML-Aufbereitung in `handleExportPdf`, da Messenger/E-Mail-Clients kein
+  HTML aus einem geteilten Text-Payload rendern) und darüber wahlweise per
+  `wa.me`-Link (WhatsApp), Telegram-Share-Link, `mailto:`, In-die-
+  Zwischenablage-Kopieren oder — sofern der Browser das unterstützt — über
+  das native Geräte-Share-Sheet (`navigator.share`, deckt auf Mobilgeräten
+  zusätzlich beliebige weitere installierte Apps ab) geteilt.
+
 ## [2.10.0] – 2026-08-27
 
 ### Hinzugefügt
