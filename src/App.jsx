@@ -275,6 +275,12 @@ Object.entries(TRADE_TOOLS).flatMap(([trade, tools]) => tools.map((tool) => [too
 */
 const MAX_IMAGE_DIMENSION = 1600;
 const IMAGE_JPEG_QUALITY = 0.82;
+// Obergrenze für gleichzeitig ausgewählte Bilder: jedes einzelne Bild ist
+// bereits auf max. 1600px/JPEG-Qualität 0.82 herunterskaliert (s.o.), aber
+// mehrere davon zusammen können das 4,5MB-Payload-Limit der Vercel-
+// Serverless-Function trotzdem sprengen (siehe FUNCTION_PAYLOAD_TOO_LARGE in
+// error_log.md) — 5 Bilder sind ein sicherer Puffer.
+const MAX_IMAGES = 5;
 const fileToBase64 = (file) => {
 return new Promise((resolve, reject) => {
 const reader = new FileReader();
@@ -639,7 +645,9 @@ const [showDemoNotice, setShowDemoNotice] = useState(true); // Hinweis auf Demo-
 // dann Zahl der noch übrigen KI-Anfragen für dieses Gerät.
 const [demoRemaining, setDemoRemaining] = useState(null);
 // --- App States ---
-const [selectedImageBase64, setSelectedImageBase64] = useState(null);
+// Mehrere Bilder pro Analyse: {id, base64}[], id für stabile React-Keys beim
+// einzelnen Entfernen (siehe MAX_IMAGES oben für die Obergrenze).
+const [selectedImages, setSelectedImages] = useState([]);
 const [problemDescription, setProblemDescription] = useState('');
 const [solutionText, setSolutionText] = useState(null);
 const [sources, setSources] = useState([]);
@@ -1141,13 +1149,14 @@ const handleOnline = () => flushErrorReports(db, userId, appId, reporterInfo);
 window.addEventListener('online', handleOnline);
 return () => window.removeEventListener('online', handleOnline);
 }, [db, userId, authUser]);
-// --- FUNKTION: ALLES ZURÜCKSETZEN ---
-const handleReset = useCallback(() => {
+// --- FUNKTION: NUR KI-ERGEBNISSE ZURÜCKSETZEN (Bilder/Beschreibung bleiben) ---
+// Ausgelagert aus handleReset, weil handleFileChange beim Hinzufügen
+// weiterer Bilder die bisherigen Ergebnisse invalidieren muss, ohne die
+// bereits ausgewählten Bilder selbst zu verwerfen.
+const clearResults = useCallback(() => {
 audioRef.current?.pause();
 if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
 setIsTtsPlaying(false);
-setSelectedImageBase64(null);
-setProblemDescription('');
 setSolutionText(null);
 setSources([]);
 setIsAnalyzing(false);
@@ -1162,12 +1171,18 @@ setIsGeneratingVideos(false);
 setIsGeneratingReport(false);
 setTradeToolResults({});
 setLoadingTradeToolIds({});
+}, []);
+// --- FUNKTION: ALLES ZURÜCKSETZEN ---
+const handleReset = useCallback(() => {
+clearResults();
+setSelectedImages([]);
+setProblemDescription('');
 // Dateiauswahl zurücksetzen (für saubere erneute Auswahl)
 ['camera-input', 'gallery-input', 'cloud-input'].forEach((id) => {
 const fileInput = document.getElementById(id);
 if (fileInput) fileInput.value = '';
 });
-}, []);
+}, [clearResults]);
 // --- FUNKTION: NUR FEHLERZUSTAND ZURÜCKSETZEN (Bild bleibt erhalten) ---
 const clearError = useCallback(() => {
 setError(null);
@@ -1180,31 +1195,48 @@ handleReset();
 setProblemDescription(item.problemDescription || '');
 setSelectedTradeState(item.selectedTrade || 'Allround-Handwerker');
 setSolutionText(item.solutionText || null);
-// Das Bild kann aus Performancegründen nicht aus Firestore geladen werden
-setSelectedImageBase64(null);
+// Die Bilder können aus Performancegründen nicht aus Firestore geladen werden
+setSelectedImages([]);
 setShowHistory(false);
 }, [handleReset]);
 // --- FUNKTION: DATEIAUSWAHL ---
+// Fügt die neu ausgewählten Bilder den bereits vorhandenen hinzu (statt sie
+// zu ersetzen), damit Kamera/Galerie mehrfach nacheinander genutzt werden
+// können, um mehrere Bilder für eine Analyse zu sammeln. Vorherige
+// KI-Ergebnisse werden dabei invalidiert, da sie sich nicht mehr auf den
+// vollständigen Bildsatz beziehen.
 const handleFileChange = useCallback(async (event) => {
-const file = event.target.files[0];
-if (file) {
-handleReset();
+const files = Array.from(event.target.files || []);
+event.target.value = '';
+if (files.length === 0) return;
+clearResults();
 setError(null);
-try {
-if (file.size > 20 * 1024 * 1024) {
-setError("Das Bild ist zu groß (max. 20MB).");
+const freeSlots = MAX_IMAGES - selectedImages.length;
+if (freeSlots <= 0) {
+setError(`Es können maximal ${MAX_IMAGES} Bilder gleichzeitig analysiert werden.`);
 return;
 }
+if (files.length > freeSlots) {
+setError(`Es können maximal ${MAX_IMAGES} Bilder gleichzeitig analysiert werden. Nur die ersten ${freeSlots} wurden hinzugefügt.`);
+}
+try {
+const newImages = [];
+for (const file of files.slice(0, freeSlots)) {
+if (file.size > 20 * 1024 * 1024) {
+setError("Ein Bild ist zu groß (max. 20MB) und wurde übersprungen.");
+continue;
+}
 const base64 = await fileToBase64(file);
-setSelectedImageBase64(base64);
+newImages.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, base64 });
+}
+setSelectedImages((prev) => [...prev, ...newImages]);
 } catch (e) {
 console.error("Fehler beim Laden des Bildes:", e);
 queueErrorReport('image-load', e);
 flushErrorReports(db, userId, appId);
 setError("Fehler beim Laden des Bildes.");
 }
-}
-}, [handleReset, db, userId, appId]);
+}, [clearResults, db, userId, appId, selectedImages.length]);
 // --- FUNKTION: ANALYSE IN FIREBASE SPEICHERN ---
 const saveAnalysis = useCallback(async (analysisData) => {
 if (!db || !userId) {
@@ -1263,7 +1295,7 @@ loadProfile();
 // --- FUNKTION: BILDANALYSE (Haupt-API-Aufruf) ---
 const callGeminiVisionAPI = useCallback(async () => {
 // Prüfung, ob mindestens ein Eingabeelement vorhanden ist
-const hasImage = !!selectedImageBase64;
+const hasImage = selectedImages.length > 0;
 const hasDescription = problemDescription.trim().length > 0;
 if (!hasImage && !hasDescription) {
 setError("🔴 AKTION ERFORDERLICH: Bitte wählen Sie ein Bild ODER geben Sie eine Problembeschreibung ein, um die Analyse zu starten.");
@@ -1287,21 +1319,21 @@ const tradeContext = selectedTrade && selectedTrade !== "Sonstiges..."
 ? `[GEWERK: Sonstiges]. `
 : '';
 const descContext = problemDescription.trim()
-? `[BESCHREIBUNG: ${problemDescription.trim()}]. Die Analyse MUSS sich vorrangig auf diese Beschreibung und das Bild konzentrieren, um die Fehlerursache zu finden.`
-: 'Analysiere das gezeigte Bauproblem und schlage eine Lösung vor.';
+? `[BESCHREIBUNG: ${problemDescription.trim()}]. Die Analyse MUSS sich vorrangig auf diese Beschreibung und das/die Bild(er) konzentrieren, um die Fehlerursache zu finden.`
+: 'Analysiere das/die gezeigte(n) Bauproblem(e) und schlage eine Lösung vor.';
 const userQuery = `${tradeContext}${descContext}`;
-// Erstellung des Contents: Bild (falls vorhanden) und Text
+// Erstellung des Contents: Bilder (falls vorhanden) und Text
 const contents = [
 {
 role: "user",
 parts: [
 { text: userQuery },
-...(hasImage ? [{
+...selectedImages.map((img) => ({
 inlineData: {
 mimeType: mimeType,
-data: selectedImageBase64
+data: img.base64
 }
-}] : [])
+}))
 ]
 }
 ];
@@ -1358,7 +1390,7 @@ setError("Die Analyse konnte nicht abgeschlossen werden. Bitte in ein paar Minut
 } finally {
 setIsAnalyzing(false);
 }
-}, [selectedImageBase64, problemDescription, selectedTrade, saveAnalysis, db, userId]);
+}, [selectedImages, problemDescription, selectedTrade, saveAnalysis, db, userId]);
 // --- FUNKTION: Materialliste generieren (JSON Mode) ---
 const callGeminiMaterialsAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -1774,8 +1806,8 @@ ${tradeHtml}
 <div class="section">
 <h2>1. Dokumentation & Problemstellung</h2>
 ${problemHtml}
-${selectedImageBase64 ?
-`<img class="image-preview" src="data:image/jpeg;base64,${selectedImageBase64}" alt="Problemstelle">` :
+${selectedImages.length > 0 ?
+selectedImages.map((img) => `<img class="image-preview" src="data:image/jpeg;base64,${img.base64}" alt="Problemstelle">`).join('') :
 '<p class="meta italic">Kein Bild beigefügt.</p>'}
 </div>
 ${solutionText ? `
@@ -1806,11 +1838,11 @@ printWindow.print();
 } else {
 setError("Der Browser hat das Popup-Fenster blockiert. Bitte erlauben Sie Popups.");
 }
-}, [solutionText, problemDescription, selectedImageBase64, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
+}, [solutionText, problemDescription, selectedImages, selectedTrade, materialList, safetyTips, videoLinks, clientReport, tradeToolResultEntries]);
 // Dünne Abstraktion für die Anzeige des Ergebniszustands (Laden, Fehler, Lösung)
 const ResultDisplay = useMemo(() => {
 // NEUE PRÜFUNG: Mindestens ein Element muss vorhanden sein
-const isReadyForAnalysis = !!selectedImageBase64 || problemDescription.trim().length > 0;
+const isReadyForAnalysis = selectedImages.length > 0 || problemDescription.trim().length > 0;
 if (isAnalyzing) {
 return (
 <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-xl shadow-inner">
@@ -1828,7 +1860,7 @@ return (
 type="button"
 onClick={clearError}
 aria-label="Fehler zurücksetzen"
-title="Fehler zurücksetzen (Bild bleibt erhalten)"
+title="Fehler zurücksetzen (Bilder bleiben erhalten)"
 className="absolute top-2 right-2 p-1 rounded-full text-red-500 hover:bg-red-200 hover:text-red-800 transition-colors"
 >
 <X className="w-4 h-4" />
@@ -1837,7 +1869,7 @@ className="absolute top-2 right-2 p-1 rounded-full text-red-500 hover:bg-red-200
 <div>
 <p className="font-bold">Analysefehler</p>
 <p className="text-sm">{error}</p>
-<p className="text-xs text-red-500 mt-1">Ihr Bild bleibt erhalten. Tippen Sie oben rechts, um es erneut zu versuchen.</p>
+<p className="text-xs text-red-500 mt-1">Ihre Bilder bleiben erhalten. Tippen Sie oben rechts, um es erneut zu versuchen.</p>
 </div>
 </div>
 );
@@ -2143,7 +2175,7 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 </p>
 <ul className="text-sm mt-3 space-y-1 text-gray-700 text-left mx-auto max-w-xs">
 <li>
-<span className='font-bold text-(--accent) mr-1 transition-colors duration-500 ease-in-out'>1.</span> Ein Foto der Problemstelle **(Abschnitt 2)**
+<span className='font-bold text-(--accent) mr-1 transition-colors duration-500 ease-in-out'>1.</span> Ein oder mehrere Fotos der Problemstelle **(Abschnitt 2)**
 </li>
 <li>
 <span className='font-bold text-(--accent) mr-1 transition-colors duration-500 ease-in-out'>2.</span> Eine detaillierte Problembeschreibung **(Abschnitt 2)**
@@ -2152,7 +2184,7 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 <p className="text-xs mt-4 text-gray-500">Wählen Sie zuerst Ihren Beruf (Abschnitt 1) für eine präzisere Diagnose.</p>
 </div>
 );
-}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImageBase64, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, demoRemaining]);
+}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImages, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, demoRemaining]);
 // Profil-Modal-Komponente (angepasst an Rot/Blau)
 const UserProfileModal = () => {
 const [showProfile, setShowProfile] = useState(false);
@@ -2455,16 +2487,18 @@ onClick={saveTradePreference} // Speichert direkt in Firestore
     Kamera-App statt einer Dateiauswahl, damit die Analyse live auf der
     Baustelle passiert. Auf dem Desktop ohne Kamera fällt der Browser
     automatisch auf eine normale Dateiauswahl zurück. */}
-<label htmlFor="camera-input" className="flex items-center space-x-1 cursor-pointer hover:text-(--accent) transition-colors duration-500 ease-in-out">
+<label htmlFor="camera-input" className={`flex items-center space-x-1 transition-colors duration-500 ease-in-out ${selectedImages.length >= MAX_IMAGES ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:text-(--accent)'}`}>
 <Camera className="w-5 h-5 text-(--accent) transition-colors duration-500 ease-in-out" />
 <span>Foto aufnehmen</span>
-<input id="camera-input" type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+<input id="camera-input" type="file" accept="image/*" capture="environment" onChange={handleFileChange} disabled={selectedImages.length >= MAX_IMAGES} className="hidden" />
 </label>
-{/* Galerie: bewusst ohne "capture", damit auch ein bereits vorhandenes Foto ausgewählt werden kann */}
-<label htmlFor="gallery-input" className="flex items-center space-x-1 cursor-pointer hover:text-(--accent) transition-colors duration-500 ease-in-out">
+{/* Galerie: bewusst ohne "capture", damit auch bereits vorhandene Fotos
+    ausgewählt werden können. "multiple" erlaubt die Mehrfachauswahl mehrerer
+    Bilder auf einmal (siehe handleFileChange/MAX_IMAGES für die Obergrenze). */}
+<label htmlFor="gallery-input" className={`flex items-center space-x-1 transition-colors duration-500 ease-in-out ${selectedImages.length >= MAX_IMAGES ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:text-(--accent)'}`}>
 <Image className="w-5 h-5 text-(--accent) transition-colors duration-500 ease-in-out" />
 <span>Galerie</span>
-<input id="gallery-input" type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+<input id="gallery-input" type="file" accept="image/*" multiple onChange={handleFileChange} disabled={selectedImages.length >= MAX_IMAGES} className="hidden" />
 </label>
 {/* Cloud Upload Placeholder */}
 <label htmlFor="cloud-input" className="flex items-center space-x-1 cursor-pointer text-gray-400 transition" title="In Kürze verfügbar">
@@ -2474,20 +2508,27 @@ onClick={saveTradePreference} // Speichert direkt in Firestore
 </div>
 {/* Bild-Vorschau und Beschreibung */}
 <div className="mt-2">
-{selectedImageBase64 && (
-<div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center mb-4">
+{selectedImages.length > 0 && (
+<div className="mb-4">
+<div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+{selectedImages.map((img) => (
+<div key={img.id} className="relative h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
 <img
-src={`data:image/jpeg;base64,${selectedImageBase64}`}
+src={`data:image/jpeg;base64,${img.base64}`}
 alt="Vorschau des ausgewählten Bauproblems"
 className="object-cover w-full h-full"
 />
 <button
-onClick={() => setSelectedImageBase64(null)}
-className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full text-xs hover:bg-black/70 transition"
+onClick={() => setSelectedImages((prev) => prev.filter((i) => i.id !== img.id))}
+className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full text-xs hover:bg-black/70 transition"
 title="Bild entfernen"
 >
-<X className="w-4 h-4" />
+<X className="w-3 h-3" />
 </button>
+</div>
+))}
+</div>
+<p className="text-xs text-gray-500 mt-1">{selectedImages.length}/{MAX_IMAGES} Bilder ausgewählt</p>
 </div>
 )}
 {/* Beschreibung des Problems */}
@@ -2517,7 +2558,7 @@ Zurücksetzen
 {/* Primär Analyse Button - Quest-Button im Spiel-Look */}
 <button
 onClick={callGeminiVisionAPI}
-disabled={isAnalyzing || (!selectedImageBase64 && problemDescription.trim().length === 0)}
+disabled={isAnalyzing || (selectedImages.length === 0 && problemDescription.trim().length === 0)}
 className="w-2/3 flex items-center justify-center py-3 btn-quest transition duration-300"
 >
 {isAnalyzing ? (

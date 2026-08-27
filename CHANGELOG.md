@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.7.0] – 2026-08-27
+
+### Hinzugefügt
+- **Mehrere Bilder pro Analyse.** Bisher ließ sich nur ein einzelnes Foto
+  auswählen (`selectedImageBase64`), jede neue Auswahl ersetzte das
+  vorherige Bild. Jetzt hält `src/App.jsx` eine Liste (`selectedImages`,
+  max. `MAX_IMAGES = 5`) — die Galerie-Auswahl erlaubt Mehrfachauswahl
+  (`<input multiple>`), Kamera und Galerie lassen sich beliebig oft
+  nacheinander nutzen, um weitere Bilder zu sammeln, und jedes Bild ist in
+  einer Vorschau-Kachelansicht einzeln per (X) entfernbar. Alle
+  ausgewählten Bilder gehen als separate `inlineData`-Teile an Gemini
+  (`callGeminiVisionAPI`) und erscheinen im PDF-Export (`handleExportPdf`).
+  Die Obergrenze von 5 Bildern ist ein Sicherheitspuffer gegen das
+  4,5MB-Payload-Limit der Vercel-Serverless-Function (siehe
+  FUNCTION_PAYLOAD_TOO_LARGE in `error_log.md`), da jedes einzelne Bild
+  bereits auf max. 1600px/JPEG-Qualität 0.82 herunterskaliert ist.
+
 ## [2.6.0] – 2026-08-24
 
 ### Geändert

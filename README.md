@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.6.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.7.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -143,11 +143,14 @@ die Problembeschreibung; ohne beides gibt sie allgemeine, praxisnahe Hinweise
 für den gewählten Beruf. Bei "Allround-Handwerker" erscheint die Vereinigung
 aller Berufs-Tools.
 
-**2. Problem dokumentieren** — Foto der Problemstelle hochladen, eine Textbeschreibung
-eintippen, oder beides. Mindestens eines der beiden reicht, damit die Analyse startet.
-Ein Foto vom Smartphone direkt vor Ort ist oft aussagekräftiger als jede Beschreibung.
+**2. Problem dokumentieren** — bis zu 5 Fotos der Problemstelle hochladen (Kamera
+und Galerie lassen sich beliebig oft nacheinander nutzen, die Galerie-Auswahl
+erlaubt auch Mehrfachauswahl auf einmal), eine Textbeschreibung eintippen, oder
+beides. Mindestens ein Foto oder eine Beschreibung reicht, damit die Analyse
+startet. Fotos vom Smartphone direkt vor Ort sind oft aussagekräftiger als jede
+Beschreibung.
 
-**3. KI-Diagnose** — Gemini analysiert Bild und/oder Beschreibung im Kontext des
+**3. KI-Diagnose** — Gemini analysiert alle ausgewählten Bilder und/oder die Beschreibung im Kontext des
 gewählten Berufs und liefert eine präzise, schrittweise Lösung, formuliert für einen
 erfahrenen Handwerker (kein Laien-Geschwurbel, direkt und praxisnah) — verständlich
 genug, dass auch Laien ihr zuhause folgen können.
@@ -164,7 +167,8 @@ genug, dass auch Laien ihr zuhause folgen können.
   Google-Search-Grounding gefunden
 
 **5. PDF-Export** — der komplette Bericht (Diagnose, Materialliste, Sicherheits-Check,
-Video-Anleitungen, Kundenbericht, Berufs-Spezial-Tool-Ergebnisse, Foto) lässt sich als
+Video-Anleitungen, Kundenbericht, Berufs-Spezial-Tool-Ergebnisse, alle ausgewählten
+Fotos) lässt sich als
 druckfertiges PDF exportieren —
 direkt weitergebbar an Kunden, an den Handwerker des Vertrauens oder fürs eigene
 Archiv.
@@ -183,7 +187,7 @@ App eine Einschätzung, keine Freigabe.
 
 1. Beruf auswählen (oder aus dem gemerkten Profil übernehmen)
 2. Optional sofort die Berufs-Spezial-Tools nutzen — auch ganz ohne Foto/Beschreibung
-3. Foto machen und/oder Problem kurz beschreiben
+3. Ein oder mehrere Fotos machen (max. 5) und/oder Problem kurz beschreiben
 4. Diagnose abwarten (wenige Sekunden)
 5. Bei Bedarf Materialliste, Sicherheits-Check und/oder Kundenbericht per Knopfdruck
    ergänzen
