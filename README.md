@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.14.2)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.15.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -179,7 +179,11 @@ Archiv.
 **6. Analyse teilen** — derselbe Bericht lässt sich per Knopfdruck auch direkt als
 Text teilen: WhatsApp, Telegram, E-Mail und In-die-Zwischenablage-Kopieren stehen
 immer zur Verfügung, auf Mobilgeräten zusätzlich das native Geräte-Share-Sheet mit
-Zugriff auf alle dort installierten Apps.
+Zugriff auf alle dort installierten Apps. Wurden zur Analyse Fotos hochgeladen,
+werden diese über das native Share-Sheet (sofern die Plattform Datei-Freigabe
+unterstützt) automatisch mitgeschickt; für WhatsApp/Telegram/E-Mail-Links, die
+technisch keine Dateien annehmen, lassen sich die Fotos alternativ per Knopfdruck
+herunterladen und manuell anhängen.
 
 **7. Verlauf** — jede Analyse wird pro Google-Konto in Firestore gespeichert (ohne
 Fotos, aus Größengründen); die letzten 20 Analysen lassen sich später erneut aufrufen,

@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.15.0] – 2026-08-27
+
+### Hinzugefügt
+- **Bilder beim Teilen der Analyse.** Problem: Der "Teilen"-Button
+  (`ShareModal.jsx`) hat bisher ausschließlich den Analysetext übergeben —
+  zur Analyse hochgeladene Fotos gingen beim Teilen verloren. Ursache:
+  `shareText` in `App.jsx` baut nur reinen Text auf; `selectedImages`
+  (Base64-Bilder) wurden nicht an `ShareModal` weitergereicht. Lösung:
+  `App.jsx` übergibt `selectedImages` jetzt zusätzlich als `images`-Prop.
+  `ShareModal.jsx` nutzt sie für zwei Wege: (1) beim nativen
+  Geräte-Share-Sheet (`navigator.share`) werden die Bilder als Dateien
+  mitgeschickt, sofern die Plattform das per `navigator.canShare({files})`
+  unterstützt; (2) für WhatsApp-/Telegram-/`mailto:`-Links, die technisch
+  keine Dateianhänge über die URL erlauben, gibt es einen neuen
+  "Bilder herunterladen"-Button zum manuellen Anhängen im jeweiligen Chat
+  bzw. der E-Mail, inklusive Hinweistext im Modal.
+
 ## [2.14.2] – 2026-08-27
 
 ### Geändert
