@@ -72,16 +72,23 @@ neu als offener Eintrag dokumentieren.
 - **Kontext:** Ursprünglich bei `gemini-tts-summary-api`
   (`callGeminiTtsSummaryAPI` in `src/App.jsx`, ruft `/api/gemini` → Google
   Generative Language API auf) beobachtet. Am 16.8.2026 (V1.27.3) auch bei
-  `gemini-vision-api` (Hauptanalyse) reproduziert — bestätigt damit das
-  strukturell gleiche Risiko für jeden der sechs `/api/gemini`-Aufrufer
-  (Hauptanalyse, TTS-Kurzfassung, Materialien, Sicherheit, Kundenbericht,
-  Video-Suche), da alle denselben `GEMINI_API_KEY` teilen.
+  `gemini-vision-api` (Hauptanalyse) reproduziert, am 27.8.2026 (V2.14.0)
+  zusätzlich bei `gemini-video-search-api` (Video-Anleitungs-Suche) —
+  bestätigt damit das strukturell gleiche Risiko für jeden der (inzwischen
+  sieben) `/api/gemini`-Aufrufer (Hauptanalyse, TTS-Kurzfassung, Materialien,
+  Sicherheit, Kostenschätzung, Kundenbericht, Video-Suche), da alle denselben
+  `GEMINI_API_KEY` teilen.
 - **Nachricht:** "You exceeded your current quota... Quota exceeded for
   metric: generativelanguage.googleapis.com/generate_content_free_tier_requests,
-  limit: 20" — zuletzt 16.8.2026 bei der Hauptanalyse (V1.27.3), zuvor
+  limit: 20" — zuletzt 27.8.2026, 11:52 Uhr, V2.14.0 bei der Video-Suche
+  (Android/Chrome Mobile), zuvor 16.8.2026 bei der Hauptanalyse (V1.27.3) und
   15.8.2026, 17:30 Uhr, V1.26.6 bei der TTS-Kurzfassung (Android/Chrome
   Mobile). Dank Fix Nr. 4 (`extractApiErrorMessage`) zeigt der Report den
-  echten Google-Fehlertext statt "[object Object]".
+  echten Google-Fehlertext statt "[object Object]". Die Video-Suche nutzt
+  zusätzlich Google-Search-Grounding (`tools: [{ google_search: {} }]`),
+  dessen Free-Tier-Kontingent laut Google-Dokumentation nochmal enger gefasst
+  sein kann als das reine Text-Kontingent — das Fehlerbild kann dort also
+  bereits bei niedrigerer Gesamtlast auftreten als bei den übrigen Aufrufern.
 - **Vermutliche Ursache:** Der in `GEMINI_API_KEY` hinterlegte Schlüssel hängt
   an einem Google-Cloud-Projekt **ohne aktiviertes Billing** und läuft damit
   im kostenlosen Free-Tier von `generativelanguage.googleapis.com`. Dessen

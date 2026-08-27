@@ -8,6 +8,18 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.14.1] – 2026-08-27
+
+### Dokumentation
+- **`error_log.md`-Eintrag 5 aktualisiert:** Das bekannte, code-seitig nicht
+  behebbare Free-Tier-Kontingent-Problem des zentralen `GEMINI_API_KEY`
+  (Google-Cloud-Projekt ohne aktiviertes Billing, siehe Eintrag 5) trat am
+  27.8.2026 erstmals auch bei `gemini-video-search-api` auf ("You exceeded
+  your current quota..."). Kein Code-Fehler — Ursache und Lösungsansatz
+  (Billing im Google-Cloud-Projekt aktivieren) sind bereits dokumentiert;
+  Eintrag nur um den neuen Kontext (Video-Suche nutzt zusätzlich
+  Google-Search-Grounding mit vermutlich nochmal engerem Kontingent) ergänzt.
+
 ## [2.14.0] – 2026-08-27
 
 ### Hinzugefügt
