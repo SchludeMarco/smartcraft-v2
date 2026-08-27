@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.11.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.12.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -178,9 +178,13 @@ Text teilen: WhatsApp, Telegram, E-Mail und In-die-Zwischenablage-Kopieren stehe
 immer zur Verfügung, auf Mobilgeräten zusätzlich das native Geräte-Share-Sheet mit
 Zugriff auf alle dort installierten Apps.
 
-**7. Verlauf** — jede Analyse wird pro Google-Konto in Firestore gespeichert; die
-letzten 20 Analysen lassen sich später erneut aufrufen, ohne Foto oder Beschreibung neu
-eingeben zu müssen.
+**7. Verlauf** — jede Analyse wird pro Google-Konto in Firestore gespeichert (ohne
+Fotos, aus Größengründen); die letzten 20 Analysen lassen sich später erneut aufrufen,
+ohne Foto oder Beschreibung neu eingeben zu müssen. Zusätzlich lässt sich eine Analyse
+per Knopfdruck ("Lokal speichern") optional **inklusive aller Fotos** rein lokal im
+Browser ablegen (IndexedDB, kein Upload) — die beiden Ablagen erscheinen im
+Verlauf-Modal als getrennte Reiter ("Cloud" / "Lokal"), lokale Einträge lassen sich
+dort auch wieder einzeln löschen.
 
 **8. Haftungsausschluss fest im UI** — ein sichtbarer EU-AI-Act-Hinweis macht klar:
 die KI-Diagnose ist ein unterstützender Vorschlag, kein Ersatz für die Prüfung durch

@@ -1034,6 +1034,7 @@ const [showAdmin, setShowAdmin] = useState(false); // Steuert das Admin-Modal (F
 const [showLegal, setShowLegal] = useState(false); // Steuert das Impressum/Datenschutz-Modal
 const [showFeedback, setShowFeedback] = useState(false); // Steuert das Feedback-Modal
 const [showShare, setShowShare] = useState(false); // Steuert das Teilen-Modal
+const [localSaveStatus, setLocalSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error' - Feedback für den "Lokal speichern"-Button
 // Steuert die Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen
 // Gemini-API-Keys — öffnet sich automatisch, sobald eine KI-Anfrage mit
 // Status 402 (Kontingent aufgebraucht, kein eigener Key, siehe
@@ -1730,6 +1731,28 @@ solutionText: analysisData.solutionText,
 console.error("Fehler beim Speichern der Analyse:", e);
 }
 }, [db, userId, appId]);
+// --- FUNKTION: ANALYSE OPTIONAL LOKAL SPEICHERN (inkl. Bilder) ---
+// Gegenstück zu saveAnalysis: läuft nicht automatisch nach jeder Analyse,
+// sondern nur auf Klick des Nutzers ("Lokal speichern" im Ergebnis-Bereich),
+// und legt dafür - anders als Firestore - auch die Bilder mit ab (siehe
+// localAnalyses.js).
+const handleSaveLocally = useCallback(async () => {
+setLocalSaveStatus('saving');
+try {
+await saveAnalysisLocally({
+selectedTrade,
+problemDescription,
+solutionText,
+images: selectedImages,
+});
+setLocalSaveStatus('saved');
+setTimeout(() => setLocalSaveStatus('idle'), 2000);
+} catch (e) {
+console.error("Fehler beim lokalen Speichern der Analyse:", e);
+setLocalSaveStatus('error');
+setTimeout(() => setLocalSaveStatus('idle'), 3000);
+}
+}, [selectedTrade, problemDescription, solutionText, selectedImages]);
 // --- EFFECT: GEWERK LADEN (mit Firestore) und SPEICHERN ---
 const saveTradePreference = useCallback(async (trade) => {
 setSelectedTradeState(trade);
@@ -2529,6 +2552,21 @@ className="flex items-center px-4 py-2 bg-gray-700 text-white font-semibold roun
 Teilen
 </button>
 <button
+onClick={handleSaveLocally}
+disabled={!solutionText || localSaveStatus === 'saving'}
+title="Analyse inkl. Bilder nur auf diesem Gerät speichern (kein Upload)"
+className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl shadow-md hover:bg-gray-200 transition-colors duration-500 ease-in-out transform active:scale-[0.98] disabled:opacity-60"
+>
+{localSaveStatus === 'saved' ? (
+<CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+) : localSaveStatus === 'error' ? (
+<AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
+) : (
+<Save className="w-4 h-4 mr-2" />
+)}
+{localSaveStatus === 'saved' ? 'Gespeichert!' : localSaveStatus === 'error' ? 'Fehler' : 'Lokal speichern'}
+</button>
+<button
 onClick={handleExportPdf}
 disabled={!solutionText || isGeneratingMaterials || isGeneratingSafety || isGeneratingVideos || isGeneratingReport}
 // Primärfarbe folgt dem gewählten Beruf
@@ -2561,7 +2599,7 @@ Um die Analyse zu starten, benötigen Sie **eines** der folgenden Elemente:
 <p className="text-xs mt-4 text-gray-500">Wählen Sie zuerst Ihren Beruf (Abschnitt 1) für eine präzisere Diagnose.</p>
 </div>
 );
-}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImages, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey]);
+}, [isAnalyzing, error, clearError, solutionText, handleExportPdf, materialList, safetyTips, videoLinks, clientReport, isGeneratingMaterials, isGeneratingSafety, isGeneratingVideos, isGeneratingReport, callGeminiMaterialsAPI, callGeminiSafetyAPI, callGeminiVideoSearch, callGeminiClientReportAPI, selectedImages, problemDescription, isTtsPlaying, isTtsLoading, ttsGender, ttsMode, isGeneratingTtsShort, handleToggleTts, theme, trialRemaining, ownApiKey, handleSaveLocally, localSaveStatus]);
 if (!isAuthReady) {
 // Ladebildschirm während der Firebase-Authentifizierung
 return (
@@ -2647,6 +2685,7 @@ userId={userId}
 appId={appId}
 onClose={() => setShowHistory(false)}
 onSelect={handleSelectAnalysis}
+onSelectLocal={handleSelectLocalAnalysis}
 />
 )}
 {/* Admin-Modal (Fehlerreports) */}
@@ -2971,6 +3010,21 @@ className="flex items-center px-4 py-2 bg-gray-700 text-white font-semibold roun
 >
 <Share2 className="w-4 h-4 mr-2" />
 Teilen
+</button>
+<button
+onClick={handleSaveLocally}
+disabled={localSaveStatus === 'saving'}
+title="Analyse inkl. Bilder nur auf diesem Gerät speichern (kein Upload)"
+className="flex items-center px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-xl shadow-md hover:bg-gray-200 transition-colors duration-500 ease-in-out transform active:scale-[0.98] disabled:opacity-60"
+>
+{localSaveStatus === 'saved' ? (
+<CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+) : localSaveStatus === 'error' ? (
+<AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
+) : (
+<Save className="w-4 h-4 mr-2" />
+)}
+{localSaveStatus === 'saved' ? 'Gespeichert!' : localSaveStatus === 'error' ? 'Fehler' : 'Lokal speichern'}
 </button>
 <button
 onClick={handleExportPdf}

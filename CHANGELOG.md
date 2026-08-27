@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.12.0] – 2026-08-27
+
+### Hinzugefügt
+- **Analysen optional lokal inkl. Bilder speichern.** Firestore speichert
+  Analysen bisher bewusst ohne Bild (`saveAnalysis` in `src/App.jsx`, siehe
+  Kommentar "zu groß für Firestore") — dadurch gingen beim Nachladen eines
+  Verlaufseintrags immer die Fotos verloren (`handleSelectAnalysis` setzt
+  `selectedImages` auf `[]`). Neuer "Lokal speichern"-Button neben Teilen/
+  PDF-Export (Hauptergebnis-Bereich und reine Berufs-Tool-Ergebnisse) legt die
+  Analyse stattdessen per Knopfdruck **inklusive aller Fotos** rein
+  clientseitig in IndexedDB ab (neues `src/localAnalyses.js`, keine neue
+  Abhängigkeit) — kein Upload, keine Firestore-Größenbeschränkung. Das
+  Verlauf-Modal (`AnalysisHistoryModal`) zeigt beide Ablagen jetzt über zwei
+  Reiter ("Cloud" / "Lokal (mit Bildern)"); lokale Einträge lassen sich
+  einzeln löschen und laden beim Auswählen (`handleSelectLocalAnalysis`) auch
+  die Fotos wieder in die Bildauswahl.
+
 ## [2.11.0] – 2026-08-27
 
 ### Hinzugefügt
