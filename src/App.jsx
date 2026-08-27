@@ -3018,7 +3018,7 @@ isAnonymous: false,
 />
 )}
 {/* Teilen-Modal (WhatsApp, Telegram, E-Mail, Kopieren, natives Share-Sheet) */}
-{showShare && <ShareModal onClose={() => setShowShare(false)} shareText={shareText} />}
+{showShare && <ShareModal onClose={() => setShowShare(false)} shareText={shareText} images={selectedImages} />}
 {/* Anleitung zum Hinterlegen eines eigenen API-Keys (siehe
     handleTrialExceededError) — öffnet sich automatisch bei Status 402. */}
 {showApiKeyOnboarding && <ApiKeyOnboardingModal onClose={() => setShowApiKeyOnboarding(false)} saveOwnApiKey={saveOwnApiKey} />}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Share2, Copy, CheckCircle, Send, Mail } from 'lucide-react';
+import { X, Share2, Copy, CheckCircle, Send, Mail, Download } from 'lucide-react';
 
 // Einfaches WhatsApp-Glyphen-SVG, da lucide-react keine Marken-Icons führt.
 const WhatsAppIcon = () => (
@@ -12,14 +12,23 @@ const WhatsAppIcon = () => (
 // App.jsx. Baut aus dem aktuellen Analyseergebnis (siehe shareText in
 // App.jsx, analog zu handleExportPdf) einen reinen Text auf, da nicht alle
 // Zielplattformen (WhatsApp, Telegram, E-Mail) formatiertes HTML annehmen.
-const ShareModal = ({ onClose, shareText }) => {
+const ShareModal = ({ onClose, shareText, images = [] }) => {
   const [copied, setCopied] = useState(false);
+  const [imagesDownloaded, setImagesDownloaded] = useState(false);
+  const hasImages = images.length > 0;
   const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   const encodedText = encodeURIComponent(shareText);
   const whatsappUrl = `https://wa.me/?text=${encodedText}`;
   const telegramUrl = `https://t.me/share/url?url=&text=${encodedText}`;
   const mailUrl = `mailto:?subject=${encodeURIComponent('Sm@rtCraft Analyse')}&body=${encodedText}`;
+
+  const base64ToFile = (base64, index) => {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], `smartcraft-bild-${index + 1}.jpg`, { type: 'image/jpeg' });
+  };
 
   const handleCopy = async () => {
     try {
@@ -31,12 +40,40 @@ const ShareModal = ({ onClose, shareText }) => {
     }
   };
 
+  // Natives Share-Sheet: teilt Text und Bilder gemeinsam, sofern die
+  // Plattform Datei-Freigabe unterstützt (canShare-Check). WhatsApp/
+  // Telegram/mailto-Links unten können dagegen technisch keine Dateien
+  // anhängen - dafür der Bilder-Download-Button als Fallback.
   const handleNativeShare = async () => {
     try {
-      await navigator.share({ title: 'Sm@rtCraft Analyse', text: shareText });
+      const shareData = { title: 'Sm@rtCraft Analyse', text: shareText };
+      if (hasImages) {
+        const files = images.map((img, i) => base64ToFile(img.base64, i));
+        if (navigator.canShare && navigator.canShare({ files })) {
+          shareData.files = files;
+        }
+      }
+      await navigator.share(shareData);
     } catch {
       // Nutzer hat den Share-Dialog abgebrochen - kein Fehler nötig
     }
+  };
+
+  // Fallback für Ziele ohne Datei-Unterstützung: Bilder einzeln herunterladen,
+  // damit sie manuell im jeweiligen Chat/der E-Mail angehängt werden können.
+  const handleDownloadImages = () => {
+    images.forEach((img, i) => {
+      const file = base64ToFile(img.base64, i);
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    setImagesDownloaded(true);
   };
 
   return (
@@ -55,7 +92,26 @@ const ShareModal = ({ onClose, shareText }) => {
           </button>
         </div>
 
+        {hasImages && (
+          <p className="text-xs text-gray-500 mb-3 -mt-1">
+            {images.length === 1 ? 'Diese Analyse enthält 1 Bild.' : `Diese Analyse enthält ${images.length} Bilder.`}{' '}
+            WhatsApp/Telegram/E-Mail-Links können nur den Text übernehmen - über
+            "Weitere Optionen..." (natives Teilen) werden die Bilder direkt mitgeschickt,
+            sonst bitte vorher herunterladen und manuell anhängen.
+          </p>
+        )}
+
         <div className="flex flex-col gap-2">
+          {hasImages && (
+            <button
+              type="button"
+              onClick={handleDownloadImages}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200 transition-colors"
+            >
+              {imagesDownloaded ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Download className="w-5 h-5" />}
+              {imagesDownloaded ? 'Bilder heruntergeladen' : `${images.length === 1 ? 'Bild' : 'Bilder'} herunterladen`}
+            </button>
+          )}
           <a
             href={whatsappUrl}
             target="_blank"
@@ -96,7 +152,7 @@ const ShareModal = ({ onClose, shareText }) => {
               className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200 transition-colors"
             >
               <Share2 className="w-5 h-5" />
-              Weitere Optionen...
+              {hasImages ? 'Weitere Optionen... (inkl. Bilder)' : 'Weitere Optionen...'}
             </button>
           )}
         </div>
