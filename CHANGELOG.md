@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.16.4] – 2026-08-28
+
+### Geändert
+- **CSS-Variablen `--color-gold`/`--color-gold-light` in `--color-steel`/
+  `--color-steel-light` umbenannt.** Problem: Die Variablen hießen "Gold",
+  ihre Werte (`#3d7fb8`/`#6fb1e8`) sind aber Blautöne — irreführende
+  Benennung, die künftig zu Verwechslungen führen kann (z.B. Erwartung von
+  Gelb/Gold beim Lesen des Codes). Ursache: Vermutlich frühere echte
+  Gold-Werte, die auf Blau umgestellt wurden, ohne die Bezeichner
+  anzupassen. Lösung: Variablen in `src/index.css` sowie alle davon
+  abgeleiteten Tailwind-Utilities (`border-gold` → `border-steel`,
+  `text-gold-light`/`fill-gold-light` → `text-steel-light`/
+  `fill-steel-light`, `ring-gold` → `ring-steel`) und die Klasse `.btn-gold`
+  → `.btn-steel` in `src/App.jsx` konsistent umbenannt; ebenso die
+  SVG-Gradient-ID `headerGoldGrad` → `headerSteelGrad` und zugehörige
+  Kommentare, die den Farbton weiterhin "Gold" nannten.
+
 ## [2.16.3] – 2026-08-28
 
 ### Geändert

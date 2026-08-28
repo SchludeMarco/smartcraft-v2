@@ -469,7 +469,7 @@ onClick={() => onClick(name)}
 style={{ '--tbtn-bg': theme.accent, '--tbtn-bg-hover': theme.accentDark }}
 className={`flex flex-col items-center justify-center min-w-0 px-0 py-1 rounded-2xl transition-colors duration-500 ease-in-out shadow-lg transform active:scale-[0.98] border-2
 bg-(--tbtn-bg) hover:bg-(--tbtn-bg-hover) text-white
-${isSelected ? 'border-gold ring-2 ring-offset-2 ring-offset-parchment ring-gold shadow-2xl' : 'border-black/10 opacity-90 hover:opacity-100'}
+${isSelected ? 'border-steel ring-2 ring-offset-2 ring-offset-parchment ring-steel shadow-2xl' : 'border-black/10 opacity-90 hover:opacity-100'}
 `}
 >
 <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/30 mb-0.5 shrink-0">
@@ -563,7 +563,7 @@ return (
 className="panel-parchment p-6 rounded-2xl w-full max-w-md h-[80vh] flex flex-col transform transition-all duration-300 scale-100"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4 flex-shrink-0">
+<div className="flex justify-between items-center border-b border-steel/40 pb-3 mb-4 flex-shrink-0">
 <h3 className="text-xl font-bold text-gray-800 flex items-center">
 <List className="w-5 h-5 mr-2 text-(--accent)" />
 Ihre Analyse-Historie
@@ -615,7 +615,7 @@ isLoading ? (
 {history.map((item) => (
 <li
 key={item.id}
-className="p-3 bg-parchment border border-gold/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
+className="p-3 bg-parchment border border-steel/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
 onClick={() => onSelect(item)} // Ladefunktion wird bei Klick ausgelöst
 >
 <div>
@@ -663,7 +663,7 @@ Laden
 {nearbyHistory.map((item) => (
 <li
 key={item.id}
-className="p-3 bg-parchment border border-gold/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
+className="p-3 bg-parchment border border-steel/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
 onClick={() => onSelect(item)}
 >
 <div>
@@ -711,7 +711,7 @@ isLocalLoading ? (
 {localHistory.map((item) => (
 <li
 key={item.id}
-className="p-3 bg-parchment border border-gold/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
+className="p-3 bg-parchment border border-steel/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
 onClick={() => onSelectLocal(item)} // Ladefunktion wird bei Klick ausgelöst
 >
 <div>
@@ -792,7 +792,7 @@ className="appearance-none block relative w-10 h-10 p-0 m-0 leading-none rounded
 {/* Basis: Hammer */}
 <Hammer className="absolute inset-0 w-full h-full text-white/90" />
 {/* Overlay: Blitz (Smart-Aspekt), leicht versetzt und hervorgehoben */}
-<Zap className="absolute w-5 h-5 bottom-0 right-0 transform translate-x-1 translate-y-1 text-gold-light fill-gold-light shadow-md" />
+<Zap className="absolute w-5 h-5 bottom-0 right-0 transform translate-x-1 translate-y-1 text-steel-light fill-steel-light shadow-md" />
 </button>
 );
 // Aufgeraeumter, polierter Look fuer die Kopfleiste: sanfter Glanzstreifen
@@ -817,7 +817,7 @@ aria-hidden="true"
 <stop offset="55%" stopColor="#ffffff" stopOpacity="0" />
 <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
 </linearGradient>
-<linearGradient id="headerGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+<linearGradient id="headerSteelGrad" x1="0%" y1="0%" x2="100%" y2="0%">
 <stop offset="0%" stopColor="#6fb1e8" />
 <stop offset="100%" stopColor="#3d7fb8" />
 </linearGradient>
@@ -827,7 +827,7 @@ aria-hidden="true"
 <rect width="1000" height="100" fill="url(#headerGloss)" style={{ mixBlendMode: 'overlay' }} />
 
 {/* gerade Akzentlinie an der Unterkante statt frueherem ausgefransten Rand */}
-<rect x="0" y="96" width="1000" height="3" fill="url(#headerGoldGrad)" />
+<rect x="0" y="96" width="1000" height="3" fill="url(#headerSteelGrad)" />
 </svg>
 );
 // Extrahiert die für die Profil-UI relevanten Felder aus einem Firebase-User.
@@ -881,7 +881,7 @@ return (
 className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-start border-b border-gold/40 pb-3 mb-4">
+<div className="flex justify-between items-start border-b border-steel/40 pb-3 mb-4">
 <div>
 <h3 className="text-lg font-bold text-gray-800 flex items-center">
 <Zap className="w-5 h-5 mr-2 text-(--accent)" />
@@ -1057,7 +1057,7 @@ aria-label="Benutzerprofil und Historie anzeigen"
 className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-all duration-300 scale-100 relative"
 onClick={e => e.stopPropagation()}
 >
-<div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4">
+<div className="flex justify-between items-center border-b border-steel/40 pb-3 mb-4">
 <h3 className="text-xl font-bold text-gray-800 flex items-center">
 {/* Profil-Icon folgt der Berufs-Akzentfarbe */}
 <User className="w-5 h-5 mr-2 text-(--accent) transition-colors duration-500 ease-in-out" />
@@ -1065,7 +1065,7 @@ Mein Konto
 </h3>
 <button onClick={() => setShowProfile(false)} aria-label="Schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light"><X className="w-6 h-6" /></button>
 </div>
-<div className="flex items-center space-x-3 mb-4 p-2 bg-parchment-dark/30 rounded-lg border border-gold/30">
+<div className="flex items-center space-x-3 mb-4 p-2 bg-parchment-dark/30 rounded-lg border border-steel/30">
 {showGooglePhoto ? (
 <img src={authUser.photoURL} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" onError={() => setGooglePhotoFailed(true)} />
 ) : (
@@ -2960,7 +2960,7 @@ className='relative z-10 text-white p-6 bg-(--accent) rounded-xl max-w-sm text-c
 {/* Markenname groß + Versionsnummer klein darunter, siehe Kopfleiste der Haupt-App-Ansicht weiter unten (dort inline statt gestapelt) */}
 <div>
 <h1 className="text-4xl font-display font-bold tracking-wide">
-<span className="text-gold-light" style={{ color: 'var(--color-gold-light)' }}>Sm@rt</span>
+<span className="text-steel-light" style={{ color: 'var(--color-steel-light)' }}>Sm@rt</span>
 <span style={{ color: '#fff' }}>Craft</span>!
 </h1>
 <p className="text-xs font-sans font-light italic text-white/70 mt-1">(V{__APP_VERSION__})</p>
@@ -3057,7 +3057,7 @@ isAnonymous: false,
 {/* Versionsnummer steht nicht mehr hier, sondern klein unten rechts im
     Profil-Modal (UserProfileModal, siehe "Mein Konto" weiter oben in dieser
     Datei) — Quelle bleibt package.json (siehe vite.config.js define: __APP_VERSION__). */}
-<h1 className="text-2xl font-display font-bold text-gold-light tracking-wide" style={{ color: 'var(--color-gold-light)' }}>Sm@rt<span style={{ color: '#fff' }}>Craft</span>!</h1>
+<h1 className="text-2xl font-display font-bold text-steel-light tracking-wide" style={{ color: 'var(--color-steel-light)' }}>Sm@rt<span style={{ color: '#fff' }}>Craft</span>!</h1>
 </div>
 {/* Profil-Button: Öffnet das Profil-Modal */}
 <UserProfileModal
@@ -3163,7 +3163,7 @@ aria-label="Hinweis ausblenden"
 {/* 1. Beruf Auswahl */}
 <section>
 <h2 className="mb-3"><span className="badge-pill">1. Beruf auswählen</span></h2>
-<div className="grid grid-cols-5 gap-1.5 p-2 bg-parchment-dark/60 rounded-xl border-2 border-gold/50 shadow-inner">
+<div className="grid grid-cols-5 gap-1.5 p-2 bg-parchment-dark/60 rounded-xl border-2 border-steel/50 shadow-inner">
 {TRADE_ICONS.map((trade) => (
 <TradeButton
 key={trade.name}
@@ -3417,7 +3417,7 @@ Impressum &amp; Datenschutz
     "Impressum & Datenschutz" untergeht (siehe Nutzer-Feedback) */}
 <button
 onClick={() => setShowFeedback(true)}
-className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-5 py-3.5 btn-gold"
+className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-5 py-3.5 btn-steel"
 aria-label="Feedback senden"
 >
 <MessageSquarePlus className="w-5 h-5" />
