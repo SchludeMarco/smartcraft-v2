@@ -49,6 +49,10 @@ const appStartUrl = '/api/app-start';
 // zur Google Cloud Text-to-Speech API — gleicher Grund wie bei apiUrl: der
 // API-Key darf nie im Browser sichtbar sein.
 const apiTtsUrl = '/api/tts';
+// Adress-Suche/Reverse-Geocoding (SiteAddressModal, siehe unten) läuft über
+// einen eigenen Serverless-Proxy (api/geocode.js) zur Google Geocoding API —
+// gleicher Grund wie bei apiUrl/apiTtsUrl.
+const apiGeocodeUrl = '/api/geocode';
 // Modul-Variable statt React-State, weil fetchWithRetry außerhalb der
 // Komponente liegt und synchron auf die App-Check-Instanz zugreifen muss.
 let appCheckInstance = null;
@@ -101,6 +105,25 @@ const sinDLat = Math.sin(dLat / 2);
 const sinDLng = Math.sin(dLng / 2);
 const h = sinDLat * sinDLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinDLng * sinDLng;
 return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
+}
+// Normalisiert eine Adresse für den Vergleich zweier Standorte (siehe
+// isSameSiteAddress) — Groß-/Kleinschreibung und Mehrfach-Leerzeichen sollen
+// z.B. "Musterstr. 12" und "musterstr.  12" nicht als unterschiedlich gelten.
+function normalizeAddressForMatch(address) {
+return (address || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+// Zwei Analysen gelten nur dann als "gleicher Standort", wenn zusätzlich zum
+// GPS-Umkreis (LOCATION_MATCH_RADIUS_METERS) auch die vom Nutzer bestätigte
+// Adresse übereinstimmt (siehe SiteAddressModal) — reines GPS-Umkreis-Matching
+// allein könnte sonst zwei benachbarte, aber komplett unterschiedliche
+// Baustellen (Nachbargrundstücke) fälschlich zusammenwerfen oder umgekehrt
+// zwei verschiedene Wohnungen im selben Haus (identische Koordinaten) gar
+// nicht unterscheiden. Fehlt bei einer der beiden Seiten eine Adresse (ältere
+// Analysen von vor Einführung dieses Felds, oder die Adressabfrage wurde
+// übersprungen), greift wie bisher nur der GPS-Umkreis.
+function isSameSiteAddress(addressA, addressB) {
+if (!addressA || !addressB) return true;
+return normalizeAddressForMatch(addressA) === normalizeAddressForMatch(addressB);
 }
 // Liefert die aktuelle Geräteposition oder null (kein Support, Berechtigung
 // verweigert, Timeout) — nie ein rejected Promise, damit Aufrufer nicht bei
@@ -384,7 +407,7 @@ setTimeout(() => ctx.close(), 700);
 const MAX_RETRY_DELAY_MS = 8000;
 const fetchWithRetry = async (url, options, maxRetries = 5) => {
 let requestOptions = options;
-if ((url === apiUrl || url === trialStatusUrl || url === apiTtsUrl || url === appStartUrl) && appCheckInstance) {
+if ((url === apiUrl || url === trialStatusUrl || url === apiTtsUrl || url === appStartUrl || url === apiGeocodeUrl) && appCheckInstance) {
 try {
 const { token } = await getAppCheckToken(appCheckInstance);
 requestOptions = { ...options, headers: { ...options.headers, 'X-Firebase-AppCheck': token } };
@@ -400,7 +423,7 @@ console.error('App-Check-Token konnte nicht geholt werden:', e);
 queueErrorReport('app-check-token', e);
 }
 }
-if ((url === apiUrl || url === trialStatusUrl || url === appStartUrl) && currentAuthInstance?.currentUser) {
+if ((url === apiUrl || url === trialStatusUrl || url === appStartUrl || url === apiGeocodeUrl) && currentAuthInstance?.currentUser) {
 try {
 const idToken = await getIdToken(currentAuthInstance.currentUser);
 requestOptions = { ...requestOptions, headers: { ...requestOptions.headers, Authorization: `Bearer ${idToken}` } };
@@ -455,6 +478,32 @@ return fallback;
 return fallback;
 }
 };
+// Ruft api/geocode.js auf (Reverse-/Adress-Geocoding, siehe SiteAddressModal)
+// und liefert bei jedem Fehler (Netzwerk, Rate-Limit, kein Treffer) einfach
+// eine leere Ergebnisliste statt eines rejected Promise — gleicher
+// "still degradieren"-Stil wie getCurrentCoords oben: die Standortabfrage ist
+// überall optional und darf die eigentliche Analyse nie blockieren.
+async function fetchGeocodeResults(body) {
+try {
+const response = await fetchWithRetry(apiGeocodeUrl, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(body),
+}, 1);
+if (!response.ok) return [];
+const data = await response.json();
+return Array.isArray(data.results) ? data.results : [];
+} catch {
+return [];
+}
+}
+async function reverseGeocode(lat, lng) {
+const results = await fetchGeocodeResults({ mode: 'reverse', lat, lng });
+return results[0]?.address || null;
+}
+async function searchAddress(queryText) {
+return fetchGeocodeResults({ mode: 'search', query: queryText });
+}
 // Komponente für einen einzelnen Handwerker-Button
 // Nutzt eine per Button gesetzte CSS-Variable statt fixer Tailwind-Farbklassen,
 // damit Fläche/Hover/Ring aus der gedeckten TRADE_THEMES-Palette kommen und
@@ -480,7 +529,7 @@ ${isSelected ? 'border-steel ring-2 ring-offset-2 ring-offset-parchment ring-ste
 // NEUE Komponente: Historische Analysen anzeigen (liest aus Firestore, ohne
 // Bilder - siehe saveAnalysis) UND aus der optionalen lokalen IndexedDB-Ablage
 // (mit Bildern - siehe localAnalyses.js/saveAnalysisLocally), je nach Tab.
-const AnalysisHistoryModal = ({ db, userId, appId, onClose, onSelect, onSelectLocal, locationFeatureEnabled, currentCoords, initialTab }) => {
+const AnalysisHistoryModal = ({ db, userId, appId, onClose, onSelect, onSelectLocal, locationFeatureEnabled, currentCoords, siteAddress, initialTab }) => {
 const [tab, setTab] = useState(initialTab || 'cloud');
 const [history, setHistory] = useState([]);
 const [isLoading, setIsLoading] = useState(true);
@@ -542,8 +591,12 @@ fetchLocalHistory();
 // erfordern, das sich bei dieser kleinen Menge nicht lohnt.
 const nearbyHistory = useMemo(() => {
 if (!currentCoords) return [];
-return history.filter((item) => item.location && haversineDistanceMeters(currentCoords, item.location) <= LOCATION_MATCH_RADIUS_METERS);
-}, [history, currentCoords]);
+return history.filter((item) =>
+item.location &&
+haversineDistanceMeters(currentCoords, item.location) <= LOCATION_MATCH_RADIUS_METERS &&
+isSameSiteAddress(item.locationAddress, siteAddress)
+);
+}, [history, currentCoords, siteAddress]);
 // Analysen, die ohne Empfang ausgelöst und von der Warteschlange automatisch
 // nachgeholt wurden (siehe saveAnalysis/syncedFromOffline in App.jsx) —
 // eigener Tab, damit man sie nach dem "X Analysen wurden nachgeholt"-Hinweis
@@ -682,6 +735,9 @@ onClick={() => onSelect(item)}
 {item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleString('de-DE') : 'Unbekanntes Datum'}
 {' '}· ~{Math.round(haversineDistanceMeters(currentCoords, item.location))}m entfernt
 </p>
+{item.locationAddress && (
+<p className="text-xs font-medium text-(--accent-dark) truncate max-w-[80%]">{item.locationAddress}</p>
+)}
 <p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
 {item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
 </p>
@@ -822,6 +878,179 @@ Laden
 : 'Analysen aus den letzten 20, die ohne Empfang ausgelöst und automatisch nachgeholt wurden.'}
 </p>
 </div>
+</div>
+</div>
+);
+};
+// Einmalige Ja/Nein-Abfrage, ob der Standort überhaupt verwendet werden darf
+// (siehe showLocationConsentModal/loadProfile-Effect in App) — erscheint nur
+// beim allerersten App-Start, solange im Profil noch keine explizite
+// Entscheidung gespeichert ist. Der bestehende Schalter im Profil-Menü
+// (UserProfileModal) bleibt zusätzlich bestehen, um die Entscheidung
+// jederzeit zu ändern — dieser Dialog erscheint danach nie wieder.
+const LocationConsentModal = ({ onAccept, onDecline }) => (
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+<div className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto">
+<div className="border-b border-steel/40 pb-3 mb-4">
+<h3 className="text-lg font-bold text-gray-800 flex items-center">
+<MapPin className="w-5 h-5 mr-2 text-(--accent)" />
+Standort-Erkennung aktivieren?
+</h3>
+</div>
+<p className="text-sm text-gray-700 mb-4">
+Speichert mit Ihrer Zustimmung den GPS-Standort neuer Analysen, damit Sie
+frühere Analysen an derselben Baustelle wiederfinden ("Du warst hier schon
+X Mal"). Nur in Ihrem eigenen Verlauf sichtbar — die Entscheidung lässt
+sich jederzeit im Profil-Menü ändern.
+</p>
+<div className="flex gap-2">
+<button
+type="button"
+onClick={onDecline}
+className="flex-1 px-4 py-2 btn-parchment text-sm transform active:scale-[0.98]"
+>
+Nein, danke
+</button>
+<button
+type="button"
+onClick={onAccept}
+className="flex-1 px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-xl hover:bg-(--accent-dark) transition duration-300"
+>
+Ja, aktivieren
+</button>
+</div>
+</div>
+</div>
+);
+// STANDORT-BESTÄTIGUNG (siehe isSameSiteAddress oben): reines GPS-Umkreis-
+// Matching kann zwei benachbarte, aber komplett unterschiedliche Baustellen
+// (Nachbargrundstücke) fälschlich als "gleicher Standort" erkennen — und
+// umgekehrt zwei verschiedene Wohnungen im selben Haus (identische
+// Koordinaten) gar nicht unterscheiden. Deshalb bestätigt/benennt der Nutzer
+// die Adresse pro Sitzung selbst (z.B. "Musterstr. 12, 3. OG rechts"), statt
+// sich allein auf GPS zu verlassen. Als Vorschlag dient die per Reverse-
+// Geocoding (api/geocode.js) ermittelte Adresse des aktuellen GPS-Standorts;
+// alternativ kann über dieselbe Google Geocoding API nach einer Adresse
+// gesucht werden (kein Live-Autocomplete wie bei Google Places, daher erst ab
+// einer Mindestlänge und mit Verzögerung).
+const SiteAddressModal = ({ currentCoords, hasExistingAddress, onConfirm, onSkip }) => {
+const [suggestion, setSuggestion] = useState(null);
+const [isSuggesting, setIsSuggesting] = useState(false);
+const [searchTerm, setSearchTerm] = useState('');
+const [searchResults, setSearchResults] = useState([]);
+const [isSearching, setIsSearching] = useState(false);
+const [searchError, setSearchError] = useState(null);
+useEffect(() => {
+if (!currentCoords) return;
+let cancelled = false;
+setIsSuggesting(true);
+reverseGeocode(currentCoords.lat, currentCoords.lng)
+.then((address) => { if (!cancelled) setSuggestion(address); })
+.finally(() => { if (!cancelled) setIsSuggesting(false); });
+return () => { cancelled = true; };
+}, [currentCoords]);
+useEffect(() => {
+const trimmed = searchTerm.trim();
+if (trimmed.length < 5) {
+setSearchResults([]);
+setSearchError(null);
+setIsSearching(false);
+return;
+}
+let cancelled = false;
+setIsSearching(true);
+setSearchError(null);
+const timer = setTimeout(async () => {
+const results = await searchAddress(trimmed);
+if (cancelled) return;
+setIsSearching(false);
+setSearchResults(results);
+if (results.length === 0) setSearchError('Keine Adresse gefunden.');
+}, 500);
+return () => { cancelled = true; clearTimeout(timer); };
+}, [searchTerm]);
+return (
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onSkip}>
+<div
+className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto"
+onClick={(e) => e.stopPropagation()}
+>
+<div className="flex justify-between items-start border-b border-steel/40 pb-3 mb-4">
+<div>
+<h3 className="text-lg font-bold text-gray-800 flex items-center">
+<MapPin className="w-5 h-5 mr-2 text-(--accent)" />
+Standort festlegen
+</h3>
+<p className="text-xs text-gray-500 mt-1">
+Damit die Standort-Erkennung Nachbarhäuser oder verschiedene Wohnungen
+im selben Haus auseinanderhält, bitte kurz die Adresse dieser Baustelle
+bestätigen.
+</p>
+</div>
+<button onClick={onSkip} aria-label="Schließen" className="flex-shrink-0 text-gray-400 hover:text-gray-600 ml-2">
+<X className="w-5 h-5" />
+</button>
+</div>
+{currentCoords ? (
+<div className="mb-4">
+<p className="text-xs font-semibold text-gray-600 mb-1.5">Vorschlag (aktueller Standort):</p>
+{isSuggesting ? (
+<div className="flex items-center text-sm text-gray-500">
+<Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adresse wird ermittelt...
+</div>
+) : suggestion ? (
+<button
+type="button"
+onClick={() => onConfirm(suggestion, currentCoords)}
+className="w-full text-left px-3 py-2 bg-parchment border border-steel/30 rounded-lg hover:bg-parchment-dark/50 transition text-sm text-gray-800"
+>
+{suggestion}
+</button>
+) : (
+<p className="text-xs text-gray-400">Adresse konnte nicht automatisch ermittelt werden.</p>
+)}
+</div>
+) : (
+<p className="text-xs text-gray-400 mb-4">Standort konnte nicht ermittelt werden — bitte Adresse manuell suchen.</p>
+)}
+<div className="mb-2">
+<label className="text-xs font-semibold text-gray-600 mb-1.5 block">Oder Adresse suchen:</label>
+<div className="relative">
+<Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+<input
+type="text"
+value={searchTerm}
+onChange={(e) => setSearchTerm(e.target.value)}
+placeholder="z.B. Musterstraße 12, 12345 Musterstadt"
+aria-label="Adresse suchen"
+className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-(--accent)"
+/>
+</div>
+</div>
+{isSearching && (
+<div className="flex items-center text-xs text-gray-500 mb-2">
+<Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> Suche läuft...
+</div>
+)}
+{searchError && <p className="text-xs text-gray-400 mb-2">{searchError}</p>}
+{searchResults.length > 0 && (
+<ul className="space-y-1.5 mb-2 max-h-40 overflow-y-auto">
+{searchResults.map((r, i) => (
+<li key={i}>
+<button
+type="button"
+onClick={() => onConfirm(r.address, { lat: r.lat, lng: r.lng })}
+className="w-full text-left px-3 py-2 bg-parchment border border-steel/30 rounded-lg hover:bg-parchment-dark/50 transition text-sm text-gray-800"
+>
+{r.address}
+</button>
+</li>
+))}
+</ul>
+)}
+<button onClick={onSkip} className="w-full mt-3 text-xs text-gray-400 hover:text-gray-600 transition">
+{hasExistingAddress ? 'Ohne Änderung schließen' : 'Ohne Adresse fortfahren'}
+</button>
 </div>
 </div>
 );
@@ -1018,7 +1247,7 @@ Später erledigen
 // oben aus demselben Grund auf Modulebene statt in App verschachtelt (siehe
 // dortiger Kommentar) — betraf hier zusätzlich den eigenen API-Key-Eingabe-
 // Entwurf (apiKeyDraft) und den Google-Foto-Fallback-State.
-const UserProfileModal = ({ authUser, userId, auth, trialRemaining, ownApiKey, saveOwnApiKey, locationFeatureEnabled, saveLocationFeaturePreference, handleReset, onShowHistory, onShowAdmin }) => {
+const UserProfileModal = ({ authUser, userId, auth, trialRemaining, ownApiKey, saveOwnApiKey, locationFeatureEnabled, saveLocationFeaturePreference, siteAddress, onChangeSiteAddress, handleReset, onShowHistory, onShowAdmin }) => {
 const [showProfile, setShowProfile] = useState(false);
 // Fällt auf das generische User-Icon zurück, falls das Google-Profilbild aus
 // irgendeinem Grund nicht lädt (Hotlink-Schutz, CSP, Netzwerk) — sonst bliebe
@@ -1066,6 +1295,9 @@ await saveLocationFeaturePreference(checked);
 if (checked) {
 const coords = await getCurrentCoords();
 if (!coords) setLocationPermissionWarning(true);
+// Direkt beim Aktivieren die Standort-Bestätigung öffnen (siehe
+// SiteAddressModal) statt erst beim nächsten App-Start.
+onChangeSiteAddress();
 }
 } finally {
 setIsTogglingLocation(false);
@@ -1217,6 +1449,20 @@ Standortzugriff wurde nicht erlaubt. Bitte in den Browser-Einstellungen
 für diese Seite freigeben, damit die Funktion greift.
 </p>
 )}
+{locationFeatureEnabled && (
+<div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-100">
+<p className="text-[11px] text-gray-600 truncate">
+{siteAddress ? <>Aktuelle Baustelle: <span className="font-semibold">{siteAddress}</span></> : 'Noch keine Adresse festgelegt.'}
+</p>
+<button
+type="button"
+onClick={onChangeSiteAddress}
+className="flex-shrink-0 text-[11px] font-semibold text-(--accent-dark) hover:text-(--accent) underline"
+>
+Ändern
+</button>
+</div>
+)}
 </div>
 <div className="flex justify-between space-x-2 mt-4">
 <button
@@ -1360,6 +1606,19 @@ const [locationFeatureEnabled, setLocationFeatureEnabled] = useState(false);
 const [currentCoords, setCurrentCoords] = useState(null);
 const [nearbyAnalysisCount, setNearbyAnalysisCount] = useState(0);
 const [showLocationBanner, setShowLocationBanner] = useState(true); // wegklickbar (pro Sitzung)
+// Vom Nutzer pro Sitzung bestätigte/gesuchte Adresse (siehe SiteAddressModal)
+// — wird zusammen mit currentCoords auf neuen Analysen gespeichert
+// (locationAddress) und geht zusätzlich zum GPS-Umkreis in den Nachbarschafts-
+// Abgleich ein (siehe isSameSiteAddress oben), damit benachbarte Baustellen
+// bzw. unterschiedliche Wohnungen im selben Haus nicht verwechselt werden.
+const [siteAddress, setSiteAddress] = useState(null);
+const [showSiteAddressModal, setShowSiteAddressModal] = useState(false);
+// Einmalige Ja/Nein-Abfrage, ob der Standort überhaupt verwendet werden darf
+// (siehe LocationConsentModal) — erscheint nur, solange im Profil noch keine
+// explizite Entscheidung (weder Ja noch Nein) gespeichert ist (siehe
+// loadProfile-Effect unten). Der bestehende Schalter im Profil-Menü bleibt
+// zusätzlich bestehen, um die Entscheidung jederzeit zu ändern.
+const [showLocationConsentModal, setShowLocationConsentModal] = useState(false);
 // Welcher Tab beim Öffnen von AnalysisHistoryModal aktiv sein soll — wird auf
 // 'nearby' gesetzt, wenn der Standort-Hinweis-Banner direkt dorthin verlinkt.
 const [historyInitialTab, setHistoryInitialTab] = useState('cloud');
@@ -2084,6 +2343,10 @@ solutionText: analysisData.solutionText,
 // Geolocation-Abfrage erfolgreich war (siehe callGeminiVisionAPI) — kein
 // "location: null"-Feld, wenn kein Standort vorliegt.
 ...(analysisData.location ? { location: analysisData.location } : {}),
+// Nur gesetzt, wenn zusätzlich eine Standort-Adresse bestätigt/gesucht
+// wurde (siehe SiteAddressModal) — ältere Analysen bzw. übersprungene
+// Adressabfragen bleiben ohne dieses Feld (siehe isSameSiteAddress).
+...(analysisData.locationAddress ? { locationAddress: analysisData.locationAddress } : {}),
 // Markiert Analysen, die ohne Empfang ausgelöst und automatisch nachgeholt
 // wurden (siehe Effect "OFFLINE-WARTESCHLANGE VERARBEITEN") — Grundlage für
 // den eigenen "Offline nachgeholt"-Tab in AnalysisHistoryModal, damit der
@@ -2172,6 +2435,18 @@ await setDoc(profileRef, { locationFeatureEnabled: enabled }, { merge: true });
 console.error("Fehler beim Speichern der Standort-Einstellung:", e);
 }
 }, [db, userId, appId]);
+// Reaktion auf die einmalige Ja/Nein-Abfrage (siehe LocationConsentModal) —
+// speichert die Entscheidung wie der bestehende Profil-Schalter (siehe
+// saveLocationFeaturePreference) und öffnet bei "Ja" direkt die
+// Standort-Bestätigung (siehe SiteAddressModal), gleiches Verhalten wie beim
+// nachträglichen Einschalten über das Profil-Menü.
+const handleLocationConsent = useCallback(async (accepted) => {
+setShowLocationConsentModal(false);
+await saveLocationFeaturePreference(accepted);
+if (accepted) {
+setShowSiteAddressModal(true);
+}
+}, [saveLocationFeaturePreference]);
 useEffect(() => {
 if (!isAuthReady || !db || !userId) return;
 const loadProfile = async () => {
@@ -2189,7 +2464,25 @@ setOwnApiKey(data.geminiApiKey);
 }
 if (data.locationFeatureEnabled) {
 setLocationFeatureEnabled(true);
+// Adresse pro App-Start bestätigen lassen (siehe SiteAddressModal) —
+// löst das Problem, dass reines GPS-Umkreis-Matching benachbarte
+// Baustellen oder verschiedene Wohnungen im selben Haus nicht
+// unterscheiden kann.
+setShowSiteAddressModal(true);
+} else if (typeof data.locationFeatureEnabled !== 'boolean') {
+// Feld existiert noch nicht im Profil -> der Nutzer hat noch nie eine
+// Wahl getroffen (weder ausdrücklich aktiviert noch deaktiviert). Der
+// Schalter im Profil-Menü defaultet sonst still auf "aus" (siehe
+// locationFeatureEnabled-State oben), ohne dass der Nutzer das je zu
+// Gesicht bekommt — deshalb einmalig aktiv nachfragen (siehe
+// LocationConsentModal), statt die Entscheidung stillschweigend zu
+// treffen.
+setShowLocationConsentModal(true);
 }
+} else {
+// Ganz neues Profil-Dokument (noch nie gespeichert) — gleicher Fall wie
+// ein fehlendes locationFeatureEnabled-Feld oben.
+setShowLocationConsentModal(true);
 }
 } catch (e) {
 console.error("Fehler beim Laden des Profils:", e);
@@ -2216,7 +2509,11 @@ const snapshot = await getDocs(q);
 let count = 0;
 snapshot.forEach((docSnap) => {
 const data = docSnap.data();
-if (data.location && haversineDistanceMeters(coords, data.location) <= LOCATION_MATCH_RADIUS_METERS) {
+if (
+data.location &&
+haversineDistanceMeters(coords, data.location) <= LOCATION_MATCH_RADIUS_METERS &&
+isSameSiteAddress(data.locationAddress, siteAddress)
+) {
 count += 1;
 }
 });
@@ -2226,7 +2523,7 @@ console.error("Fehler beim Prüfen früherer Analysen am Standort:", e);
 }
 })();
 return () => { cancelled = true; };
-}, [isAuthReady, db, userId, appId, locationFeatureEnabled]);
+}, [isAuthReady, db, userId, appId, locationFeatureEnabled, siteAddress]);
 // --- FUNKTION: BILDANALYSE (Haupt-API-Aufruf) ---
 const callGeminiVisionAPI = useCallback(async () => {
 // Prüfung, ob mindestens ein Eingabeelement vorhanden ist
@@ -2336,6 +2633,11 @@ solutionText: solution,
 // Standort nur abfragen, wenn die Standort-Erkennung aktiv ist — sonst
 // keine unnötige Geolocation-Berechtigungsabfrage im Browser.
 location: locationFeatureEnabled ? await getCurrentCoords() : null,
+// Vom Nutzer bestätigte/gesuchte Adresse dieser Sitzung (siehe
+// SiteAddressModal) — geht zusammen mit location in den Nachbarschafts-
+// Abgleich ein (siehe isSameSiteAddress), damit benachbarte Baustellen oder
+// unterschiedliche Wohnungen im selben Haus nicht verwechselt werden.
+locationAddress: locationFeatureEnabled ? siteAddress : null,
 localAnalysisId: localEntry?.id || null,
 });
 // Wurde gerade eine aus der Warteschlange geladene Analyse direkt (bei
@@ -3358,7 +3660,33 @@ onSelect={handleSelectAnalysis}
 onSelectLocal={handleSelectLocalAnalysis}
 locationFeatureEnabled={locationFeatureEnabled}
 currentCoords={currentCoords}
+siteAddress={siteAddress}
 initialTab={historyInitialTab}
+/>
+)}
+{/* Einmalige Ja/Nein-Abfrage, ob der Standort überhaupt verwendet werden
+    darf (siehe LocationConsentModal-Kommentar dort) — nur beim allerersten
+    App-Start, solange im Profil noch keine Entscheidung gespeichert ist. */}
+{showLocationConsentModal && (
+<LocationConsentModal
+onAccept={() => handleLocationConsent(true)}
+onDecline={() => handleLocationConsent(false)}
+/>
+)}
+{/* Standort-Bestätigung (siehe SiteAddressModal-Kommentar dort) — öffnet
+    sich automatisch bei aktivierter Standort-Erkennung (App-Start bzw.
+    direkt beim Einschalten) und lässt sich zusätzlich jederzeit über
+    "Standort ändern" (Profil-Menü/Standort-Banner) erneut öffnen. */}
+{showSiteAddressModal && (
+<SiteAddressModal
+currentCoords={currentCoords}
+hasExistingAddress={!!siteAddress}
+onConfirm={(address, coords) => {
+setSiteAddress(address);
+setCurrentCoords(coords);
+setShowSiteAddressModal(false);
+}}
+onSkip={() => setShowSiteAddressModal(false)}
 />
 )}
 {/* Admin-Modal (Fehlerreports) */}
@@ -3410,6 +3738,8 @@ ownApiKey={ownApiKey}
 saveOwnApiKey={saveOwnApiKey}
 locationFeatureEnabled={locationFeatureEnabled}
 saveLocationFeaturePreference={saveLocationFeaturePreference}
+siteAddress={siteAddress}
+onChangeSiteAddress={() => setShowSiteAddressModal(true)}
 handleReset={handleReset}
 onShowHistory={() => { setHistoryInitialTab('cloud'); setShowHistory(true); }}
 onShowAdmin={() => setShowAdmin(true)}
@@ -3538,6 +3868,9 @@ aria-label="Hinweis ausblenden"
 <MapPin className="w-5 h-5 mt-1 flex-shrink-0 text-(--accent)" />
 <div className="flex-grow">
 <p className="font-bold text-(--accent-dark)">Standort wiedererkannt</p>
+{siteAddress && (
+<p className="text-xs font-semibold text-gray-700 mb-0.5">{siteAddress}</p>
+)}
 <p className="text-xs text-gray-700">
 Sie waren hier schon {nearbyAnalysisCount}× —{' '}
 <button
@@ -3546,6 +3879,14 @@ onClick={() => { setHistoryInitialTab('nearby'); setShowHistory(true); }}
 className="underline font-semibold text-(--accent-dark) hover:text-(--accent)"
 >
 frühere Analysen ansehen
+</button>
+{' '}·{' '}
+<button
+type="button"
+onClick={() => setShowSiteAddressModal(true)}
+className="underline font-semibold text-(--accent-dark) hover:text-(--accent)"
+>
+Standort ändern
 </button>
 </p>
 </div>

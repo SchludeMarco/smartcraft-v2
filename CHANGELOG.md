@@ -8,6 +8,55 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.22.0] – 2026-08-28
+
+### Hinzugefügt
+- **Einmalige Ja/Nein-Abfrage beim allerersten App-Start, ob der Standort
+  verwendet werden darf.** Problem: Die Standort-Erkennung war zwar bereits
+  Opt-in (Default: aus), aber der Schalter dafür saß versteckt im
+  Profil-Menü — neue Nutzer bekamen die Entscheidung nie aktiv zu Gesicht und
+  mussten den Schalter erst selbst finden. Lösung: Neues
+  `LocationConsentModal` fragt direkt nach dem ersten Login einmalig
+  "Standort-Erkennung aktivieren? Ja/Nein" ab, sobald im Profil noch keine
+  explizite Entscheidung gespeichert ist (weder `locationFeatureEnabled:
+  true` noch `false`, siehe `loadProfile`-Effect in `src/App.jsx`). Die
+  Antwort wird über die bestehende `saveLocationFeaturePreference` genau wie
+  beim Profil-Schalter gespeichert, wodurch der Dialog beim nächsten
+  App-Start nicht erneut erscheint; bei "Ja" öffnet sich direkt im Anschluss
+  die Standort-Bestätigung (`SiteAddressModal`, siehe V2.21.0), bei "Nein"
+  bleibt die Funktion wie bisher komplett deaktiviert. Der bestehende
+  Schalter im Profil-Menü bleibt unverändert bestehen, um die Entscheidung
+  jederzeit zu ändern.
+
+## [2.21.0] – 2026-08-28
+
+### Hinzugefügt
+- **Standort-Erkennung: Adress-Anzeige und -Bestätigung statt reinem
+  GPS-Umkreis.** Problem: Der "Standort wiedererkannt"-Hinweis zeigte nur die
+  Anzahl früherer Analysen am selben Standort, nicht *welchen* Standort — und
+  das reine Umkreis-Matching (75m, `LOCATION_MATCH_RADIUS_METERS`) konnte zwei
+  benachbarte, aber komplett unterschiedliche Baustellen (Nachbargrundstücke)
+  fälschlich als denselben Ort erkennen bzw. umgekehrt zwei verschiedene
+  Wohnungen im selben Haus (identische Koordinaten) gar nicht unterscheiden.
+  Lösung: Neuer serverseitiger Proxy `api/geocode.js` (gleiches Muster wie
+  `api/gemini.js`/`api/tts.js` — Origin-Check, Firebase App Check,
+  IP-Rate-Limit, zusätzlich Login-Pflicht) zur Google Geocoding API. Bei
+  aktivierter Standort-Erkennung fragt ein neues `SiteAddressModal` pro
+  Sitzung (bzw. direkt beim Einschalten der Funktion, jederzeit erneut über
+  "Standort ändern" im Profil-Menü oder im Standort-Banner) die Adresse der
+  aktuellen Baustelle ab: als Vorschlag dient die per Reverse-Geocoding
+  ermittelte Adresse des aktuellen GPS-Standorts, alternativ kann eine Adresse
+  gesucht werden. Die bestätigte Adresse wird als `locationAddress` zusammen
+  mit der Analyse gespeichert, direkt unter "Standort wiedererkannt"
+  angezeigt und geht über die neue Funktion `isSameSiteAddress` zusätzlich zum
+  GPS-Umkreis in den Nachbarschafts-Abgleich ein (App-Banner, "In der
+  Nähe"-Tab in `AnalysisHistoryModal`) — zwei Analysen gelten nur noch dann
+  als "gleicher Standort", wenn zusätzlich zum Umkreis auch die Adresse
+  übereinstimmt (freie Texteingabe, kann z.B. um "Whg. 3 rechts" ergänzt
+  werden). Ältere Analysen ohne gespeicherte Adresse bzw. übersprungene
+  Adressabfragen fallen weiterhin auf reines Umkreis-Matching zurück. Neuer
+  Env-Var `GOOGLE_GEOCODING_API_KEY` (server-only, siehe README).
+
 ## [2.20.0] – 2026-08-28
 
 ### Geändert
