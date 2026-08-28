@@ -8,6 +8,22 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.16.0] – 2026-08-28
+
+### Geändert
+- **"Sonstige" aus der Berufsauswahl entfernt.** Problem: In Abschnitt 1
+  ("Beruf auswählen") ließ sich neben "Allround-Handwerker" auch "Sonstige"
+  wählen — beide fungierten faktisch als Sammelbecken, "Sonstige" ergab
+  daher keinen eigenständigen Mehrwert. Ursache: `TRADE_ICONS`/
+  `TRADE_THEMES` in `src/App.jsx` enthielten einen eigenen "Sonstig..."-
+  Eintrag, der lediglich `[GEWERK: Sonstiges]` in den KI-Prompt einspeiste.
+  Lösung: "Sonstige" entfernt und stattdessen ein echter, bisher fehlender
+  Beruf ("Tischler/Schreiner") in die Liste aufgenommen — "Allround-
+  Handwerker" bleibt weiterhin der letzte Eintrag, damit dort wie gehabt
+  die Vereinigung aller Berufs-Spezial-Tools erscheint
+  (`currentTradeTools`). Der dadurch überflüssige Sonderfall in der
+  `tradeContext`-Ermittlung (Analyse-Prompt) wurde ebenfalls entfernt.
+
 ## [2.15.0] – 2026-08-27
 
 ### Hinzugefügt

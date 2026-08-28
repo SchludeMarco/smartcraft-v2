@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
 Camera, Image, Upload, Wrench, Loader2, Zap, AlertTriangle, CheckCircle,
 Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
-Settings, MoreHorizontal, User, Package, Shield, Video, RefreshCw,
+Settings, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
 Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
 ExternalLink, Share2, Save, Trash2, HardDrive, Cloud, Euro, MapPin
@@ -128,8 +128,8 @@ const TRADE_THEMES = {
 "Mechaniker": { accent: "#35506E", accentDark: "#2A4057", accentSoft: "#DFE5EB" },
 "Maurer": { accent: "#2A75A0", accentDark: "#225E82", accentSoft: "#DFECF2" },
 "Dachdecker": { accent: "#1B4F72", accentDark: "#163F5C", accentSoft: "#DCE7EE" },
+"Tischler/Schreiner": { accent: "#6B4F3B", accentDark: "#563F2F", accentSoft: "#EFE8E1" },
 "Allround-Handwerker": { accent: "#4C6E96", accentDark: "#3D5878", accentSoft: "#E6E9F0" },
-"Sonstig...": { accent: "#5B7089", accentDark: "#495B70", accentSoft: "#E9EBEE" },
 };
 const DEFAULT_TRADE = "Allround-Handwerker";
 // Liste der Berufe mit Icons für die visuelle Auswahl (Farben kommen aus TRADE_THEMES)
@@ -142,8 +142,8 @@ const TRADE_ICONS = [
 { name: "Mechaniker", icon: Wrench },
 { name: "Maurer", icon: BrickWall },
 { name: "Dachdecker", icon: Home },
+{ name: "Tischler/Schreiner", icon: Ruler },
 { name: "Allround-Handwerker", icon: Settings },
-{ name: "Sonstig...", icon: MoreHorizontal },
 ];
 // Berufs-spezifische KI-Tools (zusätzlich zu den generischen "Zusätzliche
 // KI-Tools"). Werden direkt unter der Berufsauswahl angezeigt, sobald ein
@@ -2046,11 +2046,7 @@ setTradeToolResults({});
 setLoadingTradeToolIds({});
 setSources([]);
 const mimeType = 'image/jpeg';
-const tradeContext = selectedTrade && selectedTrade !== "Sonstiges..."
-? `[GEWERK: ${selectedTrade}]. `
-: selectedTrade === "Sonstiges..."
-? `[GEWERK: Sonstiges]. `
-: '';
+const tradeContext = selectedTrade ? `[GEWERK: ${selectedTrade}]. ` : '';
 const descContext = problemDescription.trim()
 ? `[BESCHREIBUNG: ${problemDescription.trim()}]. Die Analyse MUSS sich vorrangig auf diese Beschreibung und das/die Bild(er) konzentrieren, um die Fehlerursache zu finden.`
 : 'Analysiere das/die gezeigte(n) Bauproblem(e) und schlage eine Lösung vor.';
