@@ -62,3 +62,29 @@ export async function getQueuedAnalyses() {
 export async function removeQueuedAnalysis(id) {
   await runTransaction('readwrite', (store) => store.delete(id));
 }
+
+// Überschreibt Beruf/Beschreibung/Bilder eines bestehenden Warteschlangen-
+// Eintrags (siehe "Warteschlange verwalten" in App.jsx) — der Nutzer kann so
+// eine bereits gespeicherte Offline-Analyse vor dem automatischen Nachholen
+// noch anpassen, statt sie löschen und neu anlegen zu müssen. timestamp
+// bleibt bewusst unverändert, damit die FIFO-Reihenfolge beim Nachholen
+// erhalten bleibt. Löst bei unbekannter id (z.B. zwischenzeitlich bereits
+// nachgeholt) nicht auf ein Objekt auf, sondern auf null.
+export async function updateQueuedAnalysis(id, patch) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    let updated = null;
+    const getRequest = store.get(id);
+    getRequest.onsuccess = () => {
+      const existing = getRequest.result;
+      if (!existing) return;
+      updated = { ...existing, ...patch };
+      store.put(updated);
+    };
+    tx.oncomplete = () => resolve(updated);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
