@@ -8,7 +8,7 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
-## [2.16.1] – 2026-08-28
+## [2.16.2] – 2026-08-28
 
 ### Geändert
 - **Versionsnummer aus dem Hauptbildschirm-Header entfernt, jetzt klein im
@@ -21,6 +21,29 @@ demselben Versionsstand.
   `UserProfileModal`) platziert — dort, wo Nutzer ohnehin ihre
   Kontoeinstellungen verwalten. Der Login-Gate-Screen (vor der Anmeldung)
   zeigt die Version unverändert weiter an.
+
+## [2.16.1] – 2026-08-28
+
+### Geändert
+- **Reihenfolge der Berufsauswahl & Zeilenumbruch der Karten-Texte.**
+  Problem 1: "Tischler/Schreiner" stand in der Berufsauswahl (Abschnitt 1)
+  weit entfernt vom fachlich eng verwandten "Zimmerer". Problem 2: Lange
+  Berufsnamen ("Tischler/Schreiner", "Allround-Handwerker") liefen auf den
+  schmalen Auswahl-Karten (`TradeButton` in `src/App.jsx`) über die
+  Kartengrenze hinaus in die Nachbarkarte, statt umzubrechen. Ursache 2: Der
+  `<span>` mit dem Beruf-Namen ist ein Flex-Kind des Buttons, der wiederum
+  ein Grid-Item ist — beide erben per CSS-Default `min-width: auto`, wodurch
+  sie nicht unter ihre Inhaltsbreite schrumpfen und `overflow-wrap`/
+  `hyphens` trotz gesetzter Klassen wirkungslos blieben. Lösung: (1)
+  "Tischler/Schreiner" und "Gärtner" tauschen in `TRADE_ICONS` die Position,
+  sodass Tischler/Schreiner jetzt direkt neben Zimmerer steht — Allround-
+  Handwerker bleibt weiterhin der letzte Eintrag. (2) `min-w-0` auf Button
+  und Span erzwingt das Schrumpfen unter die Inhaltsbreite, wodurch
+  `break-words`/`hyphens-auto` greifen; zusätzlich schafft reduziertes
+  Padding (`px-0 py-1` am Button, `p-2`/`gap-1.5` am Grid) mehr Platz für
+  den Text, und ein Zero-Width-Space nach dem "/" gibt dem Browser dort
+  eine bevorzugte, saubere Umbruchstelle statt eines mitten im Wort
+  erzwungenen Umbruchs.
 
 ## [2.16.0] – 2026-08-28
 

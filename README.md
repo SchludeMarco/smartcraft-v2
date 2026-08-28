@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.16.1)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.16.2)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -125,8 +125,8 @@ Diagnose-Engine hilft in beiden Situationen weiter:
 
 ## Was die App kann
 
-**1. Beruf auswählen** — Klempner, Elektriker, Maler, Gärtner, Zimmerer, Mechaniker,
-Maurer, Dachdecker, Tischler/Schreiner oder Allround-Handwerker. Die Auswahl fließt
+**1. Beruf auswählen** — Klempner, Elektriker, Maler, Tischler/Schreiner, Zimmerer,
+Mechaniker, Maurer, Dachdecker, Gärtner oder Allround-Handwerker. Die Auswahl fließt
 direkt in die KI-Diagnose ein und wird pro Nutzer gemerkt (Firestore-Profil). Für
 Privatnutzer ist "Allround-Handwerker" eine gute Wahl, wenn sich das Problem keinem
 klassischen Beruf eindeutig zuordnen lässt — hier werden zusätzlich alle

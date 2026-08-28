@@ -137,12 +137,12 @@ const TRADE_ICONS = [
 { name: "Klempner", icon: Pipette },
 { name: "Elektriker", icon: Zap },
 { name: "Maler", icon: Paintbrush },
-{ name: "Gärtner", icon: Flower },
+{ name: "Tischler/Schreiner", icon: Ruler },
 { name: "Zimmerer", icon: Hammer },
 { name: "Mechaniker", icon: Wrench },
 { name: "Maurer", icon: BrickWall },
 { name: "Dachdecker", icon: Home },
-{ name: "Tischler/Schreiner", icon: Ruler },
+{ name: "Gärtner", icon: Flower },
 { name: "Allround-Handwerker", icon: Settings },
 ];
 // Berufs-spezifische KI-Tools (zusätzlich zu den generischen "Zusätzliche
@@ -463,15 +463,18 @@ const TradeButton = ({ name, icon: Icon, theme, isSelected, onClick }) => (
 <button
 onClick={() => onClick(name)}
 style={{ '--tbtn-bg': theme.accent, '--tbtn-bg-hover': theme.accentDark }}
-className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-colors duration-500 ease-in-out shadow-lg transform active:scale-[0.98] border-2
+className={`flex flex-col items-center justify-center min-w-0 px-0 py-1 rounded-2xl transition-colors duration-500 ease-in-out shadow-lg transform active:scale-[0.98] border-2
 bg-(--tbtn-bg) hover:bg-(--tbtn-bg-hover) text-white
 ${isSelected ? 'border-gold ring-2 ring-offset-2 ring-offset-parchment ring-gold shadow-2xl' : 'border-black/10 opacity-90 hover:opacity-100'}
 `}
 >
-<div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/30 mb-1">
-<Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+<div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/30 mb-0.5 shrink-0">
+<Icon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
 </div>
-<span className="text-white text-[10px] sm:text-xs font-semibold text-center mt-1">{name}</span>
+{/* Zero-Width-Space nach "/" gibt dem Browser dort eine bevorzugte
+    Umbruchstelle (z.B. "Tischler/Schreiner"), statt mitten im Wort
+    danach umzubrechen. */}
+<span className="w-full min-w-0 text-white text-[9px] sm:text-xs font-semibold text-center leading-[1.1] break-words hyphens-auto">{name.replace('/', '/\u200B')}</span>
 </button>
 );
 // NEUE Komponente: Historische Analysen anzeigen (liest aus Firestore, ohne
@@ -3138,7 +3141,7 @@ aria-label="Hinweis ausblenden"
 {/* 1. Beruf Auswahl */}
 <section>
 <h2 className="mb-3"><span className="badge-pill">1. Beruf auswählen</span></h2>
-<div className="grid grid-cols-5 gap-2 p-3 bg-parchment-dark/60 rounded-xl border-2 border-gold/50 shadow-inner">
+<div className="grid grid-cols-5 gap-1.5 p-2 bg-parchment-dark/60 rounded-xl border-2 border-gold/50 shadow-inner">
 {TRADE_ICONS.map((trade) => (
 <TradeButton
 key={trade.name}
