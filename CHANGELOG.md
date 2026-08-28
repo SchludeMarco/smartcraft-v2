@@ -8,6 +8,26 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.22.0] – 2026-08-28
+
+### Hinzugefügt
+- **Einmalige Ja/Nein-Abfrage beim allerersten App-Start, ob der Standort
+  verwendet werden darf.** Problem: Die Standort-Erkennung war zwar bereits
+  Opt-in (Default: aus), aber der Schalter dafür saß versteckt im
+  Profil-Menü — neue Nutzer bekamen die Entscheidung nie aktiv zu Gesicht und
+  mussten den Schalter erst selbst finden. Lösung: Neues
+  `LocationConsentModal` fragt direkt nach dem ersten Login einmalig
+  "Standort-Erkennung aktivieren? Ja/Nein" ab, sobald im Profil noch keine
+  explizite Entscheidung gespeichert ist (weder `locationFeatureEnabled:
+  true` noch `false`, siehe `loadProfile`-Effect in `src/App.jsx`). Die
+  Antwort wird über die bestehende `saveLocationFeaturePreference` genau wie
+  beim Profil-Schalter gespeichert, wodurch der Dialog beim nächsten
+  App-Start nicht erneut erscheint; bei "Ja" öffnet sich direkt im Anschluss
+  die Standort-Bestätigung (`SiteAddressModal`, siehe V2.21.0), bei "Nein"
+  bleibt die Funktion wie bisher komplett deaktiviert. Der bestehende
+  Schalter im Profil-Menü bleibt unverändert bestehen, um die Entscheidung
+  jederzeit zu ändern.
+
 ## [2.21.0] – 2026-08-28
 
 ### Hinzugefügt

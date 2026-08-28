@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.21.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.22.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -202,8 +202,11 @@ Browser-Storage entsprechend wachsen. Cloud- und lokale Ablage erscheinen im
 Verlauf-Modal als getrennte Reiter ("Cloud" / "Lokal"), lokale Einträge lassen sich
 dort auch wieder einzeln löschen.
 
-**7b. Standort-Erkennung (optional)** — im Profil-Menü lässt sich freiwillig eine
-Standort-Erkennung aktivieren. Ist sie an, wird bei jeder neuen Analyse der
+**7b. Standort-Erkennung (optional)** — beim allerersten App-Start fragt ein
+einmaliger Ja/Nein-Dialog (`LocationConsentModal`), ob der Standort verwendet
+werden darf; die Antwort wird im Profil gespeichert, sodass der Dialog danach
+nie wieder erscheint. Zusätzlich lässt sich die Einstellung jederzeit über
+einen Schalter im Profil-Menü ändern. Ist sie an, wird bei jeder neuen
 GPS-Standort mitgespeichert; erkennt die App beim App-Start denselben Standort
 (Umkreis ca. 75m) bei einer früheren Analyse wieder, erscheint ein Hinweis
 ("Sie waren hier schon X Mal") mit direktem Zugriff auf diese Analysen —

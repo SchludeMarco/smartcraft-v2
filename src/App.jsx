@@ -882,6 +882,46 @@ Laden
 </div>
 );
 };
+// Einmalige Ja/Nein-Abfrage, ob der Standort überhaupt verwendet werden darf
+// (siehe showLocationConsentModal/loadProfile-Effect in App) — erscheint nur
+// beim allerersten App-Start, solange im Profil noch keine explizite
+// Entscheidung gespeichert ist. Der bestehende Schalter im Profil-Menü
+// (UserProfileModal) bleibt zusätzlich bestehen, um die Entscheidung
+// jederzeit zu ändern — dieser Dialog erscheint danach nie wieder.
+const LocationConsentModal = ({ onAccept, onDecline }) => (
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+<div className="panel-parchment p-6 rounded-2xl w-full max-w-sm transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto">
+<div className="border-b border-steel/40 pb-3 mb-4">
+<h3 className="text-lg font-bold text-gray-800 flex items-center">
+<MapPin className="w-5 h-5 mr-2 text-(--accent)" />
+Standort-Erkennung aktivieren?
+</h3>
+</div>
+<p className="text-sm text-gray-700 mb-4">
+Speichert mit Ihrer Zustimmung den GPS-Standort neuer Analysen, damit Sie
+frühere Analysen an derselben Baustelle wiederfinden ("Du warst hier schon
+X Mal"). Nur in Ihrem eigenen Verlauf sichtbar — die Entscheidung lässt
+sich jederzeit im Profil-Menü ändern.
+</p>
+<div className="flex gap-2">
+<button
+type="button"
+onClick={onDecline}
+className="flex-1 px-4 py-2 btn-parchment text-sm transform active:scale-[0.98]"
+>
+Nein, danke
+</button>
+<button
+type="button"
+onClick={onAccept}
+className="flex-1 px-4 py-2 bg-(--accent) text-white text-sm font-semibold rounded-xl hover:bg-(--accent-dark) transition duration-300"
+>
+Ja, aktivieren
+</button>
+</div>
+</div>
+</div>
+);
 // STANDORT-BESTÄTIGUNG (siehe isSameSiteAddress oben): reines GPS-Umkreis-
 // Matching kann zwei benachbarte, aber komplett unterschiedliche Baustellen
 // (Nachbargrundstücke) fälschlich als "gleicher Standort" erkennen — und
@@ -1573,6 +1613,12 @@ const [showLocationBanner, setShowLocationBanner] = useState(true); // wegklickb
 // bzw. unterschiedliche Wohnungen im selben Haus nicht verwechselt werden.
 const [siteAddress, setSiteAddress] = useState(null);
 const [showSiteAddressModal, setShowSiteAddressModal] = useState(false);
+// Einmalige Ja/Nein-Abfrage, ob der Standort überhaupt verwendet werden darf
+// (siehe LocationConsentModal) — erscheint nur, solange im Profil noch keine
+// explizite Entscheidung (weder Ja noch Nein) gespeichert ist (siehe
+// loadProfile-Effect unten). Der bestehende Schalter im Profil-Menü bleibt
+// zusätzlich bestehen, um die Entscheidung jederzeit zu ändern.
+const [showLocationConsentModal, setShowLocationConsentModal] = useState(false);
 // Welcher Tab beim Öffnen von AnalysisHistoryModal aktiv sein soll — wird auf
 // 'nearby' gesetzt, wenn der Standort-Hinweis-Banner direkt dorthin verlinkt.
 const [historyInitialTab, setHistoryInitialTab] = useState('cloud');
@@ -2389,6 +2435,18 @@ await setDoc(profileRef, { locationFeatureEnabled: enabled }, { merge: true });
 console.error("Fehler beim Speichern der Standort-Einstellung:", e);
 }
 }, [db, userId, appId]);
+// Reaktion auf die einmalige Ja/Nein-Abfrage (siehe LocationConsentModal) —
+// speichert die Entscheidung wie der bestehende Profil-Schalter (siehe
+// saveLocationFeaturePreference) und öffnet bei "Ja" direkt die
+// Standort-Bestätigung (siehe SiteAddressModal), gleiches Verhalten wie beim
+// nachträglichen Einschalten über das Profil-Menü.
+const handleLocationConsent = useCallback(async (accepted) => {
+setShowLocationConsentModal(false);
+await saveLocationFeaturePreference(accepted);
+if (accepted) {
+setShowSiteAddressModal(true);
+}
+}, [saveLocationFeaturePreference]);
 useEffect(() => {
 if (!isAuthReady || !db || !userId) return;
 const loadProfile = async () => {
@@ -2411,7 +2469,20 @@ setLocationFeatureEnabled(true);
 // Baustellen oder verschiedene Wohnungen im selben Haus nicht
 // unterscheiden kann.
 setShowSiteAddressModal(true);
+} else if (typeof data.locationFeatureEnabled !== 'boolean') {
+// Feld existiert noch nicht im Profil -> der Nutzer hat noch nie eine
+// Wahl getroffen (weder ausdrücklich aktiviert noch deaktiviert). Der
+// Schalter im Profil-Menü defaultet sonst still auf "aus" (siehe
+// locationFeatureEnabled-State oben), ohne dass der Nutzer das je zu
+// Gesicht bekommt — deshalb einmalig aktiv nachfragen (siehe
+// LocationConsentModal), statt die Entscheidung stillschweigend zu
+// treffen.
+setShowLocationConsentModal(true);
 }
+} else {
+// Ganz neues Profil-Dokument (noch nie gespeichert) — gleicher Fall wie
+// ein fehlendes locationFeatureEnabled-Feld oben.
+setShowLocationConsentModal(true);
 }
 } catch (e) {
 console.error("Fehler beim Laden des Profils:", e);
@@ -3591,6 +3662,15 @@ locationFeatureEnabled={locationFeatureEnabled}
 currentCoords={currentCoords}
 siteAddress={siteAddress}
 initialTab={historyInitialTab}
+/>
+)}
+{/* Einmalige Ja/Nein-Abfrage, ob der Standort überhaupt verwendet werden
+    darf (siehe LocationConsentModal-Kommentar dort) — nur beim allerersten
+    App-Start, solange im Profil noch keine Entscheidung gespeichert ist. */}
+{showLocationConsentModal && (
+<LocationConsentModal
+onAccept={() => handleLocationConsent(true)}
+onDecline={() => handleLocationConsent(false)}
 />
 )}
 {/* Standort-Bestätigung (siehe SiteAddressModal-Kommentar dort) — öffnet

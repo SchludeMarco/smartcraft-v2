@@ -308,7 +308,11 @@ const LegalPanel = ({ onClose }) => {
           <Section title="17. Standort-Erkennung (optional, GPS)">
             <p>
               Im Profil kann freiwillig eine Standort-Erkennung aktiviert
-              werden. Ist sie eingeschaltet, fragt die App bei einer neuen
+              werden. Beim allerersten App-Start wird diese Entscheidung
+              einmalig per Ja/Nein-Dialog abgefragt; die Antwort wird
+              gespeichert, sodass der Dialog danach nicht erneut erscheint —
+              die Einstellung lässt sich jederzeit über den Schalter im
+              Profil-Menü ändern. Ist sie eingeschaltet, fragt die App bei einer neuen
               Analyse über die Geolocation-Funktion des Browsers den exakten
               GPS-Standort des Geräts ab und speichert ihn zusammen mit der
               Analyse in Cloud Firestore (siehe Punkt 4) — ausschließlich
