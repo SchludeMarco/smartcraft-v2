@@ -5,8 +5,8 @@
   --color-parchment-dark: #e9dcb8;
   --color-wood: #1e4a72;
   --color-wood-dark: #12314d;
-  --color-gold: #3d7fb8;
-  --color-gold-light: #6fb1e8;
+  --color-steel: #3d7fb8;
+  --color-steel-light: #6fb1e8;
   --color-forest: #2f6b4f;
   --color-forest-dark: #1c4530;
   --color-ink: #2c4a3a;
@@ -21,18 +21,18 @@ body {
 }
 
 @layer components {
-  /* Pergament-Panel mit doppeltem Rahmen (Gold außen, Wein-Rot innen) -
+  /* Pergament-Panel mit doppeltem Rahmen (Stahlblau außen, Wein-Rot innen) -
      Ersatz für das bisherige "bg-white rounded-xl shadow-lg border" Muster. */
   .panel-parchment {
     background: linear-gradient(180deg, #fbf6e9 0%, var(--color-parchment) 100%);
-    border: 2px solid var(--color-gold);
+    border: 2px solid var(--color-steel);
     box-shadow:
       inset 0 0 0 4px #fffdf6,
       inset 0 0 0 5px rgba(109, 43, 43, 0.35),
       0 10px 20px -12px rgba(43, 23, 10, 0.5);
   }
 
-  /* Kopfleiste im Spiel-Look: dunkles Weinrot, Gold-Saum kommt als
+  /* Kopfleiste im Spiel-Look: dunkles Weinrot, Stahlblau-Saum kommt als
      ausgefranste Kante vom HeaderPlate-SVG-Overlay (siehe App.jsx). */
   .header-ornate {
     background: linear-gradient(180deg, #2c6291 0%, var(--color-wood) 55%, var(--color-wood-dark) 100%);
@@ -84,20 +84,20 @@ body {
   }
   .btn-parchment:active { transform: translateY(1px); }
 
-  /* Gold-Button für den freischwebenden Feedback-Button - bewusst eine
+  /* Stahlblauer Button für den freischwebenden Feedback-Button - bewusst eine
      eigene Farbe statt btn-quest (Grün ist dem primären "Problem
      analysieren"-CTA vorbehalten), damit beide nicht verwechselt werden. */
-  .btn-gold {
+  .btn-steel {
     border-radius: 9999px;
-    background: linear-gradient(180deg, var(--color-gold-light), var(--color-gold));
+    background: linear-gradient(180deg, var(--color-steel-light), var(--color-steel));
     border: 2px solid #8a6d1a;
     color: var(--color-wood-dark);
     font-weight: 800;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 14px rgba(0, 0, 0, 0.45);
     transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
   }
-  .btn-gold:hover { filter: brightness(1.08); }
-  .btn-gold:active {
+  .btn-steel:hover { filter: brightness(1.08); }
+  .btn-steel:active {
     transform: translateY(1px);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
   }
@@ -106,10 +106,10 @@ body {
 
   /* Seitenhintergrund hinter Header/Panel: ersetzt ein früher extern
      gehostetes Werkzeug-Foto (dessen Bucket inzwischen gelöscht wurde, siehe
-     CHANGELOG) durch einen reinen CSS-Verlauf in Wood-/Gold-Tönen - kein
+     CHANGELOG) durch einen reinen CSS-Verlauf in Wood-/Steel-Tönen - kein
      externer Request mehr nötig, funktioniert also auch offline/wenn
      Drittanbieter-Hosts ausfallen. Dusk-artiger Verlauf von Wood-Blau oben zu
-     fast Schwarz unten, mit einem sehr sanften Gold-Schimmer hinter der
+     fast Schwarz unten, mit einem sehr sanften Steel-Schimmer hinter der
      Kopfzeile. */
   .app-backdrop {
     background:
