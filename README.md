@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.17.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.18.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -288,11 +288,27 @@ Baustelle auch ohne Empfang nutzbar:
 - **Ein Banner** ("Kein Empfang", `navigator.onLine`/`online`-`offline`-Events
   in `src/App.jsx`) zeigt automatisch an, wenn keine Verbindung besteht, und
   verschwindet von selbst, sobald sie zurück ist.
-- **Was offline NICHT geht:** eine neue KI-Diagnose (`/api/gemini` braucht
-  zwingend eine Verbindung zum Server) sowie ein erstmaliger Google-Login
+- **Neue Analyse trotz fehlendem Empfang möglich:** Löst man "Problem
+  analysieren" ohne Verbindung aus, wird sie NICHT abgewiesen, sondern
+  vollständig (Bilder + Beschreibung + Beruf) lokal per IndexedDB in eine
+  Warteschlange gelegt (`src/offlineAnalysisQueue.js`). Sobald wieder Empfang
+  da ist, holt ein Effect in `src/App.jsx` alle wartenden Analysen automatisch
+  über dieselbe `/api/gemini`-Anfrage wie eine normale Analyse nach und legt
+  das Ergebnis wie gewohnt im Verlauf ab — auch wenn die App zwischenzeitlich
+  geschlossen und wieder geöffnet wurde. Ein Banner informiert währenddessen
+  über die Anzahl wartender bzw. gerade nachgeholter Analysen.
+- **Statische Offline-Kurzhilfe je Beruf** (`src/offlineQuickHelp.jsx`):
+  fest hinterlegte Checklisten für die häufigsten Problemfälle je Gewerk inkl.
+  Sicherheitshinweis, komplett ohne KI und ohne jede Verbindung nutzbar —
+  über den Button "Sofort-Checkliste ohne Internet ansehen" im
+  Offline-Banner erreichbar. Ersetzt keine fotobasierte KI-Diagnose, sondern
+  überbrückt die Zeit, bis wieder Empfang da ist oder die Warteschlange
+  durchgelaufen ist.
+- **Was offline weiterhin NICHT geht:** ein erstmaliger Google-Login
   (Firebase Auth Popup-Flow braucht Netz) — eine bereits bestehende
   Anmeldesitzung bleibt aber erhalten und wird beim nächsten Online-Kontakt
-  automatisch erneuert.
+  automatisch erneuert. Das eigentliche KI-Ergebnis einer offline gequeueten
+  Analyse liegt ebenfalls erst vor, sobald wieder eine Verbindung bestand.
 
 ## Lokales Setup
 

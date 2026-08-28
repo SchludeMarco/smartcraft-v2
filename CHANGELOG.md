@@ -8,6 +8,40 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.18.0] – 2026-08-28
+
+### Hinzugefügt
+- **Neue Analyse trotz kompletter Funkstille möglich, statt nur "App startet
+  offline" (V2.17.0).** Problem: Auch mit dem PWA-Offline-Start aus V2.17.0
+  war eine NEUE Analyse ohne Empfang schlicht nicht möglich — auf der
+  Baustelle (Kernzielgruppe der App) das eigentlich relevante Szenario. Ein
+  Nutzer, der die App einmal ohne Ergebnis abgewiesen erlebt, benutzt sie laut
+  Nutzer-Feedback vermutlich gar nicht mehr. Lösung: Zwei sich ergänzende
+  Bausteine.
+  1. **Analyse-Warteschlange mit Auto-Sync:** Löst man "Problem analysieren"
+     ohne Verbindung aus (Button zeigt dann "Für später speichern (offline)",
+     `src/App.jsx`), wird die komplette Anfrage (Bilder, Beschreibung, Beruf)
+     lokal per IndexedDB gespeichert (`src/offlineAnalysisQueue.js`) statt
+     einen Fehler zu zeigen. Ein neuer Effect in `src/App.jsx` verarbeitet die
+     Warteschlange automatisch, sobald `isOnline` wieder `true` wird: exakt
+     dieselbe `/api/gemini`-Anfrage wie bei einer normalen Analyse (Query-
+     Aufbau in `buildAnalysisUserQuery` aus `callGeminiVisionAPI`
+     ausgelagert, damit beide Pfade garantiert dasselbe Ergebnis liefern),
+     Speicherung des Ergebnisses per `saveAnalysis` wie gewohnt im
+     Firestore-Verlauf. Bricht bei einem Fehler (z.B. erneuter
+     Verbindungsabbruch, aufgebrauchtes Kontingent) bewusst ab und lässt die
+     restlichen Einträge unangetastet in der Warteschlange, statt sie zu
+     verwerfen — der nächste `online`-Event versucht es erneut.
+  2. **Statische Offline-Kurzhilfe je Beruf** (`src/offlineQuickHelp.jsx`,
+     erreichbar über "Sofort-Checkliste ohne Internet ansehen" im
+     Offline-Banner): fest hinterlegte, sofort verfügbare Checklisten mit
+     den häufigsten Problemfällen und einem Sicherheitshinweis für jeden der
+     neun Berufe plus Allround-Fallback — komplett ohne KI und ohne jede
+     Verbindung, überbrückt die Zeit bis zur echten Diagnose.
+  Beide Bausteine sowie das bestehende Offline-Verhalten aus V2.17.0 per
+  Playwright-Test verifiziert (App-Shell-Start offline, Kurzhilfe-Modal-Inhalt,
+  Queueing samt Warteschlangen-Eintrag in IndexedDB).
+
 ## [2.17.0] – 2026-08-28
 
 ### Hinzugefügt
