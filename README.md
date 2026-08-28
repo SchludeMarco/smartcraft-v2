@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.19.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.19.1)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -300,7 +300,13 @@ Baustelle auch ohne Empfang nutzbar:
   Erfolgs-Banner nach dem Nachholen ist antippbar und führt direkt in die
   Historie zum eigenen Tab "Offline nachgeholt" (clientseitiger Filter auf
   `syncedFromOffline`, siehe `AnalysisHistoryModal` in `src/App.jsx`) — kein
-  Suchen in der allgemeinen Cloud-Historie nötig.
+  Suchen in der allgemeinen Cloud-Historie nötig. Die beim Queuen
+  angehängten Fotos werden beim automatischen Nachholen zusätzlich lokal
+  gesichert (`saveAnalysisLocally`, dieselbe Ablage wie der manuelle "Lokal
+  speichern"-Button) und per `localAnalysisId` mit dem Firestore-Eintrag
+  verlinkt — öffnet man die Analyse später (Cloud-, Nearby- oder
+  "Offline nachgeholt"-Tab), lädt `handleSelectAnalysis` die Fotos darüber
+  automatisch mit, statt sie leer zu lassen.
 - **Warteschlange verwaltbar** (`src/OfflineQueueModal.jsx`): Sobald
   mindestens eine Analyse wartet, zeigt ein Link unter dem Analyse-Button die
   Anzahl an ("N Analysen warten auf Verbindung — verwalten") — unabhängig vom

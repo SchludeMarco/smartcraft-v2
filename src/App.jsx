@@ -26,7 +26,7 @@ import AdminPanel from './AdminPanel';
 import LegalPanel from './LegalPanel';
 import FeedbackModal from './FeedbackModal';
 import ShareModal from './ShareModal';
-import { saveAnalysisLocally, getLocalAnalyses, deleteLocalAnalysis } from './localAnalyses';
+import { saveAnalysisLocally, getLocalAnalyses, deleteLocalAnalysis, getLocalAnalysisById } from './localAnalyses';
 import { queueOfflineAnalysis, getQueuedAnalyses, removeQueuedAnalysis, updateQueuedAnalysis } from './offlineAnalysisQueue';
 import OfflineQuickHelpModal from './offlineQuickHelp';
 import OfflineQueueModal from './OfflineQueueModal';
@@ -1977,14 +1977,27 @@ setError(null);
 setIsAnalyzing(false);
 }, []);
 // --- FUNKTION: VERLAUFSEINTRAG LADEN ---
-const handleSelectAnalysis = useCallback((item) => {
+const handleSelectAnalysis = useCallback(async (item) => {
 handleReset();
 // Laden der Hauptfelder aus dem Verlaufseintrag
 setProblemDescription(item.problemDescription || '');
 setSelectedTradeState(item.selectedTrade || 'Allround-Handwerker');
 setSolutionText(item.solutionText || null);
-// Die Bilder können aus Performancegründen nicht aus Firestore geladen werden
+// Firestore speichert grundsätzlich keine Bilder (zu groß, siehe
+// saveAnalysis). Für automatisch nachgeholte Offline-Analysen (siehe Effect
+// "OFFLINE-WARTESCHLANGE VERARBEITEN") liegt der Bildsatz aber zusätzlich
+// lokal — über localAnalysisId nachladbar, statt beim Laden leer zu bleiben.
+if (item.localAnalysisId) {
+try {
+const localEntry = await getLocalAnalysisById(item.localAnalysisId);
+setSelectedImages(localEntry?.images || []);
+} catch (e) {
+console.warn('Lokal gesicherte Bilder konnten nicht geladen werden:', e);
 setSelectedImages([]);
+}
+} else {
+setSelectedImages([]);
+}
 setShowHistory(false);
 }, [handleReset]);
 // --- FUNKTION: LOKAL GESPEICHERTEN VERLAUFSEINTRAG LADEN ---
@@ -2061,6 +2074,11 @@ solutionText: analysisData.solutionText,
 // den eigenen "Offline nachgeholt"-Tab in AnalysisHistoryModal, damit der
 // Nutzer sie nicht erst in den letzten 20 Cloud-Analysen suchen muss.
 ...(analysisData.syncedFromOffline ? { syncedFromOffline: true } : {}),
+// Verlinkt auf den lokal (IndexedDB, siehe localAnalyses.js) mitgesicherten
+// Bildsatz derselben Analyse — Firestore selbst speichert weiterhin keine
+// Bilder (s.o.), aber handleSelectAnalysis kann sie darüber beim Laden
+// wiederfinden (siehe Effect "OFFLINE-WARTESCHLANGE VERARBEITEN").
+...(analysisData.localAnalysisId ? { localAnalysisId: analysisData.localAnalysisId } : {}),
 });
 } catch (e) {
 console.error("Fehler beim Speichern der Analyse:", e);
@@ -2354,6 +2372,25 @@ reportEmptyResult('gemini-vision-api-queued', 'Antwort ohne verwertbaren Kandida
 hitError = true;
 break;
 }
+// Die Bilder lagen bislang NUR im Warteschlangen-Eintrag und würden mit
+// dessen Löschung unten unwiderruflich verloren gehen (Firestore speichert
+// sie nicht, s.o.). Deshalb hier zusätzlich lokal sichern (dieselbe Ablage
+// wie der manuelle "Lokal speichern"-Button, siehe localAnalyses.js) und
+// die Firestore-Analyse per localAnalysisId damit verlinken, damit
+// handleSelectAnalysis die Bilder beim späteren Laden wiederfindet. Ein
+// Fehlschlag hier (z.B. Speicher voll) verwirft nicht die ganze Analyse —
+// der Text bleibt trotzdem in Firestore erhalten, nur eben ohne Bilder.
+let localEntry = null;
+try {
+localEntry = await saveAnalysisLocally({
+selectedTrade: item.selectedTrade,
+problemDescription: item.problemDescription,
+solutionText: solution,
+images: item.images || [],
+});
+} catch (e) {
+console.warn('Bilder der nachgeholten Analyse konnten nicht lokal gesichert werden:', e);
+}
 await saveAnalysis({
 selectedTrade: item.selectedTrade,
 problemDescription: item.problemDescription,
@@ -2363,6 +2400,7 @@ solutionText: solution,
 // hängen bleiben.
 location: null,
 syncedFromOffline: true,
+localAnalysisId: localEntry?.id || null,
 });
 await removeQueuedAnalysis(item.id);
 succeeded += 1;
