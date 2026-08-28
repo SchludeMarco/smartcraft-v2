@@ -27,8 +27,10 @@ import LegalPanel from './LegalPanel';
 import FeedbackModal from './FeedbackModal';
 import ShareModal from './ShareModal';
 import { saveAnalysisLocally, getLocalAnalyses, deleteLocalAnalysis } from './localAnalyses';
-import { queueOfflineAnalysis, getQueuedAnalyses, removeQueuedAnalysis } from './offlineAnalysisQueue';
+import { queueOfflineAnalysis, getQueuedAnalyses, removeQueuedAnalysis, updateQueuedAnalysis } from './offlineAnalysisQueue';
 import OfflineQuickHelpModal from './offlineQuickHelp';
+import OfflineQueueModal from './OfflineQueueModal';
+import { TRADE_THEMES, DEFAULT_TRADE } from './tradeThemes';
 import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
 import { APP_ID as appId } from '../shared/appId.js';
 
@@ -130,27 +132,6 @@ properties: {
 required: ["category", "item", "quantity"]
 }
 };
-// Gedeckte, ruhige Farbwelt je Beruf (kein "Warnfarben"-Rot, keine grellen
-// Töne) — jeder Beruf hat einen Akzent-, Hover- und einen hellen "Soft"-Ton
-// für Flächen/Badges. Die App übernimmt diese Palette global, sobald ein
-// Beruf gewählt ist (siehe `theme` in der App-Komponente). Die Farben sind
-// bewusst berufsspezifisch/thematisch gewählt (z.B. Wasser-Blau beim
-// Klempner, Grün beim Gärtner, Ziegelrot beim Maurer) statt größtenteils
-// gleicher Blautöne, damit die Berufsauswahl (TradeButton) und Verlaufs-
-// Badges auf einen Blick unterscheidbar sind.
-const TRADE_THEMES = {
-"Klempner": { accent: "#1E7A8C", accentDark: "#175F6E", accentSoft: "#DCEEF1" },
-"Elektriker": { accent: "#96690A", accentDark: "#7A5408", accentSoft: "#EFE4C8" },
-"Maler": { accent: "#7D4F92", accentDark: "#643E76", accentSoft: "#EDE2F1" },
-"Gärtner": { accent: "#3F7D45", accentDark: "#326336", accentSoft: "#E0EDE1" },
-"Zimmerer": { accent: "#A15C32", accentDark: "#804A28", accentSoft: "#F0E0D2" },
-"Mechaniker": { accent: "#5C5C5C", accentDark: "#454545", accentSoft: "#E6E6E6" },
-"Maurer": { accent: "#A3432F", accentDark: "#813526", accentSoft: "#F0DBD5" },
-"Dachdecker": { accent: "#2E4A5E", accentDark: "#253A4A", accentSoft: "#DCE4EA" },
-"Tischler/Schreiner": { accent: "#6B4F3B", accentDark: "#563F2F", accentSoft: "#EFE8E1" },
-"Allround-Handwerker": { accent: "#6B6355", accentDark: "#554F45", accentSoft: "#EAE7E0" },
-};
-const DEFAULT_TRADE = "Allround-Handwerker";
 // Liste der Berufe mit Icons für die visuelle Auswahl (Farben kommen aus TRADE_THEMES)
 const TRADE_ICONS = [
 { name: "Klempner", icon: Pipette },
@@ -1333,16 +1314,27 @@ const [pendingAnalysesCount, setPendingAnalysesCount] = useState(0);
 const [isSyncingQueue, setIsSyncingQueue] = useState(false);
 const [queueFeedback, setQueueFeedback] = useState(null);
 const [showOfflineHelp, setShowOfflineHelp] = useState(false);
-useEffect(() => {
-(async () => {
+// Öffnet OfflineQueueModal (Warteschlange ansehen/bearbeiten/löschen), siehe
+// Button unterhalb des Analyse-Buttons.
+const [showOfflineQueue, setShowOfflineQueue] = useState(false);
+// Id des Warteschlangen-Eintrags, der gerade zur Bearbeitung ins
+// Hauptformular geladen wurde (siehe handleSelectQueuedAnalysis) — null,
+// wenn es sich um eine ganz neue Analyse handelt. Entscheidet, ob ein
+// erneutes Offline-Speichern den bestehenden Eintrag aktualisiert statt
+// einen doppelten anzulegen, und ob eine bei bestehender Verbindung direkt
+// erfolgreiche Analyse den alten Warteschlangen-Eintrag danach entfernt.
+const [editingQueuedId, setEditingQueuedId] = useState(null);
+const refreshPendingAnalysesCount = useCallback(async () => {
 try {
 const queued = await getQueuedAnalyses();
 setPendingAnalysesCount(queued.length);
 } catch (e) {
 console.warn('Offline-Warteschlange konnte nicht gelesen werden (IndexedDB nicht verfügbar?):', e);
 }
-})();
 }, []);
+useEffect(() => {
+refreshPendingAnalysesCount();
+}, [refreshPendingAnalysesCount]);
 const [showDisclaimer, setShowDisclaimer] = useState(true); // EU-AI-Act-Haftungsausschluss wegklickbar (pro Sitzung)
 const [showTrialNotice, setShowTrialNotice] = useState(true); // Hinweis aufs Pro-Konto-Kontingent wegklickbar (pro Sitzung)
 // Live-Stand des kostenlosen Pro-Konto-Kontingents (siehe api/gemini.js
@@ -1953,12 +1945,32 @@ const handleReset = useCallback(() => {
 clearResults();
 setSelectedImages([]);
 setProblemDescription('');
+// Verwirft eine evtl. laufende Bearbeitung eines Warteschlangen-Eintrags
+// (siehe handleSelectQueuedAnalysis) — der Eintrag selbst bleibt dabei
+// unangetastet in der Warteschlange stehen, nur die Bearbeitung wird
+// abgebrochen.
+setEditingQueuedId(null);
 // Dateiauswahl zurücksetzen (für saubere erneute Auswahl)
 ['camera-input', 'gallery-input', 'cloud-input'].forEach((id) => {
 const fileInput = document.getElementById(id);
 if (fileInput) fileInput.value = '';
 });
 }, [clearResults]);
+// --- FUNKTION: WARTESCHLANGEN-EINTRAG ZUM BEARBEITEN LADEN ---
+// Lädt eine ohne Empfang gespeicherte, noch nicht nachgeholte Analyse
+// (siehe OfflineQueueModal) zurück ins Hauptformular. Von dort kann sie wie
+// eine neue Analyse angepasst werden — erneutes Speichern ohne Empfang
+// aktualisiert denselben Warteschlangen-Eintrag (siehe editingQueuedId in
+// callGeminiVisionAPI), bei bestehender Verbindung wird sie stattdessen
+// direkt analysiert und der alte Eintrag danach entfernt.
+const handleSelectQueuedAnalysis = useCallback((item) => {
+handleReset();
+setProblemDescription(item.problemDescription || '');
+setSelectedTradeState(item.selectedTrade || DEFAULT_TRADE);
+setSelectedImages(item.images || []);
+setEditingQueuedId(item.id);
+setShowOfflineQueue(false);
+}, [handleReset]);
 // --- FUNKTION: NUR FEHLERZUSTAND ZURÜCKSETZEN (Bild bleibt erhalten) ---
 const clearError = useCallback(() => {
 setError(null);
@@ -2189,12 +2201,21 @@ return;
 // kein sofortiger "Analyse fehlgeschlagen"-Frust auf der Baustelle.
 if (!isOnline) {
 try {
+// War dies eine aus der Warteschlange geladene, gerade bearbeitete
+// Analyse (siehe handleSelectQueuedAnalysis), wird der bestehende
+// Eintrag aktualisiert statt ein Duplikat anzulegen.
+if (editingQueuedId) {
+await updateQueuedAnalysis(editingQueuedId, { selectedTrade, problemDescription, images: selectedImages });
+setQueueFeedback({ text: 'Änderungen an der gespeicherten Offline-Analyse übernommen.', clickable: false });
+} else {
 await queueOfflineAnalysis({ selectedTrade, problemDescription, images: selectedImages });
-setPendingAnalysesCount((c) => c + 1);
-setError(null);
 setQueueFeedback({ text: 'Kein Empfang: Diese Analyse wurde gespeichert und wird automatisch durchgeführt, sobald wieder eine Verbindung besteht. Sie finden das Ergebnis danach im Verlauf.', clickable: false });
+}
+await refreshPendingAnalysesCount();
+setError(null);
 setSelectedImages([]);
 setProblemDescription('');
+setEditingQueuedId(null);
 } catch (e) {
 console.error('Offline-Analyse konnte nicht gespeichert werden:', e);
 setError('Kein Empfang, und die Analyse konnte auch nicht für später gespeichert werden (z.B. Speicher voll). Bitte Speicherplatz prüfen oder es später erneut versuchen.');
@@ -2255,6 +2276,15 @@ solutionText: solution,
 // keine unnötige Geolocation-Berechtigungsabfrage im Browser.
 location: locationFeatureEnabled ? await getCurrentCoords() : null,
 });
+// Wurde gerade eine aus der Warteschlange geladene Analyse direkt (bei
+// wiederhergestellter Verbindung) erfolgreich ausgeführt, ist der alte
+// Warteschlangen-Eintrag jetzt überflüssig — sonst bliebe er stehen und
+// würde später ein zweites Mal automatisch nachgeholt.
+if (editingQueuedId) {
+await removeQueuedAnalysis(editingQueuedId);
+setEditingQueuedId(null);
+await refreshPendingAnalysesCount();
+}
 } else {
 reportEmptyResult('gemini-vision-api', 'Antwort ohne verwertbaren Kandidaten', "Konnte keine gültige Antwort von der KI erhalten. Mögliches Problem: Das Bild ist zu unklar oder der Dienst ist nicht erreichbar.");
 }
@@ -2267,7 +2297,7 @@ handleGeminiError(e, 'gemini-vision-api', "Die Analyse konnte nicht abgeschlosse
 } finally {
 setIsAnalyzing(false);
 }
-}, [selectedImages, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError, locationFeatureEnabled, isOnline]);
+}, [selectedImages, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError, locationFeatureEnabled, isOnline, editingQueuedId, refreshPendingAnalysesCount]);
 // --- EFFECT: OFFLINE-WARTESCHLANGE VERARBEITEN ---
 // Läuft, sobald die Verbindung zurück ist (isOnline wird true) UND eine
 // authentifizierte Firestore-Verbindung besteht: holt alle ohne Empfang
@@ -2296,6 +2326,12 @@ let succeeded = 0;
 let hitError = false;
 for (const item of queued) {
 if (cancelled) break;
+// Wird gerade im Hauptformular bearbeitet (siehe
+// handleSelectQueuedAnalysis) — nicht im Rücken des Nutzers mit dem
+// alten Stand automatisch analysieren, sondern überspringen. Wird beim
+// nächsten 'online'-Event bzw. nach dem Speichern der Bearbeitung erneut
+// versucht.
+if (item.id === editingQueuedId) continue;
 try {
 const contents = [{
 role: 'user',
@@ -2343,10 +2379,7 @@ break;
 }
 }
 if (cancelled) return;
-try {
-const remaining = await getQueuedAnalyses();
-setPendingAnalysesCount(remaining.length);
-} catch { /* IndexedDB-Lesefehler hier egal, Zähler bleibt beim letzten Stand */ }
+await refreshPendingAnalysesCount();
 setIsSyncingQueue(false);
 if (succeeded > 0) {
 setQueueFeedback({
@@ -2358,7 +2391,7 @@ setQueueFeedback({ text: 'Gespeicherte Analysen konnten noch nicht nachgeholt we
 }
 })();
 return () => { cancelled = true; };
-}, [isOnline, db, userId, appId, saveAnalysis, handleTrialExceededError]);
+}, [isOnline, db, userId, appId, saveAnalysis, handleTrialExceededError, editingQueuedId, refreshPendingAnalysesCount]);
 // --- FUNKTION: Materialliste generieren (JSON Mode) ---
 const callGeminiMaterialsAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -3533,6 +3566,14 @@ className="w-full p-2 border border-gray-300 rounded-lg focus:ring-orange-500 fo
 </div>
 </div>
 </div>
+{editingQueuedId && (
+<div className="mt-4 p-2.5 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-lg flex items-center justify-between text-xs">
+<span>Sie bearbeiten eine gespeicherte Offline-Analyse.</span>
+<button type="button" onClick={handleReset} className="font-semibold underline hover:text-blue-900">
+Bearbeitung verwerfen
+</button>
+</div>
+)}
 {/* ANGEPASST: Reset-Button wieder neben dem Analyse-Button */}
 <div className="flex space-x-3 mt-4 w-full">
 {/* Reset Button */}
@@ -3557,7 +3598,7 @@ Analysiere...
 ) : !isOnline ? (
 <>
 <Zap className="w-5 h-5 mr-2" />
-Für später speichern (offline)
+{editingQueuedId ? 'Änderungen für später speichern' : 'Für später speichern (offline)'}
 </>
 ) : (
 <>
@@ -3567,6 +3608,26 @@ Problem analysieren
 )}
 </button>
 </div>
+{/* Zugang zur Offline-Warteschlange: unabhängig vom aktuellen
+    Verbindungsstatus sichtbar, sobald mindestens eine Analyse wartet — auch
+    wenn man inzwischen wieder online ist, bevor der Auto-Sync durchgelaufen
+    ist (siehe OfflineQueueModal). */}
+{pendingAnalysesCount > 0 && (
+<button
+type="button"
+onClick={() => setShowOfflineQueue(true)}
+className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-(--accent) hover:text-(--accent-dark) underline"
+>
+<WifiOff className="w-3.5 h-3.5" />
+{pendingAnalysesCount} {pendingAnalysesCount === 1 ? 'Analyse wartet' : 'Analysen warten'} auf Verbindung — verwalten
+</button>
+)}
+{showOfflineQueue && (
+<OfflineQueueModal
+onSelect={handleSelectQueuedAnalysis}
+onClose={() => { setShowOfflineQueue(false); refreshPendingAnalysesCount(); }}
+/>
+)}
 </section>
 {/* 3. Analyseergebnisse */}
 <section className="mt-6">

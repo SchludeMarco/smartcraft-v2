@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.18.1)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.19.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -301,6 +301,21 @@ Baustelle auch ohne Empfang nutzbar:
   Historie zum eigenen Tab "Offline nachgeholt" (clientseitiger Filter auf
   `syncedFromOffline`, siehe `AnalysisHistoryModal` in `src/App.jsx`) — kein
   Suchen in der allgemeinen Cloud-Historie nötig.
+- **Warteschlange verwaltbar** (`src/OfflineQueueModal.jsx`): Sobald
+  mindestens eine Analyse wartet, zeigt ein Link unter dem Analyse-Button die
+  Anzahl an ("N Analysen warten auf Verbindung — verwalten") — unabhängig vom
+  aktuellen Verbindungsstatus, auch schon bevor der Auto-Sync durchgelaufen
+  ist. Das Modal listet alle wartenden Einträge auf, erlaubt das Löschen
+  einzelner Einträge und lädt einen Eintrag per Klick zum Bearbeiten zurück
+  ins Hauptformular (`handleSelectQueuedAnalysis` in `src/App.jsx`) — dort
+  lassen sich Beschreibung, Beruf und Bilder anpassen. Erneutes Speichern
+  ohne Empfang aktualisiert denselben Warteschlangen-Eintrag statt ein
+  Duplikat anzulegen (`updateQueuedAnalysis` in `src/offlineAnalysisQueue.js`,
+  gesteuert über `editingQueuedId`); besteht zwischenzeitlich wieder eine
+  Verbindung, wird die bearbeitete Version stattdessen direkt analysiert und
+  der alte Warteschlangen-Eintrag danach entfernt. Ein gerade in Bearbeitung
+  befindlicher Eintrag wird vom automatischen Nachholen übersprungen, bis die
+  Bearbeitung gespeichert oder verworfen wurde.
 - **Statische Offline-Kurzhilfe je Beruf** (`src/offlineQuickHelp.jsx`):
   fest hinterlegte Checklisten für die häufigsten Problemfälle je Gewerk inkl.
   Sicherheitshinweis, komplett ohne KI und ohne jede Verbindung nutzbar —

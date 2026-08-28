@@ -8,6 +8,43 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.19.0] – 2026-08-28
+
+### Hinzugefügt
+- **Offline-Warteschlange verwaltbar (ansehen, bearbeiten, löschen).**
+  Problem: Analysen, die ohne Empfang ausgelöst wurden, landeten zwar
+  zuverlässig in der Warteschlange (V2.18.0) und waren nach dem Nachholen im
+  Verlauf auffindbar (V2.18.1) — bis dahin waren sie aber eine Blackbox: keine
+  Anzeige, wie viele noch warten, kein Zugriff auf die schon eingegebenen
+  Bilder/Beschreibung, keine Möglichkeit, sie vor dem automatischen Nachholen
+  noch zu korrigieren oder zu verwerfen. Lösung:
+  - **Sichtbarer Zähler:** Sobald mindestens eine Analyse wartet, zeigt ein
+    Link unter dem Analyse-Button "N Analysen warten auf Verbindung —
+    verwalten" — unabhängig vom aktuellen Online-Status.
+  - **Neues Modal** `src/OfflineQueueModal.jsx`: listet alle wartenden
+    Einträge (Zeitstempel, Beruf, Beschreibung, Bildanzahl) und erlaubt das
+    Löschen einzelner Einträge direkt aus der Liste.
+  - **Bearbeiten:** Antippen eines Eintrags lädt ihn zurück ins
+    Hauptformular (`handleSelectQueuedAnalysis`, `src/App.jsx`) — Beruf,
+    Beschreibung und Bilder lassen sich dort wie bei einer neuen Analyse
+    anpassen. Erneutes Speichern ohne Empfang aktualisiert denselben
+    Warteschlangen-Eintrag (neue Funktion `updateQueuedAnalysis` in
+    `src/offlineAnalysisQueue.js`, gesteuert über den neuen State
+    `editingQueuedId`) statt ein Duplikat anzulegen; besteht
+    zwischenzeitlich wieder eine Verbindung, wird die bearbeitete Version
+    stattdessen sofort analysiert und der alte Warteschlangen-Eintrag danach
+    entfernt.
+  - **Kollisionsschutz:** Ein gerade in Bearbeitung befindlicher Eintrag wird
+    vom automatischen Nachhol-Effect übersprungen, statt im Hintergrund mit
+    dem alten Stand analysiert zu werden, während der Nutzer ihn noch
+    anpasst.
+  - `TRADE_THEMES`/`DEFAULT_TRADE` nach `src/tradeThemes.js` ausgelagert
+    (vorher module-scoped Konstanten in `App.jsx`), damit `OfflineQueueModal`
+    dieselbe Berufs-Farbpalette nutzen kann, ohne einen zirkulären Import auf
+    `App.jsx` zu erzeugen.
+  Per Playwright-Test verifiziert: Anzeige/Öffnen der Warteschlange,
+  Bearbeiten ohne Duplikat, Löschen — alles rein clientseitig über IndexedDB.
+
 ## [2.18.1] – 2026-08-28
 
 ### Geändert
