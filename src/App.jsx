@@ -124,7 +124,7 @@ const TRADE_THEMES = {
 "Elektriker": { accent: "#2D6FA6", accentDark: "#245A87", accentSoft: "#E1EBF3" },
 "Maler": { accent: "#1E88B8", accentDark: "#186E94", accentSoft: "#DEEDF3" },
 "Gärtner": { accent: "#2E5F8A", accentDark: "#254C6F", accentSoft: "#E2E9F0" },
-"Zimmerer": { accent: "#4A6FA5", accentDark: "#3B5985", accentSoft: "#E7ECF4" },
+"Zimmerer": { accent: "#8C5040", accentDark: "#6F3F32", accentSoft: "#F1E3DE" },
 "Mechaniker": { accent: "#35506E", accentDark: "#2A4057", accentSoft: "#DFE5EB" },
 "Maurer": { accent: "#2A75A0", accentDark: "#225E82", accentSoft: "#DFECF2" },
 "Dachdecker": { accent: "#1B4F72", accentDark: "#163F5C", accentSoft: "#DCE7EE" },
