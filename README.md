@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.20.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.21.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -208,9 +208,19 @@ GPS-Standort mitgespeichert; erkennt die App beim App-Start denselben Standort
 (Umkreis ca. 75m) bei einer früheren Analyse wieder, erscheint ein Hinweis
 ("Sie waren hier schon X Mal") mit direktem Zugriff auf diese Analysen —
 zusätzlich lässt sich das Verlauf-Modal über einen dritten Reiter ("In der
-Nähe") gezielt danach filtern. Ohne aktivierte Einstellung wird kein Standort
-abgefragt oder gespeichert (siehe `src/LegalPanel.jsx` §17 für die
-Datenschutz-Details).
+Nähe") gezielt danach filtern. Direkt unter dem Hinweis steht außerdem, um
+welchen Standort es sich handelt: pro Sitzung (bzw. beim Einschalten der
+Funktion) fragt die App die Adresse dieser Baustelle ab — als Vorschlag dient
+die per Reverse-Geocoding ermittelte Adresse des aktuellen GPS-Standorts,
+alternativ kann eine Adresse über die Google Geocoding API gesucht werden
+(`api/geocode.js`, serverseitiger Proxy wie bei Gemini/TTS). Diese Adresse
+geht zusätzlich zum GPS-Umkreis in den Abgleich ein, damit zwei benachbarte,
+aber unterschiedliche Baustellen (Nachbargrundstücke) nicht fälschlich als
+derselbe Ort erkannt werden bzw. zwei verschiedene Wohnungen im selben Haus
+(identische Koordinaten) unterscheidbar bleiben — die freie Adress-Eingabe
+kann dafür z.B. um "Whg. 3 rechts" ergänzt werden. Ohne aktivierte Einstellung
+wird kein Standort abgefragt oder gespeichert (siehe `src/LegalPanel.jsx` §17
+für die Datenschutz-Details).
 
 **8. Haftungsausschluss fest im UI** — ein sichtbarer EU-AI-Act-Hinweis macht klar:
 die KI-Diagnose ist ein unterstützender Vorschlag, kein Ersatz für die Prüfung durch
@@ -273,7 +283,14 @@ rechts, immer sichtbar) kann jeder Nutzer freiwillig eine Nachricht direkt
 an den Entwickler schicken
 (`src/FeedbackModal.jsx` → `api/send-feedback.js`) — per Mail über denselben
 Resend-Dienst wie die Fehlerreports, mit eigenem Rate-Limit, aber ohne
-Firestore-Speicherung.
+Firestore-Speicherung. Ist die optionale Standort-Erkennung aktiviert (Punkt
+7b oben), löst `api/geocode.js` — gleiches Proxy-Muster wie `api/gemini.js`/
+`api/tts.js` (Origin-Check, Firebase App Check, IP-Rate-Limit, zusätzlich
+Login-Pflicht) — Reverse-Geocoding (GPS → Adressvorschlag) und Adress-Suche
+über die Google Geocoding API auf; der zurückgelieferte Adresstext geht
+zusammen mit den GPS-Koordinaten in den Nachbarschafts-Abgleich ein
+(`isSameSiteAddress` in `src/App.jsx`), damit benachbarte Baustellen bzw.
+verschiedene Wohnungen im selben Haus nicht verwechselt werden.
 
 ## Offline-Nutzung
 
@@ -398,6 +415,7 @@ Environment Variables in den Vercel-Projekteinstellungen:
 |---|---|---|
 | `GEMINI_API_KEY` | server-only (kein `VITE_`-Prefix) | aistudio.google.com/apikey |
 | `GOOGLE_TTS_API_KEY` | server-only | Google Cloud Console → APIs & Dienste → Anmeldedaten (Cloud Text-to-Speech API muss aktiviert sein, Abrechnungskonto erforderlich) |
+| `GOOGLE_GEOCODING_API_KEY` | server-only | Google Cloud Console → APIs & Dienste → Anmeldedaten (Geocoding API muss aktiviert sein, Abrechnungskonto erforderlich) — für die Standort-Bestätigung (`api/geocode.js`, siehe Punkt 7b) |
 | `VITE_FIREBASE_API_KEY` | client (öffentlich vorgesehen) | Firebase-Projekteinstellungen → Meine Apps |
 | `VITE_FIREBASE_AUTH_DOMAIN` | client | „ |
 | `VITE_FIREBASE_PROJECT_ID` | client | „ |

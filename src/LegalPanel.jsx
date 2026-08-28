@@ -119,8 +119,9 @@ const LegalPanel = ({ onClose }) => {
               wird dabei bewusst <em>nicht</em> mitgespeichert (zu groß für
               Firestore) — es bleibt nur für die laufende Sitzung im Browser
               vorhanden. Ist die optionale Standort-Erkennung aktiviert (siehe
-              Punkt 17), wird zusätzlich der GPS-Standort der Analyse
-              gespeichert. Zweck: Verlaufsfunktion innerhalb der App.
+              Punkt 17), wird zusätzlich der GPS-Standort sowie die dazu
+              bestätigte/gesuchte Adresse der Analyse gespeichert. Zweck:
+              Verlaufsfunktion innerhalb der App.
               Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).
             </p>
           </Section>
@@ -248,8 +249,8 @@ const LegalPanel = ({ onClose }) => {
           <Section title="13. Empfänger / Auftragsverarbeiter">
             <p>
               Google Ireland Limited / Google LLC (Firebase Authentication,
-              Cloud Firestore, Gemini API, Cloud Text-to-Speech, reCAPTCHA),
-              Vercel Inc. (Hosting), Resend (E-Mail-Versand von
+              Cloud Firestore, Gemini API, Cloud Text-to-Speech, Geocoding
+              API, reCAPTCHA), Vercel Inc. (Hosting), Resend (E-Mail-Versand von
               Fehlerberichten und Feedback). Mit diesen Anbietern bestehen
               bzw. gelten deren jeweilige Auftragsverarbeitungs- und
               Standardvertragsklausel-Regelungen.
@@ -323,6 +324,20 @@ const LegalPanel = ({ onClose }) => {
               gespeichert; die Einstellung kann im Profil jederzeit wieder
               deaktiviert werden. Rechtsgrundlage: Einwilligung durch aktive
               Aktivierung (Art. 6 Abs. 1 lit. a DSGVO).
+            </p>
+            <p className="mt-2">
+              Zusätzlich wird bei aktivierter Standort-Erkennung pro Sitzung
+              eine Adresse für den aktuellen Standort vorgeschlagen bzw.
+              gesucht (z.B. "Musterstraße 12"), damit benachbarte, aber
+              unterschiedliche Baustellen oder verschiedene Wohnungen im
+              selben Haus nicht fälschlich als derselbe Ort erkannt werden.
+              Dafür werden die GPS-Koordinaten bzw. der eingegebene
+              Such-Text über einen serverseitigen Proxy (api/geocode.js) an
+              die Google Geocoding API übermittelt; die zurückgelieferte
+              Adresse wird zusammen mit der Analyse gespeichert (siehe oben).
+              Diese Anfragen erfordern eine Anmeldung und erfolgen nur, wenn
+              die Standort-Erkennung aktiv ist und die Adressabfrage nicht
+              übersprungen wird.
             </p>
           </Section>
         </div>
