@@ -8,6 +8,26 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.18.1] – 2026-08-28
+
+### Geändert
+- **Nachgeholte Offline-Analysen ohne Umweg über die allgemeine Historie
+  auffindbar.** Problem: Nach dem Hinweis "X gespeicherte Analyse(n) wurden
+  automatisch nachgeholt — im Verlauf einsehbar" (V2.18.0) musste man erst
+  über das Profil-Menü in die allgemeine Cloud-Historie wechseln und den
+  passenden Eintrag unter den letzten 20 Analysen suchen — aus Gewohnheit
+  hätte ein Nutzer stattdessen direkt auf den Hinweis-Banner selbst geklickt.
+  Lösung: `saveAnalysis` (`src/App.jsx`) markiert Analysen, die von der
+  Offline-Warteschlange automatisch nachgeholt wurden, jetzt mit
+  `syncedFromOffline: true`. `AnalysisHistoryModal` bekommt dafür einen
+  eigenen Tab "Offline nachgeholt", der die Cloud-Historie clientseitig
+  danach filtert (kein zusätzlicher Firestore-Query nötig, analog zum
+  bestehenden "In der Nähe"-Tab). Der Erfolgs-Banner selbst ist jetzt
+  antippbar und öffnet die Historie direkt auf diesem Tab. Betrifft nur
+  künftig nachgeholte Analysen — bereits vor diesem Update synchronisierte
+  Einträge tragen das Feld nicht rückwirkend und bleiben nur im normalen
+  Cloud-Tab sichtbar.
+
 ## [2.18.0] – 2026-08-28
 
 ### Hinzugefügt
