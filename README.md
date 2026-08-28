@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.19.1)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.20.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -188,9 +188,17 @@ herunterladen und manuell anhängen.
 
 **7. Verlauf** — jede Analyse wird pro Google-Konto in Firestore gespeichert (ohne
 Fotos, aus Größengründen); die letzten 20 Analysen lassen sich später erneut aufrufen,
-ohne Foto oder Beschreibung neu eingeben zu müssen. Zusätzlich lässt sich eine Analyse
-per Knopfdruck ("Lokal speichern") optional **inklusive aller Fotos** rein lokal im
-Browser ablegen (IndexedDB, kein Upload) — die beiden Ablagen erscheinen im
+ohne Foto oder Beschreibung neu eingeben zu müssen. Die zugehörigen Fotos legt die App
+dabei automatisch zusätzlich rein lokal im Browser ab (IndexedDB, kein Upload,
+`saveAnalysisLocally` in `src/localAnalyses.js`) und verlinkt den Cloud-Eintrag
+darauf (`localAnalysisId`) — beim erneuten Öffnen einer Analyse aus dem Verlauf
+(gleich in welchem Tab) lädt `handleSelectAnalysis` die Fotos darüber automatisch mit,
+Teilen (siehe Punkt 6) funktioniert dadurch auch für später wiederhergestellte
+Analysen. Der "Lokal speichern"-Button im Ergebnis-Bereich bleibt erhalten, legt aber
+kein Duplikat mehr an, wenn die Fotos ohnehin schon automatisch gesichert wurden.
+**Hinweis:** Dieses automatische lokale Backup läuft ohne Speicherplatz-Obergrenze
+oder Bereinigung — bei sehr vielen Analysen mit vielen Fotos kann das lokale
+Browser-Storage entsprechend wachsen. Cloud- und lokale Ablage erscheinen im
 Verlauf-Modal als getrennte Reiter ("Cloud" / "Lokal"), lokale Einträge lassen sich
 dort auch wieder einzeln löschen.
 

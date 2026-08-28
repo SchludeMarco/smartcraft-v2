@@ -8,6 +8,34 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.20.0] – 2026-08-28
+
+### Geändert
+- **Fotos jeder Analyse werden jetzt immer automatisch lokal gesichert, nicht
+  nur bei automatisch nachgeholten Offline-Analysen (V2.19.1).** Problem:
+  Für ganz normale, online durchgeführte Analysen gab es keinen automatischen
+  Bildbackup — nur ein Klick auf "Lokal speichern" sicherte die Fotos
+  dauerhaft. Lud man eine ältere, nicht manuell lokal gesicherte Analyse
+  später aus dem Cloud-Verlauf erneut, waren die Fotos weg — und damit auch
+  beim anschließenden Teilen (`ShareModal`/PDF-Export lesen beide aus
+  `selectedImages`). Lösung: `callGeminiVisionAPI` sichert die Fotos nach
+  jeder erfolgreichen Online-Analyse jetzt automatisch per
+  `saveAnalysisLocally` (`src/localAnalyses.js`) und verlinkt die
+  Firestore-Analyse per `localAnalysisId` darauf (`saveAnalysis`) — exakt
+  dasselbe Muster wie schon für den Offline-Sync-Effect in V2.19.1. Neuer
+  State `currentLocalAnalysisId` verhindert dabei, dass der weiterhin
+  vorhandene manuelle "Lokal speichern"-Button ein Duplikat anlegt, wenn die
+  Fotos ohnehin schon automatisch gesichert wurden — er bestätigt dann nur
+  den vorhandenen Stand (`handleSaveLocally`). `handleSelectAnalysis` und
+  `handleSelectLocalAnalysis` setzen `currentLocalAnalysisId` beim Laden
+  eines Verlaufseintrags entsprechend mit, damit derselbe Schutz auch beim
+  erneuten Öffnen einer Analyse greift. **Bewusster Trade-off:** Dieses
+  automatische Backup läuft ohne Obergrenze oder Bereinigung — der
+  Speicherplatz im Browser (IndexedDB) wächst mit jeder Analyse inkl. Fotos
+  entsprechend, ohne dass die App aktuell alte Einträge automatisch
+  aufräumt. Betrifft nur künftige Analysen; bereits vor diesem Update
+  durchgeführte, nicht manuell lokal gesicherte Analysen bleiben ohne Fotos.
+
 ## [2.19.1] – 2026-08-28
 
 ### Behoben
