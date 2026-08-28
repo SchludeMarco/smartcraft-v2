@@ -118,18 +118,22 @@ required: ["category", "item", "quantity"]
 // Gedeckte, ruhige Farbwelt je Beruf (kein "Warnfarben"-Rot, keine grellen
 // Töne) — jeder Beruf hat einen Akzent-, Hover- und einen hellen "Soft"-Ton
 // für Flächen/Badges. Die App übernimmt diese Palette global, sobald ein
-// Beruf gewählt ist (siehe `theme` in der App-Komponente).
+// Beruf gewählt ist (siehe `theme` in der App-Komponente). Die Farben sind
+// bewusst berufsspezifisch/thematisch gewählt (z.B. Wasser-Blau beim
+// Klempner, Grün beim Gärtner, Ziegelrot beim Maurer) statt größtenteils
+// gleicher Blautöne, damit die Berufsauswahl (TradeButton) und Verlaufs-
+// Badges auf einen Blick unterscheidbar sind.
 const TRADE_THEMES = {
-"Klempner": { accent: "#3E6690", accentDark: "#315277", accentSoft: "#E6EDF3" },
-"Elektriker": { accent: "#2D6FA6", accentDark: "#245A87", accentSoft: "#E1EBF3" },
-"Maler": { accent: "#1E88B8", accentDark: "#186E94", accentSoft: "#DEEDF3" },
-"Gärtner": { accent: "#2E5F8A", accentDark: "#254C6F", accentSoft: "#E2E9F0" },
-"Zimmerer": { accent: "#4A6FA5", accentDark: "#3B5985", accentSoft: "#E7ECF4" },
-"Mechaniker": { accent: "#35506E", accentDark: "#2A4057", accentSoft: "#DFE5EB" },
-"Maurer": { accent: "#2A75A0", accentDark: "#225E82", accentSoft: "#DFECF2" },
-"Dachdecker": { accent: "#1B4F72", accentDark: "#163F5C", accentSoft: "#DCE7EE" },
+"Klempner": { accent: "#1E7A8C", accentDark: "#175F6E", accentSoft: "#DCEEF1" },
+"Elektriker": { accent: "#96690A", accentDark: "#7A5408", accentSoft: "#EFE4C8" },
+"Maler": { accent: "#7D4F92", accentDark: "#643E76", accentSoft: "#EDE2F1" },
+"Gärtner": { accent: "#3F7D45", accentDark: "#326336", accentSoft: "#E0EDE1" },
+"Zimmerer": { accent: "#A15C32", accentDark: "#804A28", accentSoft: "#F0E0D2" },
+"Mechaniker": { accent: "#5C5C5C", accentDark: "#454545", accentSoft: "#E6E6E6" },
+"Maurer": { accent: "#A3432F", accentDark: "#813526", accentSoft: "#F0DBD5" },
+"Dachdecker": { accent: "#2E4A5E", accentDark: "#253A4A", accentSoft: "#DCE4EA" },
 "Tischler/Schreiner": { accent: "#6B4F3B", accentDark: "#563F2F", accentSoft: "#EFE8E1" },
-"Allround-Handwerker": { accent: "#4C6E96", accentDark: "#3D5878", accentSoft: "#E6E9F0" },
+"Allround-Handwerker": { accent: "#6B6355", accentDark: "#554F45", accentSoft: "#EAE7E0" },
 };
 const DEFAULT_TRADE = "Allround-Handwerker";
 // Liste der Berufe mit Icons für die visuelle Auswahl (Farben kommen aus TRADE_THEMES)
@@ -621,7 +625,13 @@ onClick={() => onSelect(item)} // Ladefunktion wird bei Klick ausgelöst
 <p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
 {item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
 </p>
-<span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-(--accent-soft) text-(--accent-dark) rounded-full">
+<span
+className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full"
+style={{
+backgroundColor: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentSoft,
+color: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentDark,
+}}
+>
 {item.selectedTrade}
 </span>
 </div>
@@ -664,7 +674,13 @@ onClick={() => onSelect(item)}
 <p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
 {item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
 </p>
-<span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-(--accent-soft) text-(--accent-dark) rounded-full">
+<span
+className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full"
+style={{
+backgroundColor: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentSoft,
+color: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentDark,
+}}
+>
 {item.selectedTrade}
 </span>
 </div>
@@ -706,7 +722,13 @@ onClick={() => onSelectLocal(item)} // Ladefunktion wird bei Klick ausgelöst
 {(item.problemDescription || '').trim() || `Analyse für Beruf: ${item.selectedTrade}`}
 </p>
 <div className="flex items-center gap-2 mt-1">
-<span className="inline-block px-2 py-0.5 text-xs font-medium bg-(--accent-soft) text-(--accent-dark) rounded-full">
+<span
+className="inline-block px-2 py-0.5 text-xs font-medium rounded-full"
+style={{
+backgroundColor: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentSoft,
+color: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentDark,
+}}
+>
 {item.selectedTrade}
 </span>
 {item.images?.length > 0 && (

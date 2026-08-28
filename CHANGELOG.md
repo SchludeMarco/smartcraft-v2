@@ -8,6 +8,25 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.16.3] – 2026-08-28
+
+### Geändert
+- **Berufsspezifische Farbpalette überarbeitet.** Problem: Die Akzentfarben
+  in `TRADE_THEMES` (`src/App.jsx`) waren für 8 der 9 Berufe verschiedene
+  Blautöne (nur "Tischler/Schreiner" war braun) — in der Berufsauswahl
+  (Abschnitt 1) und den Verlaufs-Badges kaum auf einen Blick unterscheidbar.
+  Zusätzlich zeigten die Beruf-Badges in der Verlauf-Historie (Cloud/"In der
+  Nähe"/Lokal-Tab, `AnalysisHistoryModal`) durchgängig die Farbe des aktuell
+  global gewählten Berufs statt der Farbe des Berufs, zu dem der jeweilige
+  Verlaufseintrag tatsächlich gehört. Lösung: Jedem Beruf eine eigene,
+  thematisch passende und weiterhin gedeckte Farbe zugewiesen (z.B.
+  Wasser-Blau/Türkis beim Klempner, Bernstein/Bronze beim Elektriker,
+  Grün beim Gärtner, Ziegelrot beim Maurer, Schiefer-Blau beim Dachdecker,
+  neutrales Grau beim Mechaniker) statt größtenteils gleicher Blautöne; die
+  drei Verlaufs-Badges (`src/App.jsx`) lesen die Akzentfarbe jetzt per
+  `TRADE_THEMES[item.selectedTrade]` (mit Fallback auf den Standardberuf)
+  statt der global aktiven `--accent-soft`/`--accent-dark`-CSS-Variablen.
+
 ## [2.16.2] – 2026-08-28
 
 ### Geändert
