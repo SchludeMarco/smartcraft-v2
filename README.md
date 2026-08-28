@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.19.1)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.19.2)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -25,84 +25,31 @@ Desktop — etwa im Büro zur Nachbereitung oder für den Kundenbericht.
 
 Entstanden während der Schulung zum KI-Anwendungsspezialisten.
 
-## Entstehung & technische Hürden
+## Mehrwerte auf einen Blick
 
-Der erste Prototyp war ein Google-AI-Studio-Canvas-Export — funktional, aber nicht
-eigenständig lauffähig und mit dem API-Key sichtbar im Client-Code. Der erste echte
-Schritt war die Migration zu einem eigenständigen Vite/React-Projekt mit einem
-Vercel-Serverless-Proxy vor der Gemini API, damit der Key server-seitig bleibt.
-Von dort an kamen die Hürden meist erst im Betrieb ans Licht, nicht am Reißbrett:
+Sm@rtCraft ersetzt keinen Fachmann, aber oft den ersten Griff zum Telefon oder
+die Fahrt zum Baumarkt, ohne zu wissen, wonach man überhaupt sucht:
 
-- **Der Gemini-Proxy war anfangs offen** — jede beliebige Seite hätte ihn
-  ansprechen und echte API-Kosten verursachen können. Origin-Check, Firebase App
-  Check (reCAPTCHA v3) und IP-basiertes Rate-Limiting kamen erst nachträglich
-  dazu, nachdem klar wurde, dass das eigentliche Risiko nicht ein Absturz,
-  sondern eine Kostenexplosion durch automatisierten Missbrauch ist.
-- **Für den öffentlichen Demo-Link (z.B. LinkedIn) reichte das Rate-Limiting
-  allein nicht** — 200 Anfragen/Tag sind pro IP dauerhaft nutzbar, nicht nur
-  einmalig zum Ausprobieren. Ergänzend zählt derselbe Firestore-Zähler jetzt
-  auch lebenslang pro IP mit (`lifetimeCount`) und blockt ab `DEMO_LIFETIME_MAX`
-  (30, siehe `shared/demoLimit.js`) mit einer eigenen, nicht wiederholbaren
-  403-Antwort statt des üblichen 429 — der Client versucht 429 automatisch
-  erneut, ein aufgebrauchtes Demo-Kontingent soll aber sofort und mit
-  Klartext-Meldung enden. Damit Erstbesucher das nicht erst beim Fehlschlagen
-  erfahren, weist ein wegklickbarer Info-Banner schon beim ersten Öffnen der
-  App auf das Limit hin — inklusive Live-Zähler ("Noch X von 30 übrig"), der
-  beim Start über den rein lesenden Endpoint `api/demo-status.js` geladen und
-  nach jeder KI-Anfrage über den `X-Demo-Remaining`-Header aus `api/gemini.js`
-  aktualisiert wird. Denselben Live-Stand zeigt zusätzlich das Analyseergebnis
-  selbst (direkt unter "Lösung und Diagnose"), damit er nach jeder
-  Hauptanalyse neu ins Blickfeld rückt — unabhängig davon, ob der Banner oben
-  weggeklickt wurde.
-- **Zwei Gemini-Modelle wurden während der Entwicklung abgeschaltet**
-  (`gemini-2.5-flash-preview-09-2025`, danach `gemini-2.5-flash`) — die App lief
-  jeweils plötzlich ins Leere. Umgestellt auf `gemini-flash-latest` (ein
-  stabiler Alias statt einer festen Versionsnummer), der auf das jeweils
-  aktuelle Modell zeigt. **Der Alias selbst erwies sich am 24.8.2026 aber als
-  Falle:** Nach einer Google-seitigen Modellrotation hing er komplett (0 Bytes
-  nach 40-60s), das gepinnte Nachfolgemodell (`gemini-3.6-flash`) antwortete
-  zwar, aber als "Thinking"-Modell mit ca. 24s allein für ein triviales
-  "Hallo" — zu langsam für das 30s-Zeitbudget der Vercel-Funktion, sichtbar
-  als `FUNCTION_INVOCATION_TIMEOUT` (siehe `error_log.md`). Umgestellt auf
-  `gemini-flash-lite-latest`: gleiche Update-Sicherheit durch den
-  "-latest"-Alias, aber ohne Thinking-Phase und in Tests durchgehend
-  0-3s Antwortzeit bei weiterhin guter Qualität.
-- **Firestore im Produktionsmodus** heißt: standardmäßig alles gesperrt. Ohne die
-  Regeln aus [`firestore.rules`](./firestore.rules) einmal manuell in der Firebase
-  Console zu veröffentlichen, schlug jeder Zugriff mit "Missing or insufficient
-  permissions" fehl — ein Schritt, der sich nicht aus dem Code allein erschließt.
-- **Die Sprachausgabe (TTS) brauchte drei komplette Anläufe.** Der erste Versuch
-  (serverseitiger Gemini-TTS-Aufruf) scheiterte an einer fehlenden API-Berechtigung
-  (Status 401) und wurde vollständig verworfen. Der zweite Ansatz lief rein
-  clientseitig über die Web Speech API des Browsers — dabei mussten mehrere
-  unabhängige Browser-Eigenheiten umschifft werden: ein Abbruch nach ca. 15
-  Sekunden bei langen Einzel-Utterances, eine vorzeitige Garbage Collection des
-  `SpeechSynthesisUtterance`-Objekts, die die Ansage ohne jede Fehlermeldung
-  mitten im Satz stoppte, und die Erkenntnis, dass vom Browser gemeldete Stimmen
-  (`getVoices()`) teils gar keinen Ton ausgeben — ein Versuch, für die
-  Geschlechtsauswahl per Namens-Heuristik auf eine andere gemeldete Stimme
-  umzuschalten, führte prompt zu stummer Wiedergabe, ein anschließender
-  Tonhöhen-Kompromiss (statt echtem Stimmenwechsel) blieb unbefriedigend. Der
-  dritte, heute aktive Ansatz verlässt sich gar nicht mehr auf browser- bzw.
-  betriebssystemabhängige Stimmen, sondern läuft serverseitig über die Google
-  Cloud Text-to-Speech API (`api/tts.js`, WaveNet-Stimmen) — echte, konsistente
-  Qualität unabhängig davon, was auf dem Gerät des Nutzers installiert ist.
-- **Google-Sign-In (Account-Linking auf eine bestehende anonyme Sitzung)** brachte
-  eigene, erst in Produktion sichtbare Tücken mit: Firebase liefert `photoURL`
-  nach dem Linking teils nur in `providerData` statt im User-Root-Objekt, und
-  `onAuthStateChanged` gibt nach dem Linking manchmal dasselbe, in-place mutierte
-  User-Objekt zurück — ein einfaches `setAuthUser(user)` löste dadurch per
-  React-Referenzvergleich keinen Re-Render aus.
-- **Fotos direkt von Smartphone-Kameras sprengten das Vercel-Payload-Limit.**
-  Bilder wurden unkomprimiert als Base64 an `/api/gemini` geschickt; ein
-  typisches 5-12MB-Handyfoto wird dadurch (+33% durch die Base64-Kodierung)
-  zuverlässig größer als das harte, nicht konfigurierbare 4,5MB-Limit von
-  Vercel Serverless Functions — sichtbar als `FUNCTION_PAYLOAD_TOO_LARGE`.
-  Bilder werden jetzt vor dem Versand clientseitig per Canvas auf max. 1600px
-  Kantenlänge herunterskaliert und als JPEG neu kodiert.
-
-Die vollständige, chronologische Historie aller Versionen inklusive Problem →
-Ursache → Lösung steht in [`CHANGELOG.md`](./CHANGELOG.md).
+- **Sekundenschnelle Fachdiagnose** statt Warten auf einen erreichbaren
+  Kollegen oder Suchen im Fachbuch — Foto oder Beschreibung rein, Diagnose in
+  Sekunden.
+- **Für Profis:** schnelle Zweitmeinung bei untypischen Fällen, direkt
+  nutzbare Materialliste für den Baumarkt-Einkauf und ein jargonfreier
+  Kundenbericht für die Übergabe an den Auftraggeber — spürbare
+  Zeitersparnis in Vor- und Nachbereitung.
+- **Für Privatnutzer:** verständliche Einschätzung ohne Fachchinesisch, ganz
+  ohne Handwerksausbildung nutzbar — inklusive ehrlichem Sicherheits-Check,
+  der sagt, wann eine Aufgabe besser einem Fachmann überlassen wird, und
+  einer groben Kostenschätzung, bevor überhaupt ein Handwerker gerufen wird.
+- **Immer griffbereit:** als installierbare PWA fürs Smartphone konzipiert,
+  Foto direkt mit der Kamera vor Ort auswerten — funktioniert dank
+  Offline-Warteschlange sogar ohne Empfang auf der Baustelle.
+- **Kostenlos startbar:** 20 kostenlose Analysen pro Konto, danach optional
+  ein eigener, bei Google AI Studio kostenlos erstellbarer Gemini-API-Key —
+  keine Zahlungspflicht gegenüber SmartCraft.
+- **Alles archivierbar:** Verlauf pro Konto, PDF-Export und direktes Teilen
+  (WhatsApp, Telegram, E-Mail, Geräte-Share) machen jede Analyse
+  weitergebbar und später wiederauffindbar.
 
 ## Für wen ist Sm@rtCraft?
 
@@ -194,8 +141,9 @@ Browser ablegen (IndexedDB, kein Upload) — die beiden Ablagen erscheinen im
 Verlauf-Modal als getrennte Reiter ("Cloud" / "Lokal"), lokale Einträge lassen sich
 dort auch wieder einzeln löschen.
 
-**7b. Standort-Erkennung (optional)** — im Profil-Menü lässt sich freiwillig eine
-Standort-Erkennung aktivieren. Ist sie an, wird bei jeder neuen Analyse der
+**7b. Standort-Erkennung (optional)** — praktisch für wiederkehrende Problemstellen
+(z.B. dieselbe Baustelle oder derselbe Raum zu Hause): im Profil-Menü lässt sich
+freiwillig eine Standort-Erkennung aktivieren. Ist sie an, wird bei jeder neuen Analyse der
 GPS-Standort mitgespeichert; erkennt die App beim App-Start denselben Standort
 (Umkreis ca. 75m) bei einer früheren Analyse wieder, erscheint ein Hinweis
 ("Sie waren hier schon X Mal") mit direktem Zugriff auf diese Analysen —
@@ -229,6 +177,85 @@ entgegennimmt — kein Suchen im Profil-Menü nötig.
 5. Bei Bedarf Materialliste, Sicherheits-Check und/oder Kundenbericht per Knopfdruck
    ergänzen
 6. Alles zusammen als PDF exportieren oder für später im Verlauf ablegen
+
+## Entstehung & technische Hürden
+
+Der erste Prototyp war ein Google-AI-Studio-Canvas-Export — funktional, aber nicht
+eigenständig lauffähig und mit dem API-Key sichtbar im Client-Code. Der erste echte
+Schritt war die Migration zu einem eigenständigen Vite/React-Projekt mit einem
+Vercel-Serverless-Proxy vor der Gemini API, damit der Key server-seitig bleibt.
+Von dort an kamen die Hürden meist erst im Betrieb ans Licht, nicht am Reißbrett:
+
+- **Der Gemini-Proxy war anfangs offen** — jede beliebige Seite hätte ihn
+  ansprechen und echte API-Kosten verursachen können. Origin-Check, Firebase App
+  Check (reCAPTCHA v3) und IP-basiertes Rate-Limiting kamen erst nachträglich
+  dazu, nachdem klar wurde, dass das eigentliche Risiko nicht ein Absturz,
+  sondern eine Kostenexplosion durch automatisierten Missbrauch ist.
+- **Für den öffentlichen Demo-Link (z.B. LinkedIn) reichte das Rate-Limiting
+  allein nicht** — 200 Anfragen/Tag sind pro IP dauerhaft nutzbar, nicht nur
+  einmalig zum Ausprobieren. Ergänzend zählt derselbe Firestore-Zähler jetzt
+  auch lebenslang pro IP mit (`lifetimeCount`) und blockt ab `DEMO_LIFETIME_MAX`
+  (30, siehe `shared/demoLimit.js`) mit einer eigenen, nicht wiederholbaren
+  403-Antwort statt des üblichen 429 — der Client versucht 429 automatisch
+  erneut, ein aufgebrauchtes Demo-Kontingent soll aber sofort und mit
+  Klartext-Meldung enden. Damit Erstbesucher das nicht erst beim Fehlschlagen
+  erfahren, weist ein wegklickbarer Info-Banner schon beim ersten Öffnen der
+  App auf das Limit hin — inklusive Live-Zähler ("Noch X von 30 übrig"), der
+  beim Start über den rein lesenden Endpoint `api/demo-status.js` geladen und
+  nach jeder KI-Anfrage über den `X-Demo-Remaining`-Header aus `api/gemini.js`
+  aktualisiert wird. Denselben Live-Stand zeigt zusätzlich das Analyseergebnis
+  selbst (direkt unter "Lösung und Diagnose"), damit er nach jeder
+  Hauptanalyse neu ins Blickfeld rückt — unabhängig davon, ob der Banner oben
+  weggeklickt wurde.
+- **Zwei Gemini-Modelle wurden während der Entwicklung abgeschaltet**
+  (`gemini-2.5-flash-preview-09-2025`, danach `gemini-2.5-flash`) — die App lief
+  jeweils plötzlich ins Leere. Umgestellt auf `gemini-flash-latest` (ein
+  stabiler Alias statt einer festen Versionsnummer), der auf das jeweils
+  aktuelle Modell zeigt. **Der Alias selbst erwies sich am 24.8.2026 aber als
+  Falle:** Nach einer Google-seitigen Modellrotation hing er komplett (0 Bytes
+  nach 40-60s), das gepinnte Nachfolgemodell (`gemini-3.6-flash`) antwortete
+  zwar, aber als "Thinking"-Modell mit ca. 24s allein für ein triviales
+  "Hallo" — zu langsam für das 30s-Zeitbudget der Vercel-Funktion, sichtbar
+  als `FUNCTION_INVOCATION_TIMEOUT` (siehe `error_log.md`). Umgestellt auf
+  `gemini-flash-lite-latest`: gleiche Update-Sicherheit durch den
+  "-latest"-Alias, aber ohne Thinking-Phase und in Tests durchgehend
+  0-3s Antwortzeit bei weiterhin guter Qualität.
+- **Firestore im Produktionsmodus** heißt: standardmäßig alles gesperrt. Ohne die
+  Regeln aus [`firestore.rules`](./firestore.rules) einmal manuell in der Firebase
+  Console zu veröffentlichen, schlug jeder Zugriff mit "Missing or insufficient
+  permissions" fehl — ein Schritt, der sich nicht aus dem Code allein erschließt.
+- **Die Sprachausgabe (TTS) brauchte drei komplette Anläufe.** Der erste Versuch
+  (serverseitiger Gemini-TTS-Aufruf) scheiterte an einer fehlenden API-Berechtigung
+  (Status 401) und wurde vollständig verworfen. Der zweite Ansatz lief rein
+  clientseitig über die Web Speech API des Browsers — dabei mussten mehrere
+  unabhängige Browser-Eigenheiten umschifft werden: ein Abbruch nach ca. 15
+  Sekunden bei langen Einzel-Utterances, eine vorzeitige Garbage Collection des
+  `SpeechSynthesisUtterance`-Objekts, die die Ansage ohne jede Fehlermeldung
+  mitten im Satz stoppte, und die Erkenntnis, dass vom Browser gemeldete Stimmen
+  (`getVoices()`) teils gar keinen Ton ausgeben — ein Versuch, für die
+  Geschlechtsauswahl per Namens-Heuristik auf eine andere gemeldete Stimme
+  umzuschalten, führte prompt zu stummer Wiedergabe, ein anschließender
+  Tonhöhen-Kompromiss (statt echtem Stimmenwechsel) blieb unbefriedigend. Der
+  dritte, heute aktive Ansatz verlässt sich gar nicht mehr auf browser- bzw.
+  betriebssystemabhängige Stimmen, sondern läuft serverseitig über die Google
+  Cloud Text-to-Speech API (`api/tts.js`, WaveNet-Stimmen) — echte, konsistente
+  Qualität unabhängig davon, was auf dem Gerät des Nutzers installiert ist.
+- **Google-Sign-In (Account-Linking auf eine bestehende anonyme Sitzung)** brachte
+  eigene, erst in Produktion sichtbare Tücken mit: Firebase liefert `photoURL`
+  nach dem Linking teils nur in `providerData` statt im User-Root-Objekt, und
+  `onAuthStateChanged` gibt nach dem Linking manchmal dasselbe, in-place mutierte
+  User-Objekt zurück — ein einfaches `setAuthUser(user)` löste dadurch per
+  React-Referenzvergleich keinen Re-Render aus.
+- **Fotos direkt von Smartphone-Kameras sprengten das Vercel-Payload-Limit.**
+  Bilder wurden unkomprimiert als Base64 an `/api/gemini` geschickt; ein
+  typisches 5-12MB-Handyfoto wird dadurch (+33% durch die Base64-Kodierung)
+  zuverlässig größer als das harte, nicht konfigurierbare 4,5MB-Limit von
+  Vercel Serverless Functions — sichtbar als `FUNCTION_PAYLOAD_TOO_LARGE`.
+  Bilder werden jetzt vor dem Versand clientseitig per Canvas auf max. 1600px
+  Kantenlänge herunterskaliert und als JPEG neu kodiert.
+
+Die vollständige, chronologische Historie aller Versionen inklusive Problem →
+Ursache → Lösung steht in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Tech-Stack
 

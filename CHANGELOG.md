@@ -8,6 +8,24 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.19.2] – 2026-08-28
+
+### Geändert
+- **README neu strukturiert, um Zweck und Mehrwert der App klarer zu
+  vermitteln.** Problem: Wer den Ursprung/Ziele der App verstehen wollte,
+  musste erst durch die persönliche Entstehungsgeschichte und die lange,
+  technische "Entstehung & technische Hürden"-Sektion (Dev-Postmortems)
+  lesen, bevor überhaupt klar wurde, wofür die App eigentlich gedacht ist
+  und was sie einem konkret bringt — Nutzen stand nur implizit in den
+  Feature-Beschreibungen. Lösung: neue Sektion "Mehrwerte auf einen Blick"
+  direkt nach der Einleitung (getrennt nach Profi- und Privatnutzen:
+  Zeitersparnis, Kostenschätzung vor dem Handwerker-Anruf,
+  Sicherheits-Check, Offline-Fähigkeit, kostenloser Einstieg,
+  Archivierbarkeit); die stark technische "Entstehung & technische
+  Hürden"-Sektion wandert dafür hinter "Ablauf in der Praxis", sodass "Für
+  wen ist Sm@rtCraft?" und "Was die App kann" direkt im Anschluss an die
+  Mehrwerte folgen statt erst nach dem Dev-Backstory-Block.
+
 ## [2.19.1] – 2026-08-28
 
 ### Behoben
