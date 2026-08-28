@@ -8,6 +8,17 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.16.2] – 2026-08-28
+
+### Geändert
+- **Farbakzent des Zimmerer-Symbols.** Problem: Der Zimmerer-Beruf war in
+  `TRADE_THEMES` (`src/App.jsx`) mit einem blauen Akzent (`#4A6FA5`)
+  hinterlegt, obwohl das fachlich eng verwandte "Tischler/Schreiner" einen
+  warmen, rötlich-braunen Ton (`#6B4F3B`) nutzt. Lösung: Zimmerer erhält
+  einen eigenen, ebenfalls rötlichen Farbton (`accent: #8C5040`,
+  `accentDark: #6F3F32`, `accentSoft: #F1E3DE`) in derselben gedeckten
+  Farbfamilie wie Tischler/Schreiner, bleibt davon aber unterscheidbar.
+
 ## [2.16.1] – 2026-08-28
 
 ### Geändert
