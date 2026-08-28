@@ -1274,6 +1274,13 @@ const [showLegal, setShowLegal] = useState(false); // Steuert das Impressum/Date
 const [showFeedback, setShowFeedback] = useState(false); // Steuert das Feedback-Modal
 const [showShare, setShowShare] = useState(false); // Steuert das Teilen-Modal
 const [localSaveStatus, setLocalSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error' - Feedback für den "Lokal speichern"-Button
+// Id des lokalen (IndexedDB, localAnalyses.js) Bildsatzes zur aktuell
+// angezeigten Analyse — gesetzt, sobald eine Analyse abgeschlossen
+// (automatische Sicherung, siehe callGeminiVisionAPI) oder aus der Historie
+// mit vorhandenem localAnalysisId geladen wurde. Verhindert, dass der
+// manuelle "Lokal speichern"-Button (handleSaveLocally) ein Duplikat anlegt,
+// wenn die Bilder schon vorliegen.
+const [currentLocalAnalysisId, setCurrentLocalAnalysisId] = useState(null);
 // Steuert die Schritt-für-Schritt-Anleitung zum Hinterlegen eines eigenen
 // Gemini-API-Keys — öffnet sich automatisch, sobald eine KI-Anfrage mit
 // Status 402 (Kontingent aufgebraucht, kein eigener Key, siehe
@@ -1939,6 +1946,7 @@ setIsGeneratingReport(false);
 setIsGeneratingCost(false);
 setTradeToolResults({});
 setLoadingTradeToolIds({});
+setCurrentLocalAnalysisId(null);
 }, []);
 // --- FUNKTION: ALLES ZURÜCKSETZEN ---
 const handleReset = useCallback(() => {
@@ -1991,6 +1999,10 @@ if (item.localAnalysisId) {
 try {
 const localEntry = await getLocalAnalysisById(item.localAnalysisId);
 setSelectedImages(localEntry?.images || []);
+// Verhindert ein Duplikat, falls "Lokal speichern" auf der
+// wiederhergestellten Analyse erneut geklickt wird (siehe
+// handleSaveLocally).
+setCurrentLocalAnalysisId(localEntry ? item.localAnalysisId : null);
 } catch (e) {
 console.warn('Lokal gesicherte Bilder konnten nicht geladen werden:', e);
 setSelectedImages([]);
@@ -2009,6 +2021,9 @@ setProblemDescription(item.problemDescription || '');
 setSelectedTradeState(item.selectedTrade || 'Allround-Handwerker');
 setSolutionText(item.solutionText || null);
 setSelectedImages(item.images || []);
+// item selbst IST bereits der lokale Bildsatz — "Lokal speichern" muss
+// hier kein neues Duplikat anlegen (siehe handleSaveLocally).
+setCurrentLocalAnalysisId(item.id);
 setShowHistory(false);
 }, [handleReset]);
 // --- FUNKTION: DATEIAUSWAHL ---
@@ -2085,19 +2100,28 @@ console.error("Fehler beim Speichern der Analyse:", e);
 }
 }, [db, userId, appId]);
 // --- FUNKTION: ANALYSE OPTIONAL LOKAL SPEICHERN (inkl. Bilder) ---
-// Gegenstück zu saveAnalysis: läuft nicht automatisch nach jeder Analyse,
-// sondern nur auf Klick des Nutzers ("Lokal speichern" im Ergebnis-Bereich),
-// und legt dafür - anders als Firestore - auch die Bilder mit ab (siehe
-// localAnalyses.js).
+// Gegenstück zu saveAnalysis: legt dafür - anders als Firestore - auch die
+// Bilder mit ab (siehe localAnalyses.js). Läuft inzwischen automatisch nach
+// jeder abgeschlossenen Analyse (siehe callGeminiVisionAPI), damit Fotos
+// beim späteren Öffnen/Teilen einer Analyse nie verloren gehen — dieser
+// Klick-Handler ("Lokal speichern" im Ergebnis-Bereich) ist daher meist
+// bereits erledigt (currentLocalAnalysisId gesetzt) und legt dann bewusst
+// KEIN Duplikat an, sondern bestätigt nur den vorhandenen Stand.
 const handleSaveLocally = useCallback(async () => {
+if (currentLocalAnalysisId) {
+setLocalSaveStatus('saved');
+setTimeout(() => setLocalSaveStatus('idle'), 2000);
+return;
+}
 setLocalSaveStatus('saving');
 try {
-await saveAnalysisLocally({
+const entry = await saveAnalysisLocally({
 selectedTrade,
 problemDescription,
 solutionText,
 images: selectedImages,
 });
+setCurrentLocalAnalysisId(entry.id);
 setLocalSaveStatus('saved');
 setTimeout(() => setLocalSaveStatus('idle'), 2000);
 } catch (e) {
@@ -2105,7 +2129,7 @@ console.error("Fehler beim lokalen Speichern der Analyse:", e);
 setLocalSaveStatus('error');
 setTimeout(() => setLocalSaveStatus('idle'), 3000);
 }
-}, [selectedTrade, problemDescription, solutionText, selectedImages]);
+}, [selectedTrade, problemDescription, solutionText, selectedImages, currentLocalAnalysisId]);
 // --- EFFECT: GEWERK LADEN (mit Firestore) und SPEICHERN ---
 const saveTradePreference = useCallback(async (trade) => {
 setSelectedTradeState(trade);
@@ -2285,6 +2309,25 @@ if (candidate && candidate.content?.parts?.[0]?.text) {
 const solution = candidate.content.parts[0].text;
 setSolutionText(solution);
 playCompletionSound();
+// Bilder zusätzlich lokal sichern (dieselbe Ablage wie der manuelle
+// "Lokal speichern"-Button, siehe localAnalyses.js) und die Firestore-
+// Analyse per localAnalysisId damit verlinken — Firestore selbst speichert
+// aus Größengründen keine Bilder (s.u.), damit blieben sie sonst nur im
+// aktuellen Analyse-Durchlauf sichtbar und gingen beim erneuten Öffnen aus
+// der Historie oder beim Teilen einer wiederhergestellten Analyse verloren.
+// Ein Fehlschlag hier verwirft nicht die Analyse selbst.
+let localEntry = null;
+try {
+localEntry = await saveAnalysisLocally({
+selectedTrade,
+problemDescription,
+solutionText: solution,
+images: selectedImages,
+});
+setCurrentLocalAnalysisId(localEntry.id);
+} catch (e) {
+console.warn('Bilder der Analyse konnten nicht lokal gesichert werden:', e);
+}
 // Speichern der Analyse in Firestore
 await saveAnalysis({
 selectedTrade,
@@ -2293,6 +2336,7 @@ solutionText: solution,
 // Standort nur abfragen, wenn die Standort-Erkennung aktiv ist — sonst
 // keine unnötige Geolocation-Berechtigungsabfrage im Browser.
 location: locationFeatureEnabled ? await getCurrentCoords() : null,
+localAnalysisId: localEntry?.id || null,
 });
 // Wurde gerade eine aus der Warteschlange geladene Analyse direkt (bei
 // wiederhergestellter Verbindung) erfolgreich ausgeführt, ist der alte
