@@ -8,6 +8,66 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.18.0] – 2026-08-28
+
+### Hinzugefügt
+- **Neue Analyse trotz kompletter Funkstille möglich, statt nur "App startet
+  offline" (V2.17.0).** Problem: Auch mit dem PWA-Offline-Start aus V2.17.0
+  war eine NEUE Analyse ohne Empfang schlicht nicht möglich — auf der
+  Baustelle (Kernzielgruppe der App) das eigentlich relevante Szenario. Ein
+  Nutzer, der die App einmal ohne Ergebnis abgewiesen erlebt, benutzt sie laut
+  Nutzer-Feedback vermutlich gar nicht mehr. Lösung: Zwei sich ergänzende
+  Bausteine.
+  1. **Analyse-Warteschlange mit Auto-Sync:** Löst man "Problem analysieren"
+     ohne Verbindung aus (Button zeigt dann "Für später speichern (offline)",
+     `src/App.jsx`), wird die komplette Anfrage (Bilder, Beschreibung, Beruf)
+     lokal per IndexedDB gespeichert (`src/offlineAnalysisQueue.js`) statt
+     einen Fehler zu zeigen. Ein neuer Effect in `src/App.jsx` verarbeitet die
+     Warteschlange automatisch, sobald `isOnline` wieder `true` wird: exakt
+     dieselbe `/api/gemini`-Anfrage wie bei einer normalen Analyse (Query-
+     Aufbau in `buildAnalysisUserQuery` aus `callGeminiVisionAPI`
+     ausgelagert, damit beide Pfade garantiert dasselbe Ergebnis liefern),
+     Speicherung des Ergebnisses per `saveAnalysis` wie gewohnt im
+     Firestore-Verlauf. Bricht bei einem Fehler (z.B. erneuter
+     Verbindungsabbruch, aufgebrauchtes Kontingent) bewusst ab und lässt die
+     restlichen Einträge unangetastet in der Warteschlange, statt sie zu
+     verwerfen — der nächste `online`-Event versucht es erneut.
+  2. **Statische Offline-Kurzhilfe je Beruf** (`src/offlineQuickHelp.jsx`,
+     erreichbar über "Sofort-Checkliste ohne Internet ansehen" im
+     Offline-Banner): fest hinterlegte, sofort verfügbare Checklisten mit
+     den häufigsten Problemfällen und einem Sicherheitshinweis für jeden der
+     neun Berufe plus Allround-Fallback — komplett ohne KI und ohne jede
+     Verbindung, überbrückt die Zeit bis zur echten Diagnose.
+  Beide Bausteine sowie das bestehende Offline-Verhalten aus V2.17.0 per
+  Playwright-Test verifiziert (App-Shell-Start offline, Kurzhilfe-Modal-Inhalt,
+  Queueing samt Warteschlangen-Eintrag in IndexedDB).
+
+## [2.17.0] – 2026-08-28
+
+### Hinzugefügt
+- **Offline-Nutzung auf der Baustelle (kein Empfang).** Problem: Ohne Netz war
+  die App komplett unbenutzbar — beim Neustart lud sie gar nicht erst (kein
+  Service Worker, kein gecachter App-Shell), und Firestore-Zugriffe (Verlauf,
+  Profil) hatten keinerlei Offline-Cache, sondern hingen einfach fest. Ursache:
+  Die App wurde bisher rein als klassische Online-SPA betrieben, ohne PWA-
+  Infrastruktur und mit `getFirestore(app)` in Standard-Konfiguration. Lösung:
+  `vite-plugin-pwa` ergänzt (`vite.config.js`) — cached App-Shell
+  (HTML/JS/CSS/Icons) beim ersten Online-Besuch per Service Worker, damit ein
+  späterer Start ganz ohne Verbindung trotzdem funktioniert
+  (`registerType: 'autoUpdate'`, Registrierung in `src/main.jsx`). Icons/Web-
+  Manifest via `@vite-pwa/assets-generator` aus dem vorhandenen Favicon erzeugt
+  (`pwa-assets.config.js`, neue Dateien unter `public/`). Firestore läuft jetzt
+  über `initializeFirestore` mit `persistentLocalCache` +
+  `persistentMultipleTabManager` statt `getFirestore(app)` (`src/App.jsx`) —
+  bereits geladene Daten (Verlauf, Profil) bleiben dadurch offline sichtbar,
+  neue Schreibvorgänge werden lokal gequeued und synchronisieren automatisch
+  bei wiederhergestellter Verbindung. Ein neuer, automatisch ein-/
+  ausblendender "Kein Empfang"-Banner (`navigator.onLine` +
+  `online`/`offline`-Events) informiert währenddessen darüber, dass neue
+  KI-Analysen erst mit Verbindung wieder möglich sind. Per Playwright-Test
+  verifiziert: App-Shell inkl. UI lädt vollständig, wenn der Browser nach
+  einem ersten Online-Besuch offline geschaltet wird.
+
 ## [2.16.4] – 2026-08-28
 
 ### Geändert

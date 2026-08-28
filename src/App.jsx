@@ -16,7 +16,8 @@ import {
 initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken
 } from 'firebase/app-check';
 import {
-getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs,
+initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+doc, setDoc, getDoc, collection, query, where, getDocs,
 orderBy, limit, serverTimestamp
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
@@ -26,6 +27,8 @@ import LegalPanel from './LegalPanel';
 import FeedbackModal from './FeedbackModal';
 import ShareModal from './ShareModal';
 import { saveAnalysisLocally, getLocalAnalyses, deleteLocalAnalysis } from './localAnalyses';
+import { queueOfflineAnalysis, getQueuedAnalyses, removeQueuedAnalysis } from './offlineAnalysisQueue';
+import OfflineQuickHelpModal from './offlineQuickHelp';
 import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
 import { APP_ID as appId } from '../shared/appId.js';
 
@@ -62,6 +65,18 @@ const SYSTEM_INSTRUCTION_CLIENT_REPORT = "Du bist ein Projektmanager mit ausgeze
 const SYSTEM_INSTRUCTION_COST = "Du bist ein Kalkulator für Handwerksleistungen. Analysiere den folgenden Lösungsvorschlag und erstelle eine grobe Kostenschätzung in Euro. Gliedere die Antwort in die Abschnitte 'Material' (Preisspanne), 'Arbeitszeit' (geschätzte Stunden UND Kosten bei üblichem Handwerker-Stundensatz) und 'Gesamt' (Preisspanne, keine feste Summe, da Region und Anbieter stark abweichen). Weise abschließend in einem kurzen Satz darauf hin, dass es sich um eine grobe Orientierung ohne Gewähr handelt und keinen verbindlichen Kostenvoranschlag ersetzt. Antworte im Markdown-Format.";
 const SYSTEM_INSTRUCTION_VIDEO_FINAL = "Du bist ein YouTube-Experte für Handwerks-Tutorials. Basierend auf dem folgenden Lösungsvorschlag, suche und wähle die 3-5 relevantesten und aktuellsten YouTube-Video-Links aus, die eine visuelle Anleitung zur Reparatur bieten. Ignoriere alle Nicht-YouTube-Links. Antworte AUSSCHLIESSLICH mit einem JSON-Array im Format [{\"title\": \"...\", \"uri\": \"https://www.youtube.com/watch?v=...\"}], ohne zusätzlichen Text davor oder danach.";
 const SYSTEM_INSTRUCTION_TTS_SUMMARY = "Du bist ein erfahrener Handwerksmeister. Fasse die folgende Diagnose und Lösung für eine mündliche Vorlesung auf das Wesentliche zusammen: das Problem und die wichtigsten Lösungsschritte, in maximal 5 kurzen Sätzen. Antworte ausschließlich in reinem Fließtext ohne Markdown, Überschriften oder Aufzählungszeichen, da der Text direkt vorgelesen wird.";
+// Baut die Nutzer-Query für die Haupt-Bildanalyse — ausgelagert aus
+// callGeminiVisionAPI, damit die Warteschlangen-Verarbeitung (siehe
+// offlineAnalysisQueue.js/processOfflineQueue) für später nachgeholte,
+// offline ausgelöste Analysen exakt dieselbe Query baut wie eine normale,
+// sofort ausgeführte Analyse.
+const buildAnalysisUserQuery = (trade, description) => {
+  const tradeContext = trade ? `[GEWERK: ${trade}]. ` : '';
+  const descContext = description.trim()
+    ? `[BESCHREIBUNG: ${description.trim()}]. Die Analyse MUSS sich vorrangig auf diese Beschreibung und das/die Bild(er) konzentrieren, um die Fehlerursache zu finden.`
+    : 'Analysiere das/die gezeigte(n) Bauproblem(e) und schlage eine Lösung vor.';
+  return `${tradeContext}${descContext}`;
+};
 // Bekannte deutsche Stimmnamen, um bei der Browser-Sprachausgabe (Fallback,
 // siehe pickBrowserVoice in App) grob das gewünschte Geschlecht zu treffen —
 // SpeechSynthesisVoice liefert dafür kein eigenes Attribut, nur den
@@ -1236,6 +1251,38 @@ setShowApiKeyOnboarding(true);
 // scripts/set-admin-claim.mjs + api/gemini.js), kein UI-Sichtschutz mehr —
 // AdminPanel.jsx verlässt sich hierauf statt auf einen PIN.
 const [isAdmin, setIsAdmin] = useState(false);
+// Verbindungsstatus (z.B. Baustelle ohne Empfang): steuert den Offline-Banner
+// unten. Bereits geladene Firestore-Daten bleiben dank persistentLocalCache
+// (siehe Firebase-Init-Effect) nutzbar, neue Analysen brauchen aber weiterhin
+// eine Verbindung zu /api/gemini.
+const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+useEffect(() => {
+const handleOnline = () => setIsOnline(true);
+const handleOffline = () => setIsOnline(false);
+window.addEventListener('online', handleOnline);
+window.addEventListener('offline', handleOffline);
+return () => {
+window.removeEventListener('online', handleOnline);
+window.removeEventListener('offline', handleOffline);
+};
+}, []);
+// Offline-Analyse-Warteschlange (offlineAnalysisQueue.js): Zahl der ohne
+// Empfang gespeicherten, noch nicht nachgeholten Analysen; wird beim Start
+// aus IndexedDB geladen und bei jeder Queue-Änderung aktualisiert.
+const [pendingAnalysesCount, setPendingAnalysesCount] = useState(0);
+const [isSyncingQueue, setIsSyncingQueue] = useState(false);
+const [queueFeedback, setQueueFeedback] = useState(null);
+const [showOfflineHelp, setShowOfflineHelp] = useState(false);
+useEffect(() => {
+(async () => {
+try {
+const queued = await getQueuedAnalyses();
+setPendingAnalysesCount(queued.length);
+} catch (e) {
+console.warn('Offline-Warteschlange konnte nicht gelesen werden (IndexedDB nicht verfügbar?):', e);
+}
+})();
+}, []);
 const [showDisclaimer, setShowDisclaimer] = useState(true); // EU-AI-Act-Haftungsausschluss wegklickbar (pro Sitzung)
 const [showTrialNotice, setShowTrialNotice] = useState(true); // Hinweis aufs Pro-Konto-Kontingent wegklickbar (pro Sitzung)
 // Live-Stand des kostenlosen Pro-Konto-Kontingents (siehe api/gemini.js
@@ -1623,7 +1670,15 @@ let dbInstance;
 try {
 const app = initializeApp(firebaseConfig);
 authInstance = getAuth(app);
-dbInstance = getFirestore(app);
+// persistentLocalCache haelt zuletzt gelesene/geschriebene Dokumente in
+// IndexedDB vor: ohne Empfang (z.B. Baustelle) liefern getDoc/getDocs den
+// zwischengespeicherten Stand, setDoc-Schreibvorgaenge werden lokal
+// gequeued und synchronisieren automatisch, sobald wieder Netz da ist.
+// persistentMultipleTabManager erlaubt dabei mehrere gleichzeitig offene
+// Tabs/PWA-Fenster, statt den Cache nur dem zuerst geoeffneten zu erlauben.
+dbInstance = initializeFirestore(app, {
+localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 // App Check schützt /api/gemini gegen gescripteten Missbrauch (siehe
 // api/gemini.js). Ohne Site-Key bleibt es clientseitig einfach aus.
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
@@ -2062,6 +2117,25 @@ if (!hasImage && !hasDescription) {
 setError("🔴 AKTION ERFORDERLICH: Bitte wählen Sie ein Bild ODER geben Sie eine Problembeschreibung ein, um die Analyse zu starten.");
 return;
 }
+// Kein Empfang: statt eines Fehlschlags wird die Analyse (Bilder +
+// Beschreibung + Beruf) vollständig lokal in die Warteschlange gelegt
+// (siehe offlineAnalysisQueue.js) und automatisch nachgeholt, sobald die
+// Verbindung zurück ist (siehe Effect "WARTESCHLANGE VERARBEITEN" unten) —
+// kein sofortiger "Analyse fehlgeschlagen"-Frust auf der Baustelle.
+if (!isOnline) {
+try {
+await queueOfflineAnalysis({ selectedTrade, problemDescription, images: selectedImages });
+setPendingAnalysesCount((c) => c + 1);
+setError(null);
+setQueueFeedback('Kein Empfang: Diese Analyse wurde gespeichert und wird automatisch durchgeführt, sobald wieder eine Verbindung besteht. Sie finden das Ergebnis danach im Verlauf.');
+setSelectedImages([]);
+setProblemDescription('');
+} catch (e) {
+console.error('Offline-Analyse konnte nicht gespeichert werden:', e);
+setError('Kein Empfang, und die Analyse konnte auch nicht für später gespeichert werden (z.B. Speicher voll). Bitte Speicherplatz prüfen oder es später erneut versuchen.');
+}
+return;
+}
 setIsAnalyzing(true);
 setError(null);
 setSolutionText(null);
@@ -2075,11 +2149,7 @@ setTradeToolResults({});
 setLoadingTradeToolIds({});
 setSources([]);
 const mimeType = 'image/jpeg';
-const tradeContext = selectedTrade ? `[GEWERK: ${selectedTrade}]. ` : '';
-const descContext = problemDescription.trim()
-? `[BESCHREIBUNG: ${problemDescription.trim()}]. Die Analyse MUSS sich vorrangig auf diese Beschreibung und das/die Bild(er) konzentrieren, um die Fehlerursache zu finden.`
-: 'Analysiere das/die gezeigte(n) Bauproblem(e) und schlage eine Lösung vor.';
-const userQuery = `${tradeContext}${descContext}`;
+const userQuery = buildAnalysisUserQuery(selectedTrade, problemDescription);
 // Erstellung des Contents: Bilder (falls vorhanden) und Text
 const contents = [
 {
@@ -2132,7 +2202,94 @@ handleGeminiError(e, 'gemini-vision-api', "Die Analyse konnte nicht abgeschlosse
 } finally {
 setIsAnalyzing(false);
 }
-}, [selectedImages, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError, locationFeatureEnabled]);
+}, [selectedImages, problemDescription, selectedTrade, saveAnalysis, db, userId, handleTrialExceededError, locationFeatureEnabled, isOnline]);
+// --- EFFECT: OFFLINE-WARTESCHLANGE VERARBEITEN ---
+// Läuft, sobald die Verbindung zurück ist (isOnline wird true) UND eine
+// authentifizierte Firestore-Verbindung besteht: holt alle ohne Empfang
+// gespeicherten Analysen (offlineAnalysisQueue.js) der Reihe nach nach,
+// exakt über denselben /api/gemini-Aufruf wie eine normale Analyse
+// (gleiche Query dank buildAnalysisUserQuery), und legt jedes Ergebnis wie
+// gewohnt per saveAnalysis in Firestore ab — der Nutzer findet es danach im
+// Verlauf, auch wenn er die App inzwischen verlassen und wieder geöffnet
+// hat. Bricht beim ersten Fehler (z.B. Kontingent aufgebraucht, erneut kein
+// Empfang) ab und lässt die restlichen Einträge in der Warteschlange, statt
+// sie zu verwerfen — der nächste 'online'-Event versucht es erneut.
+useEffect(() => {
+if (!isOnline || !db || !userId) return;
+let cancelled = false;
+(async () => {
+let queued;
+try {
+queued = await getQueuedAnalyses();
+} catch (e) {
+console.warn('Offline-Warteschlange konnte nicht gelesen werden:', e);
+return;
+}
+if (cancelled || queued.length === 0) return;
+setIsSyncingQueue(true);
+let succeeded = 0;
+let hitError = false;
+for (const item of queued) {
+if (cancelled) break;
+try {
+const contents = [{
+role: 'user',
+parts: [
+{ text: buildAnalysisUserQuery(item.selectedTrade, item.problemDescription) },
+...(item.images || []).map((img) => ({
+inlineData: { mimeType: 'image/jpeg', data: img.base64 },
+})),
+],
+}];
+const payload = {
+contents,
+systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+};
+const result = await callGeminiApi(payload, { 'X-Analysis-Kind': 'main' });
+const candidate = result.candidates?.[0];
+const solution = candidate?.content?.parts?.[0]?.text;
+if (!solution) {
+reportEmptyResult('gemini-vision-api-queued', 'Antwort ohne verwertbaren Kandidaten', '');
+hitError = true;
+break;
+}
+await saveAnalysis({
+selectedTrade: item.selectedTrade,
+problemDescription: item.problemDescription,
+solutionText: solution,
+// Standort wurde beim Queuen bewusst nicht abgefragt (siehe
+// callGeminiVisionAPI) — Geolocation-Abfrage soll nicht offline
+// hängen bleiben.
+location: null,
+});
+await removeQueuedAnalysis(item.id);
+succeeded += 1;
+} catch (e) {
+console.error('Warteschlangen-Analyse fehlgeschlagen:', e);
+if (e.status === 402) {
+handleTrialExceededError(e.message);
+} else {
+queueErrorReport('gemini-vision-api-queued', e);
+flushErrorReports(db, userId, appId);
+}
+hitError = true;
+break;
+}
+}
+if (cancelled) return;
+try {
+const remaining = await getQueuedAnalyses();
+setPendingAnalysesCount(remaining.length);
+} catch { /* IndexedDB-Lesefehler hier egal, Zähler bleibt beim letzten Stand */ }
+setIsSyncingQueue(false);
+if (succeeded > 0) {
+setQueueFeedback(`${succeeded} gespeicherte Analyse${succeeded > 1 ? 'n wurden' : ' wurde'} automatisch nachgeholt — im Verlauf einsehbar.`);
+} else if (hitError) {
+setQueueFeedback('Gespeicherte Analysen konnten noch nicht nachgeholt werden — wird automatisch erneut versucht, sobald die Verbindung wieder stabil ist.');
+}
+})();
+return () => { cancelled = true; };
+}, [isOnline, db, userId, appId, saveAnalysis, handleTrialExceededError]);
 // --- FUNKTION: Materialliste generieren (JSON Mode) ---
 const callGeminiMaterialsAPI = useCallback(async () => {
 if (!solutionText) return;
@@ -3078,6 +3235,59 @@ onShowAdmin={() => setShowAdmin(true)}
 </header>
 {/* Haupt-Content-Bereich */}
 <main className="p-4 sm:p-6 lg:p-8 space-y-6 w-full panel-parchment backdrop-blur-md overflow-y-auto">
+{/* OFFLINE-HINWEIS: erscheint automatisch ohne Empfang (z.B. Baustelle) und
+    verschwindet wieder, sobald die Verbindung zurück ist — kein manuelles
+    Wegklicken nötig. Bereits geladene Daten bleiben dank Firestores
+    Offline-Cache nutzbar. Eine neue Analyse wird nicht abgewiesen, sondern
+    in die Warteschlange gelegt (siehe callGeminiVisionAPI) — zusätzlich
+    steht eine rein statische, sofort verfügbare Kurzhilfe bereit
+    (offlineQuickHelp.jsx), für die gar keine Verbindung nötig ist. */}
+{!isOnline && (
+<div className="p-3 bg-amber-50 border-l-4 border-amber-400 text-amber-800 rounded-xl shadow-md flex items-start space-x-3">
+<AlertTriangle className="w-5 h-5 mt-1 flex-shrink-0 text-amber-500" />
+<div className="flex-grow">
+<p className="font-bold">Kein Empfang</p>
+<p className="text-xs">
+Sie sind offline. Bereits geladene Daten bleiben sichtbar. Eine neue Analyse wird jetzt gespeichert und automatisch durchgeführt, sobald wieder eine Verbindung besteht
+{pendingAnalysesCount > 0 ? ` (${pendingAnalysesCount} warten bereits)` : ''}.
+</p>
+<button
+type="button"
+onClick={() => setShowOfflineHelp(true)}
+className="mt-2 text-xs font-semibold underline text-amber-900 hover:text-amber-700"
+>
+Sofort-Checkliste ohne Internet ansehen
+</button>
+</div>
+</div>
+)}
+{isOnline && isSyncingQueue && (
+<div className="p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-800 rounded-xl shadow-md flex items-center space-x-3">
+<Loader2 className="w-5 h-5 flex-shrink-0 animate-spin text-blue-500" />
+<p className="text-xs">Gespeicherte Offline-Analyse(n) werden gerade nachgeholt…</p>
+</div>
+)}
+{queueFeedback && (
+<div className="p-3 bg-green-50 border-l-4 border-green-400 text-green-800 rounded-xl shadow-md flex items-start space-x-3">
+<CheckCircle className="w-5 h-5 mt-1 flex-shrink-0 text-green-500" />
+<p className="text-xs flex-grow">{queueFeedback}</p>
+<button
+onClick={() => setQueueFeedback(null)}
+className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white bg-green-500 hover:bg-green-600 transition"
+title="Hinweis ausblenden"
+aria-label="Hinweis ausblenden"
+>
+<X className="w-4 h-4" />
+</button>
+</div>
+)}
+{showOfflineHelp && (
+<OfflineQuickHelpModal
+selectedTrade={selectedTrade}
+theme={theme}
+onClose={() => setShowOfflineHelp(false)}
+/>
+)}
 {/* PRO-KONTO-KONTINGENT-HINWEIS: informiert vorab über das Limit aus
     FREE_TRIAL_MAX (shared/trialLimit.js), statt dass Nutzer erst beim
     Fehlschlagen der Analyse davon erfahren. trialRemaining kommt live vom
@@ -3269,6 +3479,11 @@ className="w-2/3 flex items-center justify-center py-3 btn-quest transition dura
 <>
 <Loader2 className="w-5 h-5 mr-2 animate-spin text-white" />
 Analysiere...
+</>
+) : !isOnline ? (
+<>
+<Zap className="w-5 h-5 mr-2" />
+Für später speichern (offline)
 </>
 ) : (
 <>
