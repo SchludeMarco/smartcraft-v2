@@ -8,6 +8,32 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.17.0] – 2026-08-28
+
+### Hinzugefügt
+- **Offline-Nutzung auf der Baustelle (kein Empfang).** Problem: Ohne Netz war
+  die App komplett unbenutzbar — beim Neustart lud sie gar nicht erst (kein
+  Service Worker, kein gecachter App-Shell), und Firestore-Zugriffe (Verlauf,
+  Profil) hatten keinerlei Offline-Cache, sondern hingen einfach fest. Ursache:
+  Die App wurde bisher rein als klassische Online-SPA betrieben, ohne PWA-
+  Infrastruktur und mit `getFirestore(app)` in Standard-Konfiguration. Lösung:
+  `vite-plugin-pwa` ergänzt (`vite.config.js`) — cached App-Shell
+  (HTML/JS/CSS/Icons) beim ersten Online-Besuch per Service Worker, damit ein
+  späterer Start ganz ohne Verbindung trotzdem funktioniert
+  (`registerType: 'autoUpdate'`, Registrierung in `src/main.jsx`). Icons/Web-
+  Manifest via `@vite-pwa/assets-generator` aus dem vorhandenen Favicon erzeugt
+  (`pwa-assets.config.js`, neue Dateien unter `public/`). Firestore läuft jetzt
+  über `initializeFirestore` mit `persistentLocalCache` +
+  `persistentMultipleTabManager` statt `getFirestore(app)` (`src/App.jsx`) —
+  bereits geladene Daten (Verlauf, Profil) bleiben dadurch offline sichtbar,
+  neue Schreibvorgänge werden lokal gequeued und synchronisieren automatisch
+  bei wiederhergestellter Verbindung. Ein neuer, automatisch ein-/
+  ausblendender "Kein Empfang"-Banner (`navigator.onLine` +
+  `online`/`offline`-Events) informiert währenddessen darüber, dass neue
+  KI-Analysen erst mit Verbindung wieder möglich sind. Per Playwright-Test
+  verifiziert: App-Shell inkl. UI lädt vollständig, wenn der Browser nach
+  einem ersten Online-Besuch offline geschaltet wird.
+
 ## [2.16.4] – 2026-08-28
 
 ### Geändert

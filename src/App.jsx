@@ -16,7 +16,8 @@ import {
 initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken
 } from 'firebase/app-check';
 import {
-getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs,
+initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+doc, setDoc, getDoc, collection, query, where, getDocs,
 orderBy, limit, serverTimestamp
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
@@ -1236,6 +1237,21 @@ setShowApiKeyOnboarding(true);
 // scripts/set-admin-claim.mjs + api/gemini.js), kein UI-Sichtschutz mehr —
 // AdminPanel.jsx verlässt sich hierauf statt auf einen PIN.
 const [isAdmin, setIsAdmin] = useState(false);
+// Verbindungsstatus (z.B. Baustelle ohne Empfang): steuert den Offline-Banner
+// unten. Bereits geladene Firestore-Daten bleiben dank persistentLocalCache
+// (siehe Firebase-Init-Effect) nutzbar, neue Analysen brauchen aber weiterhin
+// eine Verbindung zu /api/gemini.
+const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+useEffect(() => {
+const handleOnline = () => setIsOnline(true);
+const handleOffline = () => setIsOnline(false);
+window.addEventListener('online', handleOnline);
+window.addEventListener('offline', handleOffline);
+return () => {
+window.removeEventListener('online', handleOnline);
+window.removeEventListener('offline', handleOffline);
+};
+}, []);
 const [showDisclaimer, setShowDisclaimer] = useState(true); // EU-AI-Act-Haftungsausschluss wegklickbar (pro Sitzung)
 const [showTrialNotice, setShowTrialNotice] = useState(true); // Hinweis aufs Pro-Konto-Kontingent wegklickbar (pro Sitzung)
 // Live-Stand des kostenlosen Pro-Konto-Kontingents (siehe api/gemini.js
@@ -1623,7 +1639,15 @@ let dbInstance;
 try {
 const app = initializeApp(firebaseConfig);
 authInstance = getAuth(app);
-dbInstance = getFirestore(app);
+// persistentLocalCache haelt zuletzt gelesene/geschriebene Dokumente in
+// IndexedDB vor: ohne Empfang (z.B. Baustelle) liefern getDoc/getDocs den
+// zwischengespeicherten Stand, setDoc-Schreibvorgaenge werden lokal
+// gequeued und synchronisieren automatisch, sobald wieder Netz da ist.
+// persistentMultipleTabManager erlaubt dabei mehrere gleichzeitig offene
+// Tabs/PWA-Fenster, statt den Cache nur dem zuerst geoeffneten zu erlauben.
+dbInstance = initializeFirestore(app, {
+localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 // App Check schützt /api/gemini gegen gescripteten Missbrauch (siehe
 // api/gemini.js). Ohne Site-Key bleibt es clientseitig einfach aus.
 const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
@@ -3078,6 +3102,19 @@ onShowAdmin={() => setShowAdmin(true)}
 </header>
 {/* Haupt-Content-Bereich */}
 <main className="p-4 sm:p-6 lg:p-8 space-y-6 w-full panel-parchment backdrop-blur-md overflow-y-auto">
+{/* OFFLINE-HINWEIS: erscheint automatisch ohne Empfang (z.B. Baustelle) und
+    verschwindet wieder, sobald die Verbindung zurück ist — kein manuelles
+    Wegklicken nötig. Bereits geladene Daten bleiben dank Firestores
+    Offline-Cache nutzbar, neue KI-Analysen brauchen aber eine Verbindung. */}
+{!isOnline && (
+<div className="p-3 bg-amber-50 border-l-4 border-amber-400 text-amber-800 rounded-xl shadow-md flex items-start space-x-3">
+<AlertTriangle className="w-5 h-5 mt-1 flex-shrink-0 text-amber-500" />
+<div className="flex-grow">
+<p className="font-bold">Kein Empfang</p>
+<p className="text-xs">Sie sind offline. Bereits geladene Daten bleiben sichtbar, neue KI-Analysen sind erst mit Verbindung wieder möglich — Änderungen werden automatisch synchronisiert, sobald Sie wieder online sind.</p>
+</div>
+</div>
+)}
 {/* PRO-KONTO-KONTINGENT-HINWEIS: informiert vorab über das Limit aus
     FREE_TRIAL_MAX (shared/trialLimit.js), statt dass Nutzer erst beim
     Fehlschlagen der Analyse davon erfahren. trialRemaining kommt live vom

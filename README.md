@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.16.4)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.17.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -233,7 +233,9 @@ entgegennimmt — kein Suchen im Profil-Menü nötig.
 ## Tech-Stack
 
 React 18 + Vite, Tailwind CSS (per `@tailwindcss/vite` zur Build-Zeit kompiliert,
-nicht per CDN), Firebase (verpflichtender Google-Login + Firestore),
+nicht per CDN), als PWA installierbar (`vite-plugin-pwa`/Workbox cached die
+App-Shell für den Start ohne Empfang, z.B. auf der Baustelle — Details unten
+unter "Offline-Nutzung"), Firebase (verpflichtender Google-Login + Firestore),
 Google Gemini API (`gemini-flash-lite-latest`) über eine Vercel Serverless Function als
 Proxy — der API-Key bleibt dadurch server-seitig und wird nie im Browser sichtbar.
 Der Proxy ist zusätzlich per Origin-Check, Firebase App Check (reCAPTCHA v3) und
@@ -264,6 +266,33 @@ an den Entwickler schicken
 (`src/FeedbackModal.jsx` → `api/send-feedback.js`) — per Mail über denselben
 Resend-Dienst wie die Fehlerreports, mit eigenem Rate-Limit, aber ohne
 Firestore-Speicherung.
+
+## Offline-Nutzung
+
+Sm@rtCraft ist eine installierbare PWA (Icons/Manifest via
+`@vite-pwa/assets-generator`, siehe `pwa-assets.config.js`) und dadurch auf der
+Baustelle auch ohne Empfang nutzbar:
+
+- **App-Shell aus dem Cache:** Der von `vite-plugin-pwa` erzeugte Service
+  Worker (`registerType: 'autoUpdate'`, siehe `vite.config.js`) cached
+  HTML/JS/CSS/Icons beim ersten Online-Besuch. Ein späterer Neustart ganz ohne
+  Verbindung lädt die App trotzdem (kein weißer Bildschirm).
+- **Bereits geladene/gespeicherte Daten bleiben sichtbar:** Firestore läuft
+  über `initializeFirestore` mit `persistentLocalCache`
+  (`persistentMultipleTabManager`, siehe `src/App.jsx`) statt der Standard-
+  Konfiguration ohne Offline-Cache. Frühere Analysen, Profil-Einstellungen
+  etc. kommen dadurch offline aus dem lokalen IndexedDB-Cache; neue
+  Schreibvorgänge (z.B. eine neue Analyse ablegen) werden lokal
+  zwischengespeichert und synchronisieren automatisch, sobald wieder Empfang
+  da ist.
+- **Ein Banner** ("Kein Empfang", `navigator.onLine`/`online`-`offline`-Events
+  in `src/App.jsx`) zeigt automatisch an, wenn keine Verbindung besteht, und
+  verschwindet von selbst, sobald sie zurück ist.
+- **Was offline NICHT geht:** eine neue KI-Diagnose (`/api/gemini` braucht
+  zwingend eine Verbindung zum Server) sowie ein erstmaliger Google-Login
+  (Firebase Auth Popup-Flow braucht Netz) — eine bereits bestehende
+  Anmeldesitzung bleibt aber erhalten und wird beim nächsten Online-Kontakt
+  automatisch erneuert.
 
 ## Lokales Setup
 
