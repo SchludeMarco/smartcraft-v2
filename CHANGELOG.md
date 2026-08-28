@@ -8,6 +8,33 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.19.1] – 2026-08-28
+
+### Behoben
+- **Fotos einer automatisch nachgeholten Offline-Analyse gingen beim
+  Nachholen unwiderruflich verloren.** Problem: Beim erfolgreichen Nachholen
+  einer Warteschlangen-Analyse (Effect "OFFLINE-WARTESCHLANGE VERARBEITEN")
+  wurde der Warteschlangen-Eintrag samt der einzigen vorhandenen Kopie der
+  Fotos gelöscht — Firestore selbst speichert grundsätzlich keine Bilder
+  (Größenlimit, siehe `saveAnalysis`). Öffnete man die fertige Analyse
+  danach im Verlauf (Cloud-, "In der Nähe"- oder neuem "Offline
+  nachgeholt"-Tab), waren die Fotos also für immer weg, obwohl sie kurz
+  zuvor noch in der Warteschlange vorlagen. Ursache: `handleSelectAnalysis`
+  lud Bilder grundsätzlich nicht (Kommentar "können aus Performancegründen
+  nicht aus Firestore geladen werden"), und es gab keine Ablage, die die
+  Bilder über das Löschen des Warteschlangen-Eintrags hinaus aufbewahrt
+  hätte. Lösung: Der Sync-Effect sichert die Fotos jetzt zusätzlich lokal
+  (`saveAnalysisLocally` aus `src/localAnalyses.js` — dieselbe IndexedDB-
+  Ablage wie der manuelle "Lokal speichern"-Button, bevor der
+  Warteschlangen-Eintrag gelöscht wird) und verlinkt den Firestore-Eintrag
+  darauf über ein neues Feld `localAnalysisId` (`saveAnalysis`).
+  `handleSelectAnalysis` lädt darüber beim Öffnen einer Analyse (in allen
+  drei betroffenen Tabs, da sie denselben Handler nutzen) die passenden
+  Bilder aus der lokalen Ablage nach (neue Funktion `getLocalAnalysisById`
+  in `src/localAnalyses.js`), statt sie leer zu lassen. Ein Fehlschlag beim
+  lokalen Sichern (z.B. Speicher voll) verwirft dabei nicht die ganze
+  Analyse — der Text bleibt in Firestore erhalten, nur eben ohne Fotos.
+
 ## [2.19.0] – 2026-08-28
 
 ### Hinzugefügt

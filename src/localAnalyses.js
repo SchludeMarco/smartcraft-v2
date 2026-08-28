@@ -61,3 +61,11 @@ export async function getLocalAnalyses() {
 export async function deleteLocalAnalysis(id) {
   await runTransaction('readwrite', (store) => store.delete(id));
 }
+
+// Direkter Lookup per ID (statt getLocalAnalyses()+find) — genutzt von
+// handleSelectAnalysis in App.jsx, um zu einer automatisch nachgeholten
+// Offline-Analyse (Firestore-Feld localAnalysisId, siehe dortiger Sync-
+// Effect) die passend lokal gesicherten Bilder wiederzufinden.
+export async function getLocalAnalysisById(id) {
+  return runTransaction('readonly', (store) => store.get(id));
+}
