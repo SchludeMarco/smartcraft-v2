@@ -8,6 +8,20 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.16.2] – 2026-08-28
+
+### Geändert
+- **Versionsnummer aus dem Hauptbildschirm-Header entfernt, jetzt klein im
+  Profil-Modal.** Problem: Die Versionsnummer (`V{__APP_VERSION__}`) stand
+  bisher direkt neben dem "Sm@rtCraft!"-Schriftzug im Header der
+  Haupt-App-Ansicht — unnötig prominent für eine reine Debug-/Support-Info.
+  Ursache: Anzeige war fest im `<h1>` der Kopfleiste verankert
+  (`src/App.jsx`). Lösung: Versionshinweis aus dem Header entfernt und
+  stattdessen klein unten rechts im Profil-Modal ("Mein Konto",
+  `UserProfileModal`) platziert — dort, wo Nutzer ohnehin ihre
+  Kontoeinstellungen verwalten. Der Login-Gate-Screen (vor der Anmeldung)
+  zeigt die Version unverändert weiter an.
+
 ## [2.16.1] – 2026-08-28
 
 ### Geändert

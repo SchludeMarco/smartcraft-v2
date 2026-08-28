@@ -1032,7 +1032,7 @@ aria-label="Benutzerprofil und Historie anzeigen"
 {showProfile && (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={() => setShowProfile(false)}>
 <div
-className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-all duration-300 scale-100"
+className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-all duration-300 scale-100 relative"
 onClick={e => e.stopPropagation()}
 >
 <div className="flex justify-between items-center border-b border-gold/40 pb-3 mb-4">
@@ -1165,6 +1165,10 @@ className="w-full mt-3 flex items-center justify-center text-xs text-gray-400 ho
 <Lock className="w-3 h-3 mr-1" />
 Admin-Bereich
 </button>
+{/* Versionsnummer klein unten rechts statt im Hauptbildschirm-Header (siehe
+    Kopfleiste weiter unten) — Quelle bleibt package.json (vite.config.js
+    define: __APP_VERSION__). */}
+<p className="absolute bottom-1.5 right-3 text-[10px] text-gray-400/80 select-none">V{__APP_VERSION__}</p>
 </div>
 </div>
 )}
@@ -3028,8 +3032,10 @@ isAnonymous: false,
 <div className="flex items-center space-x-3">
 {/* EINGEBETTETES, STABILES LOGO (Lucide-Icons) */}
 <SmarterCraftLogo onClick={handleReset} />
-{/* Versionsnummer stammt aus package.json (siehe vite.config.js define: __APP_VERSION__) */}
-<h1 className="text-2xl font-display font-bold text-gold-light tracking-wide" style={{ color: 'var(--color-gold-light)' }}>Sm@rt<span style={{ color: '#fff' }}>Craft</span>! <span className='text-xs font-sans font-light italic text-white/70'>(V{__APP_VERSION__})</span></h1>
+{/* Versionsnummer steht nicht mehr hier, sondern klein unten rechts im
+    Profil-Modal (UserProfileModal, siehe "Mein Konto" weiter oben in dieser
+    Datei) — Quelle bleibt package.json (siehe vite.config.js define: __APP_VERSION__). */}
+<h1 className="text-2xl font-display font-bold text-gold-light tracking-wide" style={{ color: 'var(--color-gold-light)' }}>Sm@rt<span style={{ color: '#fff' }}>Craft</span>!</h1>
 </div>
 {/* Profil-Button: Öffnet das Profil-Modal */}
 <UserProfileModal
