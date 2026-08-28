@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.18.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.18.1)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -296,7 +296,11 @@ Baustelle auch ohne Empfang nutzbar:
   über dieselbe `/api/gemini`-Anfrage wie eine normale Analyse nach und legt
   das Ergebnis wie gewohnt im Verlauf ab — auch wenn die App zwischenzeitlich
   geschlossen und wieder geöffnet wurde. Ein Banner informiert währenddessen
-  über die Anzahl wartender bzw. gerade nachgeholter Analysen.
+  über die Anzahl wartender bzw. gerade nachgeholter Analysen. Der
+  Erfolgs-Banner nach dem Nachholen ist antippbar und führt direkt in die
+  Historie zum eigenen Tab "Offline nachgeholt" (clientseitiger Filter auf
+  `syncedFromOffline`, siehe `AnalysisHistoryModal` in `src/App.jsx`) — kein
+  Suchen in der allgemeinen Cloud-Historie nötig.
 - **Statische Offline-Kurzhilfe je Beruf** (`src/offlineQuickHelp.jsx`):
   fest hinterlegte Checklisten für die häufigsten Problemfälle je Gewerk inkl.
   Sicherheitshinweis, komplett ohne KI und ohne jede Verbindung nutzbar —

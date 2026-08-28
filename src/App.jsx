@@ -5,7 +5,7 @@ Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
 Settings, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
 Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
-ExternalLink, Share2, Save, Trash2, HardDrive, Cloud, Euro, MapPin
+ExternalLink, Share2, Save, Trash2, HardDrive, Cloud, Euro, MapPin, WifiOff
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
@@ -563,6 +563,14 @@ const nearbyHistory = useMemo(() => {
 if (!currentCoords) return [];
 return history.filter((item) => item.location && haversineDistanceMeters(currentCoords, item.location) <= LOCATION_MATCH_RADIUS_METERS);
 }, [history, currentCoords]);
+// Analysen, die ohne Empfang ausgelöst und von der Warteschlange automatisch
+// nachgeholt wurden (siehe saveAnalysis/syncedFromOffline in App.jsx) —
+// eigener Tab, damit man sie nach dem "X Analysen wurden nachgeholt"-Hinweis
+// nicht erst in den letzten 20 Cloud-Analysen suchen muss.
+const offlineSyncedHistory = useMemo(
+() => history.filter((item) => item.syncedFromOffline === true),
+[history]
+);
 const handleDeleteLocal = useCallback(async (e, id) => {
 e.stopPropagation(); // Nicht gleichzeitig den Eintrag laden
 try {
@@ -602,6 +610,13 @@ className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text
 <MapPin className="w-4 h-4" /> In der Nähe
 </button>
 )}
+<button
+type="button"
+onClick={() => setTab('offline')}
+className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'offline' ? 'bg-(--accent) text-white' : 'bg-parchment text-gray-600 hover:bg-parchment-dark/50'}`}
+>
+<WifiOff className="w-4 h-4" /> Offline nachgeholt
+</button>
 <button
 type="button"
 onClick={() => setTab('local')}
@@ -706,7 +721,7 @@ Laden
 ))}
 </ul>
 )
-) : (
+) : tab === 'local' ? (
 isLocalLoading ? (
 <div className="flex items-center justify-center flex-grow">
 <Loader2 className="w-6 h-6 text-(--accent) animate-spin" />
@@ -771,6 +786,49 @@ Laden
 ))}
 </ul>
 )
+) : (
+isLoading ? (
+<div className="flex items-center justify-center flex-grow">
+<Loader2 className="w-6 h-6 text-(--accent) animate-spin" />
+<p className="ml-2 text-gray-600">Historie wird geladen...</p>
+</div>
+) : offlineSyncedHistory.length === 0 ? (
+<div className="text-center p-8 text-gray-500 flex-grow">
+<WifiOff className="w-8 h-8 mx-auto mb-3" />
+<p>Noch keine ohne Empfang gespeicherten und automatisch nachgeholten Analysen.</p>
+</div>
+) : (
+<ul className="space-y-3 overflow-y-auto flex-grow pr-1">
+{offlineSyncedHistory.map((item) => (
+<li
+key={item.id}
+className="p-3 bg-parchment border border-steel/30 rounded-lg shadow-sm hover:bg-parchment-dark/50 transition duration-150 cursor-pointer flex items-center justify-between"
+onClick={() => onSelect(item)}
+>
+<div>
+<p className="text-xs text-gray-500">
+{item.timestamp ? new Date(item.timestamp.seconds * 1000).toLocaleString('de-DE') : 'Unbekanntes Datum'}
+</p>
+<p className="text-sm font-semibold text-gray-800 truncate max-w-[80%]">
+{item.problemDescription.trim() || `Analyse für Beruf: ${item.selectedTrade}`}
+</p>
+<span
+className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full"
+style={{
+backgroundColor: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentSoft,
+color: (TRADE_THEMES[item.selectedTrade] || TRADE_THEMES[DEFAULT_TRADE]).accentDark,
+}}
+>
+{item.selectedTrade}
+</span>
+</div>
+<button className='flex items-center text-(--accent) hover:text-(--accent-dark) text-sm font-semibold flex-shrink-0'>
+Laden
+</button>
+</li>
+))}
+</ul>
+)
 )}
 <div className="text-center mt-4 flex-shrink-0">
 <p className="text-xs text-gray-400">
@@ -778,7 +836,9 @@ Laden
 ? 'Zeigt die letzten 20 Analysen.'
 : tab === 'nearby'
 ? `Analysen aus den letzten 20, die im Umkreis von ${LOCATION_MATCH_RADIUS_METERS}m um Ihren aktuellen Standort liegen.`
-: 'Nur auf diesem Gerät/Browser gespeichert.'}
+: tab === 'local'
+? 'Nur auf diesem Gerät/Browser gespeichert.'
+: 'Analysen aus den letzten 20, die ohne Empfang ausgelöst und automatisch nachgeholt wurden.'}
 </p>
 </div>
 </div>
@@ -1984,6 +2044,11 @@ solutionText: analysisData.solutionText,
 // Geolocation-Abfrage erfolgreich war (siehe callGeminiVisionAPI) — kein
 // "location: null"-Feld, wenn kein Standort vorliegt.
 ...(analysisData.location ? { location: analysisData.location } : {}),
+// Markiert Analysen, die ohne Empfang ausgelöst und automatisch nachgeholt
+// wurden (siehe Effect "OFFLINE-WARTESCHLANGE VERARBEITEN") — Grundlage für
+// den eigenen "Offline nachgeholt"-Tab in AnalysisHistoryModal, damit der
+// Nutzer sie nicht erst in den letzten 20 Cloud-Analysen suchen muss.
+...(analysisData.syncedFromOffline ? { syncedFromOffline: true } : {}),
 });
 } catch (e) {
 console.error("Fehler beim Speichern der Analyse:", e);
@@ -2127,7 +2192,7 @@ try {
 await queueOfflineAnalysis({ selectedTrade, problemDescription, images: selectedImages });
 setPendingAnalysesCount((c) => c + 1);
 setError(null);
-setQueueFeedback('Kein Empfang: Diese Analyse wurde gespeichert und wird automatisch durchgeführt, sobald wieder eine Verbindung besteht. Sie finden das Ergebnis danach im Verlauf.');
+setQueueFeedback({ text: 'Kein Empfang: Diese Analyse wurde gespeichert und wird automatisch durchgeführt, sobald wieder eine Verbindung besteht. Sie finden das Ergebnis danach im Verlauf.', clickable: false });
 setSelectedImages([]);
 setProblemDescription('');
 } catch (e) {
@@ -2261,6 +2326,7 @@ solutionText: solution,
 // callGeminiVisionAPI) — Geolocation-Abfrage soll nicht offline
 // hängen bleiben.
 location: null,
+syncedFromOffline: true,
 });
 await removeQueuedAnalysis(item.id);
 succeeded += 1;
@@ -2283,9 +2349,12 @@ setPendingAnalysesCount(remaining.length);
 } catch { /* IndexedDB-Lesefehler hier egal, Zähler bleibt beim letzten Stand */ }
 setIsSyncingQueue(false);
 if (succeeded > 0) {
-setQueueFeedback(`${succeeded} gespeicherte Analyse${succeeded > 1 ? 'n wurden' : ' wurde'} automatisch nachgeholt — im Verlauf einsehbar.`);
+setQueueFeedback({
+text: `${succeeded} gespeicherte Analyse${succeeded > 1 ? 'n wurden' : ' wurde'} automatisch nachgeholt — antippen zum Ansehen.`,
+clickable: true,
+});
 } else if (hitError) {
-setQueueFeedback('Gespeicherte Analysen konnten noch nicht nachgeholt werden — wird automatisch erneut versucht, sobald die Verbindung wieder stabil ist.');
+setQueueFeedback({ text: 'Gespeicherte Analysen konnten noch nicht nachgeholt werden — wird automatisch erneut versucht, sobald die Verbindung wieder stabil ist.', clickable: false });
 }
 })();
 return () => { cancelled = true; };
@@ -3268,11 +3337,16 @@ Sofort-Checkliste ohne Internet ansehen
 </div>
 )}
 {queueFeedback && (
-<div className="p-3 bg-green-50 border-l-4 border-green-400 text-green-800 rounded-xl shadow-md flex items-start space-x-3">
+<div
+className={`p-3 bg-green-50 border-l-4 border-green-400 text-green-800 rounded-xl shadow-md flex items-start space-x-3 ${queueFeedback.clickable ? 'cursor-pointer hover:bg-green-100' : ''}`}
+onClick={queueFeedback.clickable ? () => { setHistoryInitialTab('offline'); setShowHistory(true); } : undefined}
+role={queueFeedback.clickable ? 'button' : undefined}
+tabIndex={queueFeedback.clickable ? 0 : undefined}
+>
 <CheckCircle className="w-5 h-5 mt-1 flex-shrink-0 text-green-500" />
-<p className="text-xs flex-grow">{queueFeedback}</p>
+<p className="text-xs flex-grow">{queueFeedback.text}</p>
 <button
-onClick={() => setQueueFeedback(null)}
+onClick={(e) => { e.stopPropagation(); setQueueFeedback(null); }}
 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-white bg-green-500 hover:bg-green-600 transition"
 title="Hinweis ausblenden"
 aria-label="Hinweis ausblenden"
