@@ -1327,12 +1327,20 @@ try {
 // (siehe "if (!isAuthReady || showAuth)") direkt wieder den Anmelde-Button,
 // statt automatisch eine neue Sitzung zu starten.
 await signOut(auth);
-setShowProfile(false);
-handleReset(); // App zurücksetzen
 } catch (e) {
+// Bekannte Firebase-SDK-Einschränkung (z.B. "Database is closing/hidden"):
+// schließt der Browser die interne IndexedDB-Verbindung während des
+// Sign-outs (Tab wird in den Hintergrund geschickt/geschlossen), wirft
+// signOut() einen Fehler, obwohl der Auth-Status intern trotzdem auf
+// abgemeldet gesetzt wird — onAuthStateChanged oben feuert unabhängig
+// davon mit null und zeigt das Login-Gate. Nur die Persistenz in
+// IndexedDB schlägt fehl. UI wird unten trotzdem zurückgesetzt, der
+// Fehler nur zur Diagnose gemeldet statt den Nutzer hängen zu lassen.
 console.error("Logout Error:", e);
 queueErrorReport('firebase-signout', e);
 }
+setShowProfile(false);
+handleReset(); // App zurücksetzen
 };
 return (
 <>

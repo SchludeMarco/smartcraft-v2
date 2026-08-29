@@ -109,6 +109,32 @@ neu als offener Eintrag dokumentieren.
 
 ## Gelöste Fehler
 
+### 11. firebase-signout: "Database is closing/hidden" — Abmelden blieb hängen
+
+- **Status:** Gelöst (V2.23.1)
+- **Kontext:** `handleSignOut` in `src/App.jsx`.
+- **Nachricht:** `Error: Database is closing/hidden` (29.8.2026, 09:39 Uhr,
+  V2.22.0, Android/Chrome Mobile, über den Admin-Bereich gemeldet).
+  Stacktrace zeigt Firebase-Auth-interne IndexedDB-Persistenz
+  (`_openDb`/`_withRetries`/`_remove`/`removeCurrentUser`/
+  `directlySetCurrentUser`), ausgelöst über `signOut(auth)`.
+- **Ursache:** Bekannte Einschränkung des Firebase-JS-SDK: Wird der Tab
+  während `signOut()` in den Hintergrund geschickt (z.B. App-Wechsel auf
+  Mobilgeräten), schließt der Browser die interne IndexedDB-Verbindung der
+  Auth-Persistenz, bevor die Entfernung des gespeicherten Nutzers
+  geschrieben werden kann — `signOut()` wirft daraufhin diesen Fehler,
+  obwohl der Auth-Status im Speicher trotzdem auf abgemeldet wechselt
+  (`onAuthStateChanged` feuert unabhängig davon mit `null`). War kein
+  echtes Netzwerkproblem, wie ursprünglich vom Admin-Bereich vermutet.
+  `handleSignOut()` rief `setShowProfile(false)`/`handleReset()` bisher nur
+  im Erfolgsfall auf, wodurch das Profilmenü/Formular-State bei diesem
+  Fehler unverändert hängen blieb, statt die Abmeldung wie vom Nutzer
+  beabsichtigt sichtbar abzuschließen.
+- **Lösung:** `setShowProfile(false)`/`handleReset()` laufen jetzt
+  unabhängig vom Ausgang von `signOut(auth)` immer; der Fehler wird
+  weiterhin geloggt/gemeldet, blockiert aber nicht mehr den UI-Reset.
+  Siehe CHANGELOG `[2.23.1]`.
+
 ### 10. gemini-trade-tool-api: "FUNCTION_INVOCATION_TIMEOUT" beim Berufs-Spezial-Tool ohne Kontext
 
 - **Status:** Gelöst (V2.2.3)
