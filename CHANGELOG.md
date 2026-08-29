@@ -8,6 +8,22 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.23.0] – 2026-08-29
+
+### Hinzugefügt
+- **Berufs-Spezial-Tools für Tischler/Schreiner.** Problem: Von den neun
+  wählbaren Berufen hatte "Tischler/Schreiner" als einziger keine eigenen
+  Spezial-Tools in `TRADE_TOOLS` hinterlegt — die Sektion "Berufs-Spezial-Tools"
+  erschien für diesen Beruf dadurch gar nicht (`currentTradeTools.length > 0`
+  war `false`), was beim Testen zunächst wie eine Regression wirkte, aber ein
+  von Anfang an bestehender Lückenfall war. Lösung: Zwei neue Tools nach
+  demselben Muster wie bei den anderen acht Berufen ergänzt —
+  **Holzverbindung-Finder** (schlägt passende Holzverbindungen wie Zapfen,
+  Dübel, Lamello, Domino oder Nut und Feder vor) und
+  **Kanten-/Oberflächenbehandlung** (empfiehlt Öl, Lack, Lasur oder Wachs je
+  nach Holzart und Einsatzzweck). Beide sind wie bei den übrigen Berufen sofort
+  nach der Berufswahl klickbar, auch ganz ohne Foto/Beschreibung.
+
 ## [2.22.0] – 2026-08-28
 
 ### Hinzugefügt

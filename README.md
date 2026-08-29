@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.22.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.23.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -132,17 +132,19 @@ Privatnutzer ist "Allround-Handwerker" eine gute Wahl, wenn sich das Problem kei
 klassischen Beruf eindeutig zuordnen lässt — hier werden zusätzlich alle
 Berufs-Spezial-Tools gesammelt angezeigt.
 
-**1b. Berufs-Spezial-Tools** — direkt unter der Berufsauswahl erscheinen (sofern
-für den Beruf hinterlegt) zwei zusätzliche KI-Tools, die **sofort nach der
+**1b. Berufs-Spezial-Tools** — direkt unter der Berufsauswahl erscheinen für
+jeden der neun wählbaren Berufe zwei zusätzliche KI-Tools, die **sofort nach der
 Berufswahl klickbar sind — noch bevor eine Diagnose oder auch nur eine
 Problembeschreibung vorliegt** (z.B. beim Klempner ein
 Trinkwasserverordnung-Check und ein Normteile-Finder, beim Elektriker ein
-VDE-Vorschriften-Check und ein Sicherungs-/Querschnitt-Rechner; volle Liste in
-`TRADE_TOOLS`, `src/App.jsx`). Die Antwort wird automatisch so konkret wie
-möglich: liegt bereits eine Diagnose vor, bezieht sie sich darauf; sonst auf
-die Problembeschreibung; ohne beides gibt sie allgemeine, praxisnahe Hinweise
-für den gewählten Beruf. Bei "Allround-Handwerker" erscheint die Vereinigung
-aller Berufs-Tools.
+VDE-Vorschriften-Check und ein Sicherungs-/Querschnitt-Rechner, beim
+Tischler/Schreiner ein Holzverbindung-Finder und eine
+Kanten-/Oberflächenbehandlung-Empfehlung; volle Liste in `TRADE_TOOLS`,
+`src/App.jsx`). Die Antwort wird automatisch so konkret wie möglich: liegt
+bereits eine Diagnose vor, bezieht sie sich darauf; sonst auf die
+Problembeschreibung; ohne beides gibt sie allgemeine, praxisnahe Hinweise für
+den gewählten Beruf. Bei "Allround-Handwerker" erscheint die Vereinigung aller
+Berufs-Tools.
 
 **2. Problem dokumentieren** — bis zu 5 Fotos der Problemstelle hochladen (Kamera
 und Galerie lassen sich beliebig oft nacheinander nutzen, die Galerie-Auswahl
