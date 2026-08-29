@@ -5,7 +5,7 @@ Smartphone, FileText, Pipette, Paintbrush, Flower, Hammer, BrickWall, Home,
 Settings, User, Package, Shield, Video, RefreshCw,
 Volume2, VolumeX, List, X, Lock, Info, MessageSquarePlus,
 Sparkles, Droplets, Search, Calculator, CloudRain, Bug, Scissors, TreePine, Ruler, Layers, HardHat,
-ExternalLink, Share2, Save, Trash2, HardDrive, Cloud, Euro, MapPin, WifiOff
+ExternalLink, Share2, Save, Trash2, HardDrive, Cloud, Euro, MapPin, WifiOff, Puzzle, Palette
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import {
@@ -231,6 +231,22 @@ label: "Trocknungszeiten & Wetterfenster",
 icon: CloudRain,
 systemInstruction: "Du bist ein Malermeister. Nenne typische Trocknungs-/Zwischentrocknungszeiten sowie ideale Witterungsbedingungen (Temperatur, Luftfeuchtigkeit) für die Ausführung. Antworte im Markdown-Format.",
 buildQuery: (ctx) => buildTradeToolQuery("Nenne Trocknungszeiten und ideale Witterungsbedingungen.", ctx),
+},
+],
+"Tischler/Schreiner": [
+{
+id: "tischler-verbindung",
+label: "Holzverbindung-Finder",
+icon: Puzzle,
+systemInstruction: "Du bist ein Tischlermeister/Schreinermeister mit Erfahrung in Holzverbindungstechniken. Schlage anhand der gegebenen Grundlage eine geeignete Holzverbindung (z.B. Zapfen, Dübel, Lamello, Domino, Nut und Feder) vor und begründe kurz die Wahl. Antworte im Markdown-Format.",
+buildQuery: (ctx) => buildTradeToolQuery("Schlage eine passende Holzverbindung vor.", ctx),
+},
+{
+id: "tischler-oberflaeche",
+label: "Kanten-/Oberflächenbehandlung",
+icon: Palette,
+systemInstruction: "Du bist ein Tischlermeister/Schreinermeister. Empfehle eine passende Kanten- und Oberflächenbehandlung (z.B. Öl, Lack, Lasur, Wachs) je nach Holzart und Einsatzzweck (Innen-/Außenbereich, Beanspruchung). Antworte im Markdown-Format.",
+buildQuery: (ctx) => buildTradeToolQuery("Empfehle eine passende Oberflächenbehandlung.", ctx),
 },
 ],
 "Gärtner": [
