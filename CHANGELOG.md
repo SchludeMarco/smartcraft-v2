@@ -8,6 +8,25 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.23.1] – 2026-08-29
+
+### Behoben
+- **Abmelden blieb nach IndexedDB-Fehler hängen (kein UI-Reset, Profilmenü
+  blieb offen).** Problem: `handleSignOut()` (`src/App.jsx`) rief
+  `setShowProfile(false)`/`handleReset()` nur nach erfolgreichem
+  `signOut(auth)` auf. Auf Mobilgeräten schließt der Browser die interne
+  IndexedDB-Verbindung der Firebase-Auth-Persistenz mitunter genau während
+  des Sign-outs (Tab wird in den Hintergrund geschickt), wodurch
+  `signOut()` mit `Error: Database is closing/hidden` fehlschlägt — der
+  Auth-Status wird intern aber trotzdem auf abgemeldet gesetzt
+  (`onAuthStateChanged` feuert unabhängig davon mit `null`), nur die
+  Persistenz in IndexedDB schlägt fehl. Der Catch-Block loggte den Fehler
+  nur, ließ Profilmenü/Formular-State aber unverändert. Lösung:
+  `setShowProfile(false)`/`handleReset()` laufen jetzt unabhängig vom
+  Ausgang von `signOut(auth)` immer, der Fehler wird weiterhin geloggt und
+  per `queueErrorReport` gemeldet, blockiert aber nicht mehr den UI-Reset.
+  Siehe `error_log.md` Eintrag „firebase-signout“.
+
 ## [2.23.0] – 2026-08-29
 
 ### Hinzugefügt
