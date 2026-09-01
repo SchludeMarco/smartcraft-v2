@@ -1,8 +1,9 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAppCheck } from 'firebase-admin/app-check';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { APP_ID } from '../shared/appId.js';
+import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
+import { isSameOrigin } from './_lib/sameOrigin.js';
+import { checkFixedWindowRateLimit } from './_lib/rateLimit.js';
 
 // Protokolliert App-Starts für den Admin-Bereich: ein Eintrag pro Start mit
 // Zeitstempel + grober Region (Land/Stadt aus Vercels Geo-Headern) - die IP
@@ -17,36 +18,6 @@ import { APP_ID } from '../shared/appId.js';
 // sich die Person nicht per Google anmeldet. Fehlt/ist ungültig das Token,
 // wird trotzdem geloggt, nur ohne visitorId (rein informatives Feature, darf
 // den App-Start nicht blockieren).
-
-// Gleiches Lazy-Init/Fail-open-Muster wie api/gemini.js: ohne Service-Account
-// bleiben App Check/Firestore aus, statt den App-Start selbst zu blockieren.
-let adminApp = null;
-let adminInitTried = false;
-function getAdminApp() {
-  if (adminApp || adminInitTried) return adminApp;
-  adminInitTried = true;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!raw) return null;
-  try {
-    const serviceAccount = JSON.parse(raw);
-    adminApp = getApps().length ? getApps()[0] : initializeApp({ credential: cert(serviceAccount) });
-  } catch (e) {
-    console.error('Firebase-Admin-Initialisierung fehlgeschlagen:', e);
-    adminApp = null;
-  }
-  return adminApp;
-}
-
-async function verifyAppCheck(req, app) {
-  const token = req.headers['x-firebase-appcheck'];
-  if (!token) return false;
-  try {
-    await getAppCheck(app).verifyToken(token);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 // Liefert die verifizierte UID bei gültigem Token, sonst null - nie ein
 // Grund, den Request abzulehnen (siehe Kommentar oben).
@@ -71,26 +42,13 @@ const RATE_LIMIT_DAY_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_DAY = 50;
 
 async function checkRateLimit(app, ip) {
-  const db = getFirestore(app);
-  const ref = db.collection('_rateLimits').doc(`appstart_${ip}`);
-  const now = Date.now();
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : {};
-    let { minuteStart = 0, minuteCount = 0, dayStart = 0, dayCount = 0 } = data;
-    if (now - minuteStart > RATE_LIMIT_WINDOW_MS) {
-      minuteStart = now;
-      minuteCount = 0;
-    }
-    if (now - dayStart > RATE_LIMIT_DAY_MS) {
-      dayStart = now;
-      dayCount = 0;
-    }
-    minuteCount += 1;
-    dayCount += 1;
-    const allowed = minuteCount <= RATE_LIMIT_MAX_PER_WINDOW && dayCount <= RATE_LIMIT_MAX_PER_DAY;
-    tx.set(ref, { minuteStart, minuteCount, dayStart, dayCount }, { merge: true });
-    return allowed;
+  return checkFixedWindowRateLimit(app, {
+    collection: '_rateLimits',
+    docId: `appstart_${ip}`,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    maxPerWindow: RATE_LIMIT_MAX_PER_WINDOW,
+    dayMs: RATE_LIMIT_DAY_MS,
+    maxPerDay: RATE_LIMIT_MAX_PER_DAY,
   });
 }
 
@@ -112,21 +70,7 @@ export default async function handler(req, res) {
   }
 
   // Gleicher Same-Origin-Schutz wie api/gemini.js / api/report-bug.js.
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  let originHost = null;
-  try {
-    originHost = req.headers.origin ? new URL(req.headers.origin).host : null;
-  } catch {
-    originHost = null;
-  }
-  if (!originHost) {
-    try {
-      originHost = req.headers.referer ? new URL(req.headers.referer).host : null;
-    } catch {
-      originHost = null;
-    }
-  }
-  if (!originHost || originHost !== host) {
+  if (!isSameOrigin(req, { allowRefererFallback: true })) {
     res.status(403).json({ error: 'Forbidden' });
     return;
   }

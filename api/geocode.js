@@ -1,7 +1,7 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAppCheck } from 'firebase-admin/app-check';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
+import { isSameOrigin } from './_lib/sameOrigin.js';
+import { checkFixedWindowRateLimit } from './_lib/rateLimit.js';
 
 // Serverless-Proxy zur Google Geocoding API — reverse (GPS -> Adresse) und
 // vorwärts (Adress-Suchbegriff -> Kandidaten samt Koordinaten) fürs
@@ -20,36 +20,6 @@ const RATE_LIMIT_MAX_PER_DAY = 150;
 // Google mehrere Treffer — mehr als eine Handvoll braucht die Auswahl im UI
 // nicht.
 const MAX_RESULTS = 5;
-
-// Lazy-Init: Admin-App nur aufbauen, wenn ein Service-Account hinterlegt ist.
-// Gleiches Fail-open-Muster wie api/gemini.js/api/tts.js.
-let adminApp = null;
-let adminInitTried = false;
-function getAdminApp() {
-  if (adminApp || adminInitTried) return adminApp;
-  adminInitTried = true;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!raw) return null;
-  try {
-    const serviceAccount = JSON.parse(raw);
-    adminApp = getApps().length ? getApps()[0] : initializeApp({ credential: cert(serviceAccount) });
-  } catch (e) {
-    console.error('Firebase-Admin-Initialisierung fehlgeschlagen:', e);
-    adminApp = null;
-  }
-  return adminApp;
-}
-
-async function verifyAppCheck(req, app) {
-  const token = req.headers['x-firebase-appcheck'];
-  if (!token) return false;
-  try {
-    await getAppCheck(app).verifyToken(token);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 // Anders als bei /api/gemini ist hier kein anonymer Fallback-Pfad nötig: die
 // App erzwingt ohnehin ein Google-Login, bevor überhaupt eine Analyse
@@ -71,26 +41,13 @@ async function getVerifiedUid(req, app) {
 // per Transaktion aktualisiert — gleiches Muster wie checkRateLimit in
 // api/gemini.js/api/tts.js, nur ohne Lebenszeit-Kontingent.
 export async function checkRateLimit(app, ip) {
-  const db = getFirestore(app);
-  const ref = db.collection('_geocodeRateLimits').doc(ip);
-  const now = Date.now();
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : {};
-    let { minuteStart = 0, minuteCount = 0, dayStart = 0, dayCount = 0 } = data;
-    if (now - minuteStart > RATE_LIMIT_WINDOW_MS) {
-      minuteStart = now;
-      minuteCount = 0;
-    }
-    if (now - dayStart > RATE_LIMIT_DAY_MS) {
-      dayStart = now;
-      dayCount = 0;
-    }
-    minuteCount += 1;
-    dayCount += 1;
-    const allowed = minuteCount <= RATE_LIMIT_MAX_PER_WINDOW && dayCount <= RATE_LIMIT_MAX_PER_DAY;
-    tx.set(ref, { minuteStart, minuteCount, dayStart, dayCount }, { merge: true });
-    return allowed;
+  return checkFixedWindowRateLimit(app, {
+    collection: '_geocodeRateLimits',
+    docId: ip,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    maxPerWindow: RATE_LIMIT_MAX_PER_WINDOW,
+    dayMs: RATE_LIMIT_DAY_MS,
+    maxPerDay: RATE_LIMIT_MAX_PER_DAY,
   });
 }
 
@@ -117,14 +74,7 @@ export default async function handler(req, res) {
   try {
     // Nur Requests vom eigenen Frontend akzeptieren — verhindert, dass fremde
     // Seiten diesen Endpoint als kostenlosen Geocoding-Proxy missbrauchen.
-    const host = req.headers['x-forwarded-host'] || req.headers.host;
-    let originHost = null;
-    try {
-      originHost = req.headers.origin ? new URL(req.headers.origin).host : null;
-    } catch {
-      originHost = null;
-    }
-    if (!originHost || originHost !== host) {
+    if (!isSameOrigin(req)) {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }

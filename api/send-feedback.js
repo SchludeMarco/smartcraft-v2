@@ -1,6 +1,7 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAppCheck } from 'firebase-admin/app-check';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
+import { isSameOrigin } from './_lib/sameOrigin.js';
+import { checkFixedWindowRateLimit } from './_lib/rateLimit.js';
+import { formatTimestamp, escapeHtml } from './_lib/email.js';
 
 // Manuelles Nutzer-Feedback (Button in App.jsx) — anders als api/report-bug.js
 // kein automatischer Trigger bei Fehlern, sondern ein bewusster Klick, daher
@@ -14,62 +15,16 @@ const RATE_LIMIT_DAY_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_DAY = 20;
 const MAX_MESSAGE_LENGTH = 2000;
 
-let adminApp = null;
-let adminInitTried = false;
-function getAdminApp() {
-  if (adminApp || adminInitTried) return adminApp;
-  adminInitTried = true;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!raw) return null;
-  try {
-    const serviceAccount = JSON.parse(raw);
-    adminApp = getApps().length ? getApps()[0] : initializeApp({ credential: cert(serviceAccount) });
-  } catch (e) {
-    console.error('Firebase-Admin-Initialisierung fehlgeschlagen:', e);
-    adminApp = null;
-  }
-  return adminApp;
-}
-
-async function verifyAppCheck(req, app) {
-  const token = req.headers['x-firebase-appcheck'];
-  if (!token) return false;
-  try {
-    await getAppCheck(app).verifyToken(token);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function checkRateLimit(app, ip) {
-  const db = getFirestore(app);
-  const ref = db.collection('_rateLimits').doc(`feedback_${ip}`);
-  const now = Date.now();
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : {};
-    let { minuteStart = 0, minuteCount = 0, dayStart = 0, dayCount = 0 } = data;
-    if (now - minuteStart > RATE_LIMIT_WINDOW_MS) {
-      minuteStart = now;
-      minuteCount = 0;
-    }
-    if (now - dayStart > RATE_LIMIT_DAY_MS) {
-      dayStart = now;
-      dayCount = 0;
-    }
-    minuteCount += 1;
-    dayCount += 1;
-    const allowed = minuteCount <= RATE_LIMIT_MAX_PER_WINDOW && dayCount <= RATE_LIMIT_MAX_PER_DAY;
-    tx.set(ref, { minuteStart, minuteCount, dayStart, dayCount }, { merge: true });
-    return allowed;
+  return checkFixedWindowRateLimit(app, {
+    collection: '_rateLimits',
+    docId: `feedback_${ip}`,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    maxPerWindow: RATE_LIMIT_MAX_PER_WINDOW,
+    dayMs: RATE_LIMIT_DAY_MS,
+    maxPerDay: RATE_LIMIT_MAX_PER_DAY,
   });
 }
-
-const formatTimestamp = (ms) => (ms ? new Date(ms).toLocaleString('de-DE') : 'Unbekannt');
-
-const escapeHtml = (str) =>
-  String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function buildEmail({ message, reporterInfo, appVersion, userAgent, timestamp }) {
   const subject = 'Sm@rtCraft: Neues Feedback';
@@ -93,14 +48,7 @@ export default async function handler(req, res) {
   }
 
   // Gleicher Same-Origin-Schutz wie api/report-bug.js/api/gemini.js.
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  let originHost = null;
-  try {
-    originHost = req.headers.origin ? new URL(req.headers.origin).host : null;
-  } catch {
-    originHost = null;
-  }
-  if (!originHost || originHost !== host) {
+  if (!isSameOrigin(req)) {
     res.status(403).json({ error: 'Forbidden' });
     return;
   }

@@ -8,6 +8,25 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.23.2] – 2026-09-01
+
+### Geändert
+- **Duplizierte Server-Helfer in `api/*.js` entfernt, ohne Verhaltensänderung.**
+  Alle acht Serverless Functions (inkl. `api/geocode.js`) wiederholten je eine
+  identische `getAdminApp()`/`verifyAppCheck()`-Lazy-Init sowie eine
+  identische Same-Origin-Prüfung; sechs davon zusätzlich einen identischen
+  Fixed-Window-Rate-Limiter (Minuten-/Tagesfenster), zwei
+  (`report-bug.js`/`send-feedback.js`) dieselben `formatTimestamp`/
+  `escapeHtml`-Mail-Helfer. Ausgelagert nach `api/_lib/` (per Vercel-
+  Konvention mit `_`-Präfix von der Routen-Erkennung ausgenommen):
+  `firebaseAdmin.js` (`getAdminApp`, `verifyAppCheck`), `sameOrigin.js`
+  (`isSameOrigin`, mit optionalem Referer-Fallback für die GET-Endpoints),
+  `rateLimit.js` (`checkFixedWindowRateLimit`) und `email.js`. Firestore-
+  Collection-/Dokumentnamen, Statuscodes und Response-Bodies bleiben
+  identisch — `api/gemini.js` behält seinen eigenen Rate-Limiter (zusätzliches
+  Lebenszeit-Demo-Kontingent, von `api/gemini.test.js` direkt importiert und
+  getestet). Verifiziert per `npm test` und `npm run build`.
+
 ## [2.23.1] – 2026-08-29
 
 ### Behoben
@@ -656,7 +675,6 @@ demselben Versionsstand.
   Anfragen ohne gültiges Login bestehen (z. B. ein Direktzugriff auf den
   Endpoint am UI vorbei); das Burst-/Tages-Fenster pro IP (12/Minute,
   200/Tag) gilt weiterhin für alle, auch eingeloggte Nutzer.
->>>>>>> origin/master
 
 ## [2.6.0] – 2026-08-24
 

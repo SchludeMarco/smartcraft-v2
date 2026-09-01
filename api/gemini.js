@@ -1,10 +1,10 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAppCheck } from 'firebase-admin/app-check';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { DEMO_LIFETIME_MAX } from '../shared/demoLimit.js';
 import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
 import { APP_ID } from '../shared/appId.js';
+import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
+import { isSameOrigin } from './_lib/sameOrigin.js';
 
 // Ohne diese Angabe gilt Vercels Default-Timeout von 10s für Serverless
 // Functions. Das reichte knapp, solange App Check/Rate-Limiting fail-open
@@ -50,38 +50,6 @@ const RATE_LIMIT_MAX_PER_DAY = 200;
 // (siehe callGeminiVisionAPI in App.jsx) erhöhen diesen Zähler — Zusatz-Tools
 // verbrauchen keinen eigenen Slot, laufen aber sobald das Kontingent
 // aufgebraucht ist ebenfalls über den vom Nutzer hinterlegten eigenen Key.
-
-// Lazy-Init: Admin-App nur aufbauen, wenn ein Service-Account hinterlegt ist.
-// Ohne FIREBASE_SERVICE_ACCOUNT_KEY bleiben App Check/Rate-Limiting aus
-// (fail-open), damit der Endpoint nach dem Deploy nicht bricht, bevor die
-// Firebase/Vercel-Konfiguration nachgezogen wurde (siehe README).
-let adminApp = null;
-let adminInitTried = false;
-function getAdminApp() {
-  if (adminApp || adminInitTried) return adminApp;
-  adminInitTried = true;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!raw) return null;
-  try {
-    const serviceAccount = JSON.parse(raw);
-    adminApp = getApps().length ? getApps()[0] : initializeApp({ credential: cert(serviceAccount) });
-  } catch (e) {
-    console.error('Firebase-Admin-Initialisierung fehlgeschlagen:', e);
-    adminApp = null;
-  }
-  return adminApp;
-}
-
-async function verifyAppCheck(req, app) {
-  const token = req.headers['x-firebase-appcheck'];
-  if (!token) return false;
-  try {
-    await getAppCheck(app).verifyToken(token);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 // Verifiziert das Firebase-ID-Token (Authorization: Bearer <token>) eines
 // Requests und liefert uid + Admin-Custom-Claim (gesetzt per
@@ -190,14 +158,7 @@ export default async function handler(req, res) {
     // Nur Requests akzeptieren, die tatsächlich vom eigenen Frontend kommen
     // (verhindert, dass fremde Seiten diesen Endpoint als kostenlosen
     // Gemini-Proxy missbrauchen und das API-Kontingent/Kosten verursachen).
-    const host = req.headers['x-forwarded-host'] || req.headers.host;
-    let originHost = null;
-    try {
-      originHost = req.headers.origin ? new URL(req.headers.origin).host : null;
-    } catch {
-      originHost = null;
-    }
-    if (!originHost || originHost !== host) {
+    if (!isSameOrigin(req)) {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
