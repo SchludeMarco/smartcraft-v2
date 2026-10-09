@@ -8,6 +8,16 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.23.3] – 2026-10-09
+
+### Behoben
+- **Linkvorschau (Open Graph) zeigte auf das V1-Projekt.** `og:url` und
+  `og:image` in `index.html` verwiesen noch auf
+  `smartcraft-baustellenanalyse.vercel.app` (Überbleibsel aus der V1-Kopie).
+  Beim Teilen des V2-Links in Facebook, WhatsApp, Reddit & Co. konnte die
+  Vorschau dadurch auf V1 verlinken bzw. dessen Vorschaubild laden. Beide
+  Werte zeigen jetzt auf `smartcraft-v2.vercel.app`.
+
 ## [2.23.2] – 2026-09-01
 
 ### Geändert
