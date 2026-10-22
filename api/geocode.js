@@ -1,5 +1,6 @@
 import { getAuth } from 'firebase-admin/auth';
 import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
+import { denyNotInvited, isInvited } from './_lib/guests.js';
 import { isSameOrigin } from './_lib/sameOrigin.js';
 import { checkFixedWindowRateLimit } from './_lib/rateLimit.js';
 
@@ -25,13 +26,12 @@ const MAX_RESULTS = 5;
 // App erzwingt ohnehin ein Google-Login, bevor überhaupt eine Analyse
 // möglich ist (siehe onAuthStateChanged in src/App.jsx) — ein gültiges
 // ID-Token ist damit Voraussetzung, nicht nur optional.
-async function getVerifiedUid(req, app) {
+async function getVerifiedToken(req, app) {
   const authHeader = req.headers.authorization || '';
   const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!idToken) return null;
   try {
-    const decoded = await getAuth(app).verifyIdToken(idToken);
-    return decoded.uid;
+    return await getAuth(app).verifyIdToken(idToken);
   } catch {
     return null;
   }
@@ -100,9 +100,14 @@ export default async function handler(req, res) {
         res.status(401).json({ error: 'Forbidden: invalid App Check token' });
         return;
       }
-      const uid = await getVerifiedUid(req, app);
-      if (!uid) {
+      const decoded = await getVerifiedToken(req, app);
+      if (!decoded?.uid) {
         res.status(403).json({ error: 'Forbidden: Anmeldung erforderlich' });
+        return;
+      }
+      // Nur eingeladene Gäste (siehe api/_lib/guests.js).
+      if (!(await isInvited(app, decoded))) {
+        denyNotInvited(res);
         return;
       }
       const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';

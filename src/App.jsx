@@ -31,6 +31,7 @@ import { queueOfflineAnalysis, getQueuedAnalyses, removeQueuedAnalysis, updateQu
 import OfflineQuickHelpModal from './offlineQuickHelp';
 import OfflineQueueModal from './OfflineQueueModal';
 import { TRADE_THEMES, DEFAULT_TRADE } from './tradeThemes';
+import { checkGuestAccess } from './guests';
 import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
 import { APP_ID as appId } from '../shared/appId.js';
 
@@ -1536,6 +1537,15 @@ const [isAuthReady, setIsAuthReady] = useState(false);
 // true, solange kein per Google angemeldeter Nutzer vorliegt — steuert die
 // Login-Gate-Ansicht (siehe "if (!isAuthReady || showAuth)" weiter unten).
 const [showAuth, setShowAuth] = useState(false);
+// "Nur für Eingeladene" (siehe src/guests.js, api/_lib/guests.js): Ergebnis
+// der Gästelisten-Prüfung des angemeldeten Kontos — 'checking' | 'granted' |
+// 'denied' | 'error'. userId wird erst bei 'granted' gesetzt, damit vorher
+// keine Nutzerdaten geladen/geschrieben werden (firestore.rules würde das
+// für nicht Eingeladene ohnehin ablehnen).
+const [guestAccess, setGuestAccess] = useState('checking');
+// Laufende Prüfung (siehe admitGoogleUser): verhindert, dass ein spätes
+// Ergebnis einer alten Anmeldung eine neuere überschreibt.
+const guestCheckSeqRef = useRef(0);
 const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
 const [googleSignInError, setGoogleSignInError] = useState(null);
 const [showHistory, setShowHistory] = useState(false); // Steuert das Historien-Modal
@@ -1990,6 +2000,56 @@ callGeminiTtsSummaryAPI();
 speakText(solutionText);
 }
 }, [isTtsPlaying, solutionText, isGeneratingTtsShort, isTtsLoading, ttsMode, ttsShortText, speakText, callGeminiTtsSummaryAPI, stopSpeaking]);
+// Nimmt ein per Google angemeldetes Konto in die App auf: Admin-Claim lesen,
+// dann Gästeliste prüfen ("Nur für Eingeladene", siehe src/guests.js). Erst
+// bei 'granted' wird userId gesetzt und damit die eigentliche App samt
+// Nutzerdaten freigeschaltet; sonst zeigt das Gäste-Gate (siehe
+// "guestAccess !== 'granted'" weiter unten) den passenden Hinweis. Genutzt von
+// onAuthStateChanged und handleGoogleSignIn (dort feuert onAuthStateChanged
+// nach linkWithPopup nicht zuverlässig erneut). Nur State-Setter/Refs, daher
+// auch aus dem einmaligen Init-Effect heraus sicher aufrufbar.
+const admitGoogleUser = async (user, dbInstance) => {
+const seq = ++guestCheckSeqRef.current;
+setAuthUser(toAuthUserSnapshot(user));
+setShowAuth(false);
+setGuestAccess('checking');
+// Custom Claims stecken im ID-Token, nicht im User-Objekt selbst — erst
+// getIdTokenResult() legt sie offen. Rein informativ für die UI (den
+// eigentlichen Zugriffsschutz für Daten setzt firestore.rules durch),
+// daher bleibt ein Fehler hier stumm und isAdmin einfach false.
+const admin = await getIdTokenResult(user).then((r) => r.claims?.admin === true).catch(() => false);
+const access = await checkGuestAccess(dbInstance, appId, user, admin);
+if (seq !== guestCheckSeqRef.current) return;
+setIsAdmin(admin);
+setGuestAccess(access);
+if (access !== 'granted') {
+setUserId(null);
+return;
+}
+setUserId(user.uid);
+// Zeigt den Live-Stand des Pro-Konto-Kontingents (api/trial-status.js)
+// schon vor der ersten Analyse an — braucht das ID-Token, daher erst hier
+// (nach dem Login) statt schon beim Modul-Start. Rein informativ:
+// Netzwerk-/Server-Fehler bleiben stumm, das Banner fällt dann auf die
+// statische Obergrenze zurück.
+fetchWithRetry(trialStatusUrl, { method: 'GET' }, 1)
+.then((response) => (response.ok ? response.json() : null))
+.then((data) => {
+if (data && typeof data.remaining === 'number') setTrialRemaining(data.remaining);
+})
+.catch(() => {});
+};
+// Gäste-Gate: anderes Google-Konto wählen. Eigener Handler statt
+// handleSignOut, weil der ohne userId (= nicht eingeladen) bewusst nichts tut.
+const handleGuestGateSignOut = async () => {
+if (!auth) return;
+try {
+await signOut(auth);
+} catch (e) {
+console.error("Logout Error:", e);
+queueErrorReport('firebase-signout', e);
+}
+};
 // Liest den X-Trial-Remaining-Header aus einer /api/gemini-Antwort (siehe
 // api/gemini.js) und hält den Live-Zähler im Banner aktuell. Fehlt der
 // Header (z.B. Admin-Konto oder Tracking serverseitig aus), bleibt der
@@ -2064,33 +2124,7 @@ const logAppStartOnce = () => {
 };
 const unsubscribe = onAuthStateChanged(authInstance, (user) => {
 if (user && user.uid && !user.isAnonymous) {
-setUserId(user.uid);
-setAuthUser(toAuthUserSnapshot(user));
-setShowAuth(false);
-// Zeigt den Live-Stand des Pro-Konto-Kontingents (api/trial-status.js)
-// schon vor der ersten Analyse an — braucht das ID-Token, daher erst hier
-// (nach dem Login) statt schon beim Modul-Start. Rein informativ:
-// Netzwerk-/Server-Fehler bleiben stumm, das Banner fällt dann auf die
-// statische Obergrenze zurück.
-fetchWithRetry(trialStatusUrl, { method: 'GET' }, 1)
-.then((response) => (response.ok ? response.json() : null))
-.then((data) => {
-if (data && typeof data.remaining === 'number') setTrialRemaining(data.remaining);
-})
-.catch(() => {});
-// Custom Claims stecken im ID-Token, nicht im User-Objekt selbst — erst
-// getIdTokenResult() legt sie offen. Rein informativ für die UI (den
-// eigentlichen Zugriffsschutz für Daten setzt firestore.rules durch),
-// daher bleibt ein Fehler hier stumm und isAdmin einfach false.
-getIdTokenResult(user)
-.then((r) => {
-setIsAdmin(r.claims?.admin === true);
-logAppStartOnce();
-})
-.catch(() => {
-setIsAdmin(false);
-logAppStartOnce();
-});
+admitGoogleUser(user, dbInstance).finally(logAppStartOnce);
 } else {
 // Kein Nutzer angemeldet, oder es liegt nur eine anonyme Alt-Sitzung von
 // vor der Einführung des verpflichtenden Google-Logins vor: Zugriff bleibt
@@ -2099,9 +2133,11 @@ logAppStartOnce();
 // abgemeldet — bleibt sie als auth.currentUser bestehen, übernimmt
 // handleGoogleSignIn ihre Historie beim Login per linkWithPopup, statt sie
 // zu verlieren.
+guestCheckSeqRef.current += 1;
 setUserId(null);
 setAuthUser(null);
 setIsAdmin(false);
+setGuestAccess('checking');
 setShowAuth(true);
 logAppStartOnce();
 }
@@ -2148,9 +2184,7 @@ result = await signInWithPopup(auth, provider);
 // onAuthStateChanged feuert nach linkWithPopup nicht zuverlässig erneut
 // (gleiche UID) — State direkt aus dem Ergebnis setzen, damit die App
 // sofort freigeschaltet wird statt erst nach einem Reload.
-setUserId(result.user.uid);
-setAuthUser(toAuthUserSnapshot(result.user));
-setShowAuth(false);
+admitGoogleUser(result.user, db);
 } catch (e) {
 if (e.code === 'auth/credential-already-in-use') {
 // Das Google-Konto ist bereits mit einem anderen (echten) Nutzer
@@ -2166,9 +2200,7 @@ const credential = GoogleAuthProvider.credentialFromError(e);
 const result = credential
 ? await signInWithCredential(auth, credential)
 : await signInWithPopup(auth, provider); // Fallback, falls Firebase kein Credential mitliefert
-setUserId(result.user.uid);
-setAuthUser(toAuthUserSnapshot(result.user));
-setShowAuth(false);
+admitGoogleUser(result.user, db);
 } catch (e2) {
 console.error('Google-Anmeldung fehlgeschlagen:', e2);
 setGoogleSignInError(describeGoogleSignInError(e2));
@@ -3653,6 +3685,72 @@ Mit Google anmelden
 <p className="text-xs text-red-100 break-words p-2 bg-red-900/40 rounded-lg border border-red-300/40">
 {googleSignInError}
 </p>
+)}
+</div>
+</div>
+);
+}
+if (guestAccess !== 'granted') {
+// Gäste-Gate ("Nur für Eingeladene", siehe admitGoogleUser): angemeldet,
+// aber (noch) nicht auf der Gästeliste — oder die Prüfung läuft/scheiterte.
+// Nur die Anzeige dazu: durchgesetzt wird der Zugang serverseitig
+// (api/_lib/guests.js) und in firestore.rules.
+const guestEmail = authUser?.email || 'Dieses Google-Konto';
+return (
+<div
+className="min-h-screen flex justify-center items-center app-backdrop"
+>
+<div className="absolute inset-0 bg-black/40 z-0"></div>
+<div
+style={{ '--accent': theme.accent }}
+className='relative z-10 text-white p-6 bg-(--accent) rounded-xl max-w-sm text-center transition-colors duration-700 ease-in-out space-y-4'
+>
+<div>
+<h1 className="text-4xl font-display font-bold tracking-wide">
+<span className="text-steel-light" style={{ color: 'var(--color-steel-light)' }}>Sm@rt</span>
+<span style={{ color: '#fff' }}>Craft</span>!
+</h1>
+<p className="text-xs font-sans font-light italic text-white/70 mt-1">(V{__APP_VERSION__})</p>
+</div>
+{guestAccess === 'checking' ? (
+<>
+<Loader2 className="w-8 h-8 mx-auto animate-spin" />
+<p className='font-bold'>Einladung wird geprüft …</p>
+</>
+) : guestAccess === 'error' ? (
+<>
+<WifiOff className="w-8 h-8 mx-auto" />
+<p className='font-bold'>Einladung konnte nicht geprüft werden</p>
+<p className='text-sm text-white/90'>
+Bitte Internetverbindung prüfen und erneut versuchen.
+</p>
+<button
+onClick={() => auth?.currentUser && admitGoogleUser(auth.currentUser, db)}
+className="w-full flex items-center justify-center px-4 py-2 bg-white text-gray-800 font-semibold rounded-xl hover:bg-gray-100 transition duration-300 text-sm transform active:scale-[0.98]"
+>
+<RefreshCw className="w-4 h-4 mr-2" />
+Erneut versuchen
+</button>
+</>
+) : (
+<>
+<Lock className="w-8 h-8 mx-auto" />
+<p className='font-bold'>Nur für eingeladene Gäste</p>
+<p className='text-sm text-white/90'>
+Sm@rtCraft ist ein privates Projekt für eingeladene Familie und Freunde.{' '}
+<span className="font-semibold break-all">{guestEmail}</span> steht noch nicht auf der Gästeliste.
+Eine Einladung für genau diese Google-Adresse gibt es bei Marco.
+</p>
+</>
+)}
+{guestAccess !== 'checking' && (
+<button
+onClick={handleGuestGateSignOut}
+className="w-full flex items-center justify-center px-4 py-2 bg-white/15 text-white font-semibold rounded-xl hover:bg-white/25 transition duration-300 text-sm border border-white/40"
+>
+<GoogleIcon className="w-4 h-4 mr-2" />
+Mit anderem Google-Konto anmelden
+</button>
 )}
 </div>
 </div>
