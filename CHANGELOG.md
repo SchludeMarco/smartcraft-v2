@@ -8,6 +8,27 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.24.0] – 2026-10-22
+
+### Hinzugefügt
+- **"Nur für Eingeladene": Gästeliste wie bei RetroMind.** Problem: Die App
+  war für jedes Google-Konto offen; Marco möchte sie vorerst nur Familie und
+  engen Freunden zugänglich machen, nicht öffentlich. Lösung: Gästeliste in
+  Firestore (`artifacts/{appId}/guests/{email}`), gepflegt im Admin-Bereich
+  (neuer Tab **Gäste**, `src/GuestList.jsx`). Nach dem Google-Login prüft
+  `App.jsx` (`admitGoogleUser` → `src/guests.js`), ob das Konto eingeladen ist
+  (Admin-Claim zählt immer); erst dann wird die App samt Nutzerdaten
+  freigeschaltet, sonst erscheint ein Gäste-Gate mit Kontowechsel. Offline
+  merkt sich die App das letzte positive Ergebnis pro Konto.
+- **Serverseitige Durchsetzung:** `api/gemini.js`, `api/tts.js` und
+  `api/geocode.js` lehnen nicht eingeladene Konten mit
+  `403 { code: "not_invited" }` ab (`api/_lib/guests.js`, getestet in
+  `api/guests.test.js`); `/api/gemini` nimmt ohne gültiges ID-Token gar keine
+  Anfragen mehr an (`401`, der anonyme Demo-Pfad entfällt).
+  `firestore.rules`: Nutzerdaten nur für eingeladene Konten, Gästeliste nur
+  für den Admin (eigenes Gast-Dokument per `get` abfragbar).
+- `index.html`: `<meta name="robots" content="noindex, nofollow">`.
+
 ## [2.23.2] – 2026-09-01
 
 ### Geändert

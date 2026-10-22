@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.23.2)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.24.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -264,10 +264,10 @@ Proxy — der API-Key bleibt dadurch server-seitig und wird nie im Browser sicht
 Der Proxy ist zusätzlich per Origin-Check, Firebase App Check (reCAPTCHA v3) und
 IP-basiertem Rate-Limiting (12 Anfragen/Minute, 200/Tag, auch für eingeloggte
 Nutzer) gegen automatisierten Missbrauch abgesichert (Details unten unter
-"Entstehung & technische Hürden"). Für Requests OHNE gültiges Firebase-ID-Token
-(z.B. ein Direktzugriff auf den Endpoint am UI vorbei) gilt zusätzlich ein
-dauerhaftes IP-Kontingent (30 KI-Anfragen pro IP, siehe `DEMO_LIFETIME_MAX` in
-`api/gemini.js`). Echte, per Google eingeloggte Nutzer laufen stattdessen über ein
+"Entstehung & technische Hürden"). Requests OHNE gültiges Firebase-ID-Token
+(z.B. ein Direktzugriff auf den Endpoint am UI vorbei) weist der Proxy seit
+V2.24.0 ab, ebenso Konten, die nicht auf der Gästeliste stehen (siehe "Nur für
+Eingeladene" unten). Eingeladene, per Google eingeloggte Nutzer laufen über ein
 Pro-Konto-Kontingent von 20 kostenlosen Haupt-Diagnosen (`FREE_TRIAL_MAX` in
 `shared/trialLimit.js`, Firestore-Zähler `_analysisQuota/{uid}`) — danach greift
 automatisch ein im Profil hinterlegter eigener Gemini-API-Key (siehe oben,
@@ -399,6 +399,36 @@ Firestore wurde im Produktionsmodus angelegt (alles standardmäßig gesperrt).
 Die Regeln aus [`firestore.rules`](./firestore.rules) müssen einmalig in der
 Firebase Console unter **Firestore Database → Regeln** eingetragen werden.
 Sie beschränken Lese-/Schreibzugriff auf den jeweils eigenen Nutzer.
+
+## Nur für Eingeladene (Gästeliste)
+
+Sm@rtCraft ist (wie RetroMind) kein öffentliches Angebot: nach dem
+Google-Login kommt nur in die App, wer auf der **Gästeliste** steht oder den
+Admin-Claim trägt (`scripts/set-admin-claim.mjs`). Alle anderen sehen ein
+Gäste-Gate mit ihrer Adresse und der Möglichkeit, ein anderes Google-Konto zu
+wählen.
+
+- **Pflege:** Admin-Bereich → Tab **Gäste** (`src/GuestList.jsx`): Google-
+  Adresse eintragen → *Einladen*, Papierkorb → wieder entfernen. Gespeichert
+  unter `artifacts/{appId}/guests/{email}` (Adresse kleingeschrieben).
+- **Serverseitig durchgesetzt**, nicht nur im UI: `api/gemini.js`, `api/tts.js`
+  und `api/geocode.js` prüfen das verifizierte Firebase-ID-Token gegen die
+  Gästeliste (`api/_lib/guests.js`, 60 s Cache pro Function-Instanz) und
+  antworten sonst mit `403 { code: "not_invited" }`. Den anonymen
+  Demo-Zugang ohne Login gibt es bei `/api/gemini` nicht mehr (`401`).
+- **Firestore-Regeln:** eigene Nutzerdaten (`artifacts/{appId}/users/...`)
+  nur für eingeladene Konten; die Gästeliste selbst nur für den Admin, jedes
+  Konto darf nur sein eigenes Gast-Dokument abfragen (dafür prüft das
+  Gäste-Gate in `App.jsx`). **Nach dem Deploy die neuen `firestore.rules` in
+  der Firebase Console veröffentlichen**, sonst schlägt die Gästelisten-
+  Prüfung mit "permission-denied" fehl und auch Eingeladene sehen das Gate.
+- **Wichtig vor dem Merge:** zuerst die Familie/Freunde im Admin-Bereich
+  einladen — bisherige Nutzer ohne Eintrag verlieren ab dann den Zugang
+  (ihre Daten bleiben erhalten und sind nach dem Einladen wieder da).
+- Ohne `FIREBASE_SERVICE_ACCOUNT_KEY` greift die serverseitige Prüfung wie
+  App Check/Rate-Limiting nicht (fail-open, siehe Deployment-Tabelle).
+- `index.html` trägt `noindex, nofollow`, damit die App nicht in
+  Suchmaschinen landet; Linkvorschauen (Open Graph) funktionieren weiter.
 
 ## Google-Login aktivieren (Pflicht)
 

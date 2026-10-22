@@ -6,8 +6,33 @@ service cloud.firestore {
     // App.jsx, api/gemini.js getUserOwnApiKey): der vom Nutzer selbst
     // hinterlegte Gemini-API-Key ist ein gewöhnliches Feld im eigenen
     // Profil-Dokument, kein separater Regel-Eintrag nötig.
+    // "Nur für Eingeladene" (siehe api/_lib/guests.js): eingeladen ist, wer
+    // den Admin-Claim trägt oder mit bestätigter Google-Adresse auf der
+    // Gästeliste artifacts/{appId}/guests/{email} steht (Doc-Id = Adresse in
+    // Kleinbuchstaben, siehe shared/guests.js).
+    function isInvitedGuest(appId) {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        (request.auth.token.email_verified == true &&
+          exists(/databases/$(database)/documents/artifacts/$(appId)/guests/$(request.auth.token.email.lower())))
+      );
+    }
+
+    // Eigene Nutzerdaten nur für eingeladene Gäste — ein nicht eingeladenes
+    // Google-Konto kommt auch am App-UI vorbei nicht an Firestore heran.
     match /artifacts/{appId}/users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId && isInvitedGuest(appId);
+    }
+
+    // Gästeliste: pflegen (lesen/anlegen/löschen) nur der Admin (Custom Claim,
+    // siehe Admin-Bereich src/GuestList.jsx). Jedes angemeldete Konto darf
+    // genau sein eigenes Gast-Dokument abfragen ("get", kein "list") — so
+    // prüft das Login-Gate in App.jsx, ob es eingeladen ist, ohne die übrigen
+    // Adressen der Liste zu sehen.
+    match /artifacts/{appId}/guests/{email} {
+      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      allow get: if request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == email;
     }
 
     // _rateLimits/{ip} (api/gemini.js) und _analysisQuota/{uid} (Pro-Konto-

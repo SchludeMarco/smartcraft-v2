@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Lock, Bug, Mail, X, Loader2, ChevronDown, ChevronUp, RefreshCw, CheckCircle2, RotateCcw, MapPin, Eye, Trash2 } from 'lucide-react';
+import { Lock, Bug, Mail, X, Loader2, ChevronDown, ChevronUp, RefreshCw, CheckCircle2, RotateCcw, MapPin, Eye, Trash2, Users } from 'lucide-react';
 import {
   fetchAllErrorReports,
   fetchResolvedContexts,
@@ -10,6 +10,7 @@ import {
   markAppStartsReviewed,
   deleteAllAppStarts,
 } from './errorReporting';
+import GuestList from './GuestList';
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL;
 
@@ -65,6 +66,8 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
   const [togglingContext, setTogglingContext] = useState(null);
   const [isReviewingStarts, setIsReviewingStarts] = useState(false);
   const [isDeletingStarts, setIsDeletingStarts] = useState(false);
+  // 'reports' (Fehlerreports) | 'guests' (Gästeliste, siehe GuestList.jsx)
+  const [tab, setTab] = useState('reports');
 
   const loadReports = useCallback(async () => {
     if (!db) {
@@ -147,8 +150,8 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
       >
         <div className="flex justify-between items-center border-b pb-3 mb-4 flex-shrink-0">
           <h3 className="text-xl font-bold text-gray-800 flex items-center">
-            <Bug className="w-5 h-5 mr-2 text-red-600" />
-            Admin: Fehlerreports
+            {tab === 'guests' ? <Users className="w-5 h-5 mr-2 text-blue-600" /> : <Bug className="w-5 h-5 mr-2 text-red-600" />}
+            {tab === 'guests' ? 'Admin: Gäste' : 'Admin: Fehlerreports'}
           </h3>
           <button onClick={onClose} aria-label="Schließen" className="text-gray-400 hover:text-gray-600 text-2xl font-light">
             <X className="w-6 h-6" />
@@ -161,6 +164,26 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
             <p className="text-sm text-gray-600">Kein Admin-Zugriff für dieses Konto.</p>
           </div>
         ) : (
+          <>
+            <div className="flex gap-2 mb-3 flex-shrink-0">
+              {[
+                ['reports', 'Fehlerreports'],
+                ['guests', 'Gäste'],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setTab(id)}
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    tab === id ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {tab === 'guests' ? (
+              <GuestList db={db} appId={appId} />
+            ) : (
           <>
             <div className="flex justify-between items-center mb-1 flex-shrink-0">
               <p className="text-xs text-gray-500">{reports.length} Report{reports.length === 1 ? '' : 's'} insgesamt</p>
@@ -355,6 +378,8 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
               </ul>
               );
             })()}
+          </>
+            )}
           </>
         )}
       </div>

@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { PREMIUM_TTS_DAILY_MAX } from '../shared/ttsQuota.js';
 import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
 import { isSameOrigin } from './_lib/sameOrigin.js';
+import { denyNotInvited, isInvited } from './_lib/guests.js';
 import { checkFixedWindowRateLimit } from './_lib/rateLimit.js';
 
 // Premium-Vorlesen (Google Cloud TTS) ist allen angemeldeten Google-Nutzern
@@ -177,6 +178,11 @@ export default async function handler(req, res) {
     const appCheckOk = await verifyAppCheck(req, app);
     if (!appCheckOk) {
       res.status(401).json({ error: 'Forbidden: invalid App Check token' });
+      return;
+    }
+    // Nur eingeladene Gäste (siehe api/_lib/guests.js).
+    if (!(await isInvited(app, decoded))) {
+      denyNotInvited(res);
       return;
     }
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';

@@ -5,6 +5,7 @@ import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
 import { APP_ID } from '../shared/appId.js';
 import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
 import { isSameOrigin } from './_lib/sameOrigin.js';
+import { denyNotInvited, isInvited } from './_lib/guests.js';
 
 // Ohne diese Angabe gilt Vercels Default-Timeout von 10s für Serverless
 // Functions. Das reichte knapp, solange App Check/Rate-Limiting fail-open
@@ -42,7 +43,11 @@ const RATE_LIMIT_MAX_PER_DAY = 200;
 // eingeloggte Nutzer laufen seit V2.7.0 stattdessen über das Pro-Konto-
 // Kontingent aus FREE_TRIAL_MAX (siehe shared/trialLimit.js) plus eigenen
 // API-Key nach dessen Verbrauch, da ein IP-weites Kontingent mehrere echte
-// Nutzer hinter demselben NAT/Firmennetz träfe.
+// Nutzer hinter demselben NAT/Firmennetz träfe. Seit "Nur für Eingeladene"
+// (api/_lib/guests.js) weist der Handler Requests ohne gültiges ID-Token ganz
+// ab — der Handler ruft checkRateLimit daher nur noch mit
+// applyLifetimeCap=false auf, die Lebenszeit-Logik bleibt für Tests/
+// api/demo-status.js erhalten.
 
 // FREE_TRIAL_MAX (siehe shared/trialLimit.js): kostenloses Kontingent an
 // Haupt-Diagnosen pro Konto (Firestore-Zähler _analysisQuota/{uid}, per
@@ -65,7 +70,7 @@ async function getVerifiedUser(req, app) {
   if (!idToken) return null;
   try {
     const decoded = await getAuth(app).verifyIdToken(idToken);
-    return { uid: decoded.uid, isAdmin: decoded.admin === true };
+    return { uid: decoded.uid, isAdmin: decoded.admin === true, decoded };
   } catch {
     return null;
   }
@@ -180,7 +185,16 @@ export default async function handler(req, res) {
         // Echtes Admin-Konto (Custom Claim, siehe getVerifiedUser): weder
         // IP-Rate-Limit noch irgendein Kontingent gelten hier.
         res.setHeader('X-Demo-Remaining', 'unlimited');
-      } else if (verifiedUser?.uid) {
+      } else if (!verifiedUser?.uid) {
+        // Kein gültiges ID-Token: Direktzugriff am UI vorbei oder Auth-Fehler.
+        // Seit "Nur für Eingeladene" (siehe api/_lib/guests.js) gibt es keinen
+        // anonymen Demo-Zugang mehr — ohne Anmeldung keine KI-Anfrage.
+        res.status(401).json({ error: 'Anmeldung erforderlich', code: 'login_required' });
+        return;
+      } else if (!(await isInvited(app, verifiedUser.decoded))) {
+        denyNotInvited(res);
+        return;
+      } else {
         // Echter, per Google eingeloggter Nutzer: statt des IP-weiten Demo-
         // Lebenszeit-Kontingents (das mehrere Nutzer hinter derselben IP/
         // demselben Firmennetz träfe) gilt hier das Pro-Konto-Kontingent aus
@@ -207,29 +221,6 @@ export default async function handler(req, res) {
             });
             return;
           }
-        }
-      } else {
-        // Kein gültiges ID-Token: Direktzugriff am UI vorbei oder Auth-Fehler
-        // — hier greift weiterhin der volle IP-basierte Schutz inklusive
-        // Demo-Lebenszeit-Kontingent (siehe checkRateLimit).
-        const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
-        const { allowed, demoExceeded, remaining } = await checkRateLimit(app, ip, true);
-        // Geht als X-Demo-Remaining-Header auf jede Antwort dieses Handlers raus
-        // (Erfolg wie Fehler), damit die App live anzeigen kann, wie viele
-        // Anfragen noch übrig sind.
-        res.setHeader('X-Demo-Remaining', String(remaining));
-        if (!allowed) {
-          if (demoExceeded) {
-            // 403 statt 429: fetchWithRetry im Client behandelt 429 als
-            // vorübergehend und wiederholt automatisch — das Demo-Kontingent ist
-            // aber endgültig aufgebraucht, ein Retry würde nur unnötig warten.
-            res.status(403).json({
-              error: `Demo-Kontingent erreicht: Diese öffentliche Vorschau ist auf ${DEMO_LIFETIME_MAX} KI-Anfragen pro Besucher begrenzt. Danke fürs Ausprobieren!`,
-            });
-          } else {
-            res.status(429).json({ error: 'Too many requests' });
-          }
-          return;
         }
       }
     } else {
