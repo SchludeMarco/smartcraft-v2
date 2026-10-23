@@ -3,7 +3,7 @@
 // Mail-Relais (Feedback/Bug-Report) missbrauchen.
 //
 // allowRefererFallback=true (nur für einfache GET-Endpoints wie
-// demo-status.js/trial-status.js/app-start.js gedacht): manche Browser
+// demo-status.js/app-start.js gedacht): manche Browser
 // schicken bei GET-Requests ohne Body/Custom-Header keinen Origin-Header,
 // anders als die POST-Requests an /api/gemini & Co, die zuverlässig einen
 // Origin-Header mitschicken.
