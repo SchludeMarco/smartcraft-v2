@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.24.0)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.24.1)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -233,15 +233,11 @@ einen zertifizierten Fachmann bei sicherheitsrelevanten Arbeiten. Das gilt für
 Profis genauso wie für Privatnutzer — gerade bei Elektro- oder Statik-Themen ist die
 App eine Einschätzung, keine Freigabe.
 
-**9. Kostenmodell: 20 kostenlose Analysen pro Konto, danach eigener API-Key** —
-jedes Konto kann 20 Haupt-Diagnosen kostenlos über den zentralen Gemini-API-Key
-nutzen (Live-Zähler direkt in der App). Danach kann im Profil-Menü freiwillig ein
-eigener, bei Google AI Studio kostenlos erstellter Gemini-API-Key hinterlegt werden —
-alle weiteren Analysen sowie Zusatz-Tools laufen dann automatisch über diesen Key,
-die entstehenden Kosten also über das eigene Google-Konto statt über SmartCraft.
-Ist das Kontingent aufgebraucht, öffnet sich automatisch eine 4-Schritte-Anleitung,
-die direkt zu Google AI Studio verlinkt und den erzeugten Key im selben Dialog
-entgegennimmt — kein Suchen im Profil-Menü nötig.
+**9. Kostenmodell: frei für eingeladene Gäste** — Sm@rtCraft ist nur für
+eingeladene Familie und Freunde (siehe "Nur für Eingeladene" unten). Alle Analysen
+und Zusatz-Tools laufen über den zentralen Gemini-API-Key, ohne Kontingent pro Konto
+(bis V2.24.0: 20 kostenlose Analysen, danach eigener API-Key). Gegen Endlosschleifen
+und Missbrauch bleibt nur das Rate-Limit pro IP aktiv (12/Minute, 200/Tag).
 
 ## Ablauf in der Praxis
 
@@ -267,13 +263,10 @@ Nutzer) gegen automatisierten Missbrauch abgesichert (Details unten unter
 "Entstehung & technische Hürden"). Requests OHNE gültiges Firebase-ID-Token
 (z.B. ein Direktzugriff auf den Endpoint am UI vorbei) weist der Proxy seit
 V2.24.0 ab, ebenso Konten, die nicht auf der Gästeliste stehen (siehe "Nur für
-Eingeladene" unten). Eingeladene, per Google eingeloggte Nutzer laufen über ein
-Pro-Konto-Kontingent von 20 kostenlosen Haupt-Diagnosen (`FREE_TRIAL_MAX` in
-`shared/trialLimit.js`, Firestore-Zähler `_analysisQuota/{uid}`) — danach greift
-automatisch ein im Profil hinterlegter eigener Gemini-API-Key (siehe oben,
-Punkt 8 unter "Was die App kann"). Ein per Firebase Custom Claim (`admin: true`,
+Eingeladene" unten). Ein Kontingent pro Konto gibt es seit V2.24.1 nicht mehr
+(siehe Punkt 9 unter "Was die App kann"). Ein per Firebase Custom Claim (`admin: true`,
 vergeben über `scripts/set-admin-claim.mjs`, siehe unten) ausgezeichnetes Konto
-umgeht sowohl das Rate-Limiting als auch jedes Kontingent vollständig — der Claim
+umgeht das Rate-Limiting vollständig — der Claim
 wird serverseitig aus dem Firebase-ID-Token gelesen (`api/gemini.js`), nirgends im
 Code hinterlegt. Technische Fehler
 (React-Crashes, Firebase-/Gemini-API-Fehler) werden lokal gepuffert, sobald online
@@ -387,8 +380,8 @@ npm run test:watch
 
 Aktuell abgedeckt: die sicherheits-/kontingentkritischen Teile der
 Serverless-Functions — `verifyFirebaseIdToken` und `chunkText` in
-`api/tts.test.js`, `checkRateLimit`/`checkAndConsumeTrial` in
-`api/gemini.test.js` (gegen eine In-Memory-Fake-Implementierung von
+`api/tts.test.js`, `checkRateLimit` in
+`api/gemini.test.js`, `isInvited` in `api/guests.test.js` (gegen eine In-Memory-Fake-Implementierung von
 `firebase-admin/firestore`, kein echtes Firestore-Projekt nötig). Weitere
 Bereiche (Frontend-Komponenten, restliche `api/*.js`-Endpoints) haben noch
 keine Tests.

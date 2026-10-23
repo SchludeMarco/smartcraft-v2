@@ -2,10 +2,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Deckt auch profile/data.geminiApiKey ab (siehe UserProfileModal in
-    // App.jsx, api/gemini.js getUserOwnApiKey): der vom Nutzer selbst
-    // hinterlegte Gemini-API-Key ist ein gewöhnliches Feld im eigenen
-    // Profil-Dokument, kein separater Regel-Eintrag nötig.
     // "Nur für Eingeladene" (siehe api/_lib/guests.js): eingeladen ist, wer
     // den Admin-Claim trägt oder mit bestätigter Google-Adresse auf der
     // Gästeliste artifacts/{appId}/guests/{email} steht (Doc-Id = Adresse in
@@ -35,9 +31,9 @@ service cloud.firestore {
         && request.auth.token.email.lower() == email;
     }
 
-    // _rateLimits/{ip} (api/gemini.js) und _analysisQuota/{uid} (Pro-Konto-
-    // Kontingent, ebenfalls api/gemini.js) sind hier bewusst NICHT erwähnt —
-    // Firestores Produktionsmodus sperrt beide Collections damit per
+    // _rateLimits/{ip} (api/gemini.js) und die übrigen _*-Zähler-Collections
+    // der api/*.js-Endpoints sind hier bewusst NICHT erwähnt —
+    // Firestores Produktionsmodus sperrt sie damit per
     // Default-Deny fürs Client-SDK; Zugriff erfolgt ausschließlich
     // serverseitig über das Firebase-Admin-SDK, das firestore.rules umgeht.
 

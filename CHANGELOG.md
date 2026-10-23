@@ -8,6 +8,23 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.24.1] – 2026-10-23
+
+### Entfernt
+- **Kostenloses Kontingent pro Konto abgeschafft.** Problem: Seit "Nur für
+  Eingeladene" (V2.24.0) zeigte die App weiter den Hinweis „Noch 20 von 20
+  kostenlosen Analysen“, und der Server hätte eingeladene Gäste nach 20
+  Analysen mit 402 gesperrt, bis sie einen eigenen Gemini-API-Key hinterlegen.
+  Für einen privaten Kreis aus Familie und Freunden passt das nicht mehr
+  (Entscheidung Marco). Lösung: `api/gemini.js` zählt keine Analysen mehr pro
+  Konto und nutzt immer den zentralen Key, nur das Rate-Limit pro IP
+  (12/Minute, 200/Tag) bleibt. Entfernt: Kontingent-Banner und -Hinweis,
+  `api/trial-status.js`, `shared/trialLimit.js`, das API-Key-Onboarding und
+  das Feld „Eigener Gemini-API-Key“ im Profil. Gibt der Server 403
+  (z.B. nach dem Entfernen von der Gästeliste) zurück, zeigt die App jetzt
+  dessen Klartext-Meldung. Ein bereits gespeicherter eigener Key im
+  Firestore-Profil bleibt liegen, wird aber nicht mehr genutzt.
+
 ## [2.24.0] – 2026-10-22
 
 ### Hinzugefügt

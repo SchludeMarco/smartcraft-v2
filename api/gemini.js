@@ -1,8 +1,6 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { DEMO_LIFETIME_MAX } from '../shared/demoLimit.js';
-import { FREE_TRIAL_MAX } from '../shared/trialLimit.js';
-import { APP_ID } from '../shared/appId.js';
 import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
 import { isSameOrigin } from './_lib/sameOrigin.js';
 import { denyNotInvited, isInvited } from './_lib/guests.js';
@@ -38,32 +36,21 @@ const RATE_LIMIT_MAX_PER_DAY = 200;
 
 // DEMO_LIFETIME_MAX (siehe shared/demoLimit.js): anders als die beiden Fenster
 // oben läuft dieser Zähler nie zurück — er deckelt, wie oft dieselbe IP diesen
-// Endpoint INSGESAMT nutzen darf. Gilt nur noch für Requests OHNE gültiges
-// Firebase-ID-Token (z.B. ein Direktzugriff am UI vorbei) — echte, per Google
-// eingeloggte Nutzer laufen seit V2.7.0 stattdessen über das Pro-Konto-
-// Kontingent aus FREE_TRIAL_MAX (siehe shared/trialLimit.js) plus eigenen
-// API-Key nach dessen Verbrauch, da ein IP-weites Kontingent mehrere echte
-// Nutzer hinter demselben NAT/Firmennetz träfe. Seit "Nur für Eingeladene"
+// Endpoint INSGESAMT nutzen darf. Seit "Nur für Eingeladene"
 // (api/_lib/guests.js) weist der Handler Requests ohne gültiges ID-Token ganz
 // ab — der Handler ruft checkRateLimit daher nur noch mit
 // applyLifetimeCap=false auf, die Lebenszeit-Logik bleibt für Tests/
 // api/demo-status.js erhalten.
-
-// FREE_TRIAL_MAX (siehe shared/trialLimit.js): kostenloses Kontingent an
-// Haupt-Diagnosen pro Konto (Firestore-Zähler _analysisQuota/{uid}, per
-// verifiziertem ID-Token). Nur Requests mit dem Header "X-Analysis-Kind: main"
-// (siehe callGeminiVisionAPI in App.jsx) erhöhen diesen Zähler — Zusatz-Tools
-// verbrauchen keinen eigenen Slot, laufen aber sobald das Kontingent
-// aufgebraucht ist ebenfalls über den vom Nutzer hinterlegten eigenen Key.
+//
+// Ein Kontingent pro Konto (früher FREE_TRIAL_MAX kostenlose Analysen, danach
+// eigener Gemini-API-Key) gibt es seit V2.24.1 nicht mehr: eingeladene Gäste
+// nutzen den zentralen Key, gebremst nur durch die Fenster oben.
 
 // Verifiziert das Firebase-ID-Token (Authorization: Bearer <token>) eines
 // Requests und liefert uid + Admin-Custom-Claim (gesetzt per
 // scripts/set-admin-claim.mjs, nie im Code/Repo hinterlegt). Fehlt das Token
 // oder ist es ungültig, liefert die Funktion null — der Request gilt dann als
-// nicht authentifiziert (voller IP-basierter Schutz inkl. Demo-Lebenszeit-
-// Kontingent, siehe Handler unten). Ersetzt das frühere isAdminRequest(), das
-// nur den Admin-Fall kannte — reguläre Nutzer brauchen jetzt ebenfalls die
-// verifizierte uid fürs Pro-Konto-Kontingent (FREE_TRIAL_MAX).
+// nicht authentifiziert und wird abgewiesen (siehe Handler unten).
 async function getVerifiedUser(req, app) {
   const authHeader = req.headers.authorization || '';
   const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -115,39 +102,6 @@ export async function checkRateLimit(app, ip, applyLifetimeCap) {
   });
 }
 
-// Zählt Haupt-Diagnosen pro Konto (Firestore _analysisQuota/{uid}, per
-// verifiziertem ID-Token, nicht vom Client behauptet) fürs kostenlose
-// Kontingent aus FREE_TRIAL_MAX. "consume" ist nur bei der Haupt-Diagnose
-// true (Header "X-Analysis-Kind: main") — Zusatz-Tools prüfen den Stand nur,
-// ohne ihn zu erhöhen, damit sie keinen eigenen Slot verbrauchen.
-export async function checkAndConsumeTrial(app, uid, consume) {
-  const db = getFirestore(app);
-  const ref = db.collection('_analysisQuota').doc(uid);
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    let { count = 0 } = snap.exists ? snap.data() : {};
-    if (consume) {
-      count += 1;
-      tx.set(ref, { count }, { merge: true });
-    }
-    return { exceeded: count > FREE_TRIAL_MAX, remaining: Math.max(0, FREE_TRIAL_MAX - count) };
-  });
-}
-
-// Liest den vom Nutzer selbst hinterlegten Gemini-API-Key aus dessen Profil
-// (artifacts/{appId}/users/{uid}/profile/data.geminiApiKey, siehe
-// UserProfileModal in App.jsx) — erst relevant, sobald FREE_TRIAL_MAX
-// aufgebraucht ist. Firestore Admin SDK umgeht firestore.rules ohnehin;
-// dieselben Regeln beschränken den Client-Zugriff auf den Doc-Besitzer.
-async function getUserOwnApiKey(app, uid) {
-  const db = getFirestore(app);
-  const ref = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid)
-    .collection('profile').doc('data');
-  const snap = await ref.get();
-  const key = snap.exists ? snap.data()?.geminiApiKey : null;
-  return typeof key === 'string' && key.trim() ? key.trim() : null;
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -171,9 +125,6 @@ export default async function handler(req, res) {
     // App Check + Rate-Limiting/Kontingent: nur aktiv, wenn ein Service-Account
     // konfiguriert ist (siehe getAdminApp). Sonst unverändertes Verhalten.
     const app = getAdminApp();
-    // Eigener API-Key des Nutzers (siehe getUserOwnApiKey) — nur gesetzt,
-    // wenn FREE_TRIAL_MAX aufgebraucht ist und ein Key hinterlegt wurde.
-    let ownApiKey = null;
     if (app) {
       const appCheckOk = await verifyAppCheck(req, app);
       if (!appCheckOk) {
@@ -195,39 +146,20 @@ export default async function handler(req, res) {
         denyNotInvited(res);
         return;
       } else {
-        // Echter, per Google eingeloggter Nutzer: statt des IP-weiten Demo-
-        // Lebenszeit-Kontingents (das mehrere Nutzer hinter derselben IP/
-        // demselben Firmennetz träfe) gilt hier das Pro-Konto-Kontingent aus
-        // FREE_TRIAL_MAX. Das Burst-/Tages-Fenster pro IP bleibt zusätzlich
-        // aktiv, als Schutz vor Endlosschleifen/Bugs unabhängig vom Konto.
+        // Eingeladener Gast: nur das Burst-/Tages-Fenster pro IP, als Schutz
+        // vor Endlosschleifen/Bugs unabhängig vom Konto.
         const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
         const { allowed } = await checkRateLimit(app, ip, false);
         if (!allowed) {
           res.status(429).json({ error: 'Too many requests' });
           return;
         }
-        const isMainAnalysis = req.headers['x-analysis-kind'] === 'main';
-        const { exceeded, remaining } = await checkAndConsumeTrial(app, verifiedUser.uid, isMainAnalysis);
-        res.setHeader('X-Trial-Remaining', String(remaining));
-        if (exceeded) {
-          ownApiKey = await getUserOwnApiKey(app, verifiedUser.uid);
-          if (!ownApiKey) {
-            // 402 (Payment Required) statt 429: fetchWithRetry im Client
-            // wiederholt 429 automatisch, aber das kostenlose Kontingent ist
-            // endgültig aufgebraucht — ein Retry hilft erst nach Hinterlegen
-            // eines eigenen Keys im Profil (siehe UserProfileModal).
-            res.status(402).json({
-              error: `Kostenloses Kontingent von ${FREE_TRIAL_MAX} Analysen aufgebraucht. Bitte hinterlegen Sie im Profil einen eigenen Gemini-API-Key, um SmartCraft weiter zu nutzen.`,
-            });
-            return;
-          }
-        }
       }
     } else {
-      console.warn('FIREBASE_SERVICE_ACCOUNT_KEY nicht gesetzt — App Check/Rate-Limiting/Kontingent-Prüfung deaktiviert.');
+      console.warn('FIREBASE_SERVICE_ACCOUNT_KEY nicht gesetzt — App Check/Rate-Limiting/Gäste-Prüfung deaktiviert.');
     }
 
-    const apiKey = ownApiKey || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       res.status(500).json({ error: 'Server misconfigured: GEMINI_API_KEY missing' });
       return;
