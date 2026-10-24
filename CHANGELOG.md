@@ -8,6 +8,24 @@ Bis einschließlich V1.7.1 wurde die Version noch nicht bei jedem Commit
 konsequent gepflegt — die ersten drei Einträge unten gehören alle zu
 demselben Versionsstand.
 
+## [2.25.0] – 2026-10-24
+
+### Geändert
+- **Versteckter Admin-Zugang, nur für Marcos Google-Konto.** Problem: Der
+  Admin-Bereich war für jeden Nutzer als Button „Admin-Bereich“ im
+  Profil-Fenster sichtbar (auch wenn er ohne Admin-Claim leer blieb), und
+  Admin war jedes Konto mit Custom Claim `admin: true`. Lösung (Wunsch
+  Marco): Der Button entfällt; der Admin-Bereich öffnet sich nur, wenn man im
+  Profil-Fenster fünfmal kurz hintereinander auf „Mein Konto“ tippt, und nur
+  für das Google-Konto `marco.schlude@gmail.com` — bei allen anderen
+  passiert nichts. Neue gemeinsame Prüfung `isAdminClaims()` in
+  `shared/admin.js` (Claim **und** bestätigte Adresse **und** verknüpfte
+  Google-Identität), genutzt von `src/App.jsx`, `api/gemini.js` und
+  `api/_lib/guests.js`; `firestore.rules` prüft dasselbe in der neuen
+  Funktion `isAdmin()` für Gästeliste, Fehlerreports, `adminMeta` und
+  `appStarts`. **Die neuen `firestore.rules` müssen nach dem Merge in der
+  Firebase Console veröffentlicht werden.**
+
 ## [2.24.1] – 2026-10-23
 
 ### Entfernt

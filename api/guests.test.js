@@ -31,9 +31,15 @@ beforeEach(() => {
 });
 
 describe('isInvited', () => {
-  it('lets admins in without a guest entry', async () => {
-    expect(await isInvited(FAKE_APP, { admin: true, email: 'chef@example.com' })).toBe(true);
+  it('lets the admin account in without a guest entry', async () => {
+    const admin = { admin: true, email: 'Marco.Schlude@gmail.com', email_verified: true, firebase: { identities: { 'google.com': ['1'] } } };
+    expect(await isInvited(FAKE_APP, admin)).toBe(true);
     expect(__fakeGuests.reads.count).toBe(0);
+  });
+
+  it('ignores the admin claim on any other account', async () => {
+    const other = { admin: true, email: 'chef@example.com', email_verified: true, firebase: { identities: { 'google.com': ['2'] } } };
+    expect(await isInvited(FAKE_APP, other)).toBe(false);
   });
 
   it('accepts a verified address on the guest list, regardless of case', async () => {

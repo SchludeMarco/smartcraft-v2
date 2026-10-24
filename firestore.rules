@@ -2,13 +2,25 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Admin-Bereich: nur Marcos Google-Konto (gleiche Adresse wie ADMIN_EMAIL
+    // in shared/admin.js, bei Änderung beide nachziehen) — Custom Claim
+    // "admin: true" allein reicht nicht, die von Google bestätigte Adresse
+    // und eine verknüpfte Google-Identität müssen dazukommen.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.admin == true
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == 'marco.schlude@gmail.com'
+        && 'google.com' in request.auth.token.firebase.identities;
+    }
+
     // "Nur für Eingeladene" (siehe api/_lib/guests.js): eingeladen ist, wer
-    // den Admin-Claim trägt oder mit bestätigter Google-Adresse auf der
+    // als Admin gilt (isAdmin() oben) oder mit bestätigter Google-Adresse auf der
     // Gästeliste artifacts/{appId}/guests/{email} steht (Doc-Id = Adresse in
     // Kleinbuchstaben, siehe shared/guests.js).
     function isInvitedGuest(appId) {
       return request.auth != null && (
-        request.auth.token.admin == true ||
+        isAdmin() ||
         (request.auth.token.email_verified == true &&
           exists(/databases/$(database)/documents/artifacts/$(appId)/guests/$(request.auth.token.email.lower())))
       );
@@ -20,13 +32,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId && isInvitedGuest(appId);
     }
 
-    // Gästeliste: pflegen (lesen/anlegen/löschen) nur der Admin (Custom Claim,
+    // Gästeliste: pflegen (lesen/anlegen/löschen) nur der Admin (isAdmin(),
     // siehe Admin-Bereich src/GuestList.jsx). Jedes angemeldete Konto darf
     // genau sein eigenes Gast-Dokument abfragen ("get", kein "list") — so
     // prüft das Login-Gate in App.jsx, ob es eingeladen ist, ohne die übrigen
     // Adressen der Liste zu sehen.
     match /artifacts/{appId}/guests/{email} {
-      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      allow read, write: if isAdmin();
       allow get: if request.auth != null && request.auth.token.email_verified == true
         && request.auth.token.email.lower() == email;
     }
@@ -38,20 +50,20 @@ service cloud.firestore {
     // serverseitig über das Firebase-Admin-SDK, das firestore.rules umgeht.
 
     // Admin-Bereich (siehe AdminPanel.jsx): Lesezugriff auf ALLE Fehlerreports per
-    // Collection-Group-Query, beschränkt auf Konten mit Custom Claim "admin: true"
-    // (gesetzt via scripts/set-admin-claim.mjs, nie im Code hinterlegt). Echter
+    // Collection-Group-Query, beschränkt auf das Admin-Konto (isAdmin() oben, Claim
+    // via scripts/set-admin-claim.mjs plus Marcos Google-Adresse). Echter
     // Zugriffsschutz — auch direkte Firestore-SDK-Zugriffe ohne die App-UI greifen
     // ins Leere. Schreiben bleibt weiterhin ausschließlich dem jeweiligen Besitzer
     // vorbehalten (Regel oben).
     match /{path=**}/errorReports/{reportId} {
-      allow read: if request.auth != null && request.auth.token.admin == true;
+      allow read: if isAdmin();
     }
 
     // Admin-Bereich: merkt sich pro Fehlerkontext (siehe errorContextInfo.js), ob er
-    // als "gelöst" markiert wurde (AdminPanel.jsx-Badge/Filter). Gleicher Custom-
-    // Claim-Schutz wie oben bei errorReports.
+    // als "gelöst" markiert wurde (AdminPanel.jsx-Badge/Filter). Gleicher isAdmin()-
+    // Schutz wie oben bei errorReports.
     match /artifacts/{appId}/adminMeta/{document=**} {
-      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      allow read, write: if isAdmin();
     }
 
     // Admin-Bereich: Log der App-Starts mit Zeitstempel + grober Region, optional
@@ -65,7 +77,7 @@ service cloud.firestore {
     // Firebase-Admin-SDK (siehe api/app-start.js) - "create"/"update" bleiben
     // daher bewusst nicht erlaubt.
     match /artifacts/{appId}/appStarts/{document=**} {
-      allow read, delete: if request.auth != null && request.auth.token.admin == true;
+      allow read, delete: if isAdmin();
     }
   }
 }

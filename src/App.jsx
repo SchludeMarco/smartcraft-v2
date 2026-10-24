@@ -33,6 +33,7 @@ import OfflineQueueModal from './OfflineQueueModal';
 import { TRADE_THEMES, DEFAULT_TRADE } from './tradeThemes';
 import { checkGuestAccess } from './guests';
 import { APP_ID as appId } from '../shared/appId.js';
+import { isAdminClaims } from '../shared/admin.js';
 
 // Gemini-Aufrufe laufen über eine eigene Serverless-Function (api/gemini.js),
 // damit der API-Key nie im Browser sichtbar ist.
@@ -1152,8 +1153,24 @@ photoURL: user.photoURL || googleProvider?.photoURL || null,
 // verschachtelt: als verschachtelte Komponente wäre sie bei jedem App-Re-Render
 // ein neuer Komponenten-Typ, was React zum Unmount/Remount inkl. Verlust des
 // lokalen States (z.B. Google-Foto-Fallback) zwingen würde.
-const UserProfileModal = ({ authUser, userId, auth, locationFeatureEnabled, saveLocationFeaturePreference, siteAddress, onChangeSiteAddress, handleReset, onShowHistory, onShowAdmin }) => {
+const UserProfileModal = ({ authUser, userId, auth, locationFeatureEnabled, saveLocationFeaturePreference, siteAddress, onChangeSiteAddress, handleReset, onShowHistory, isAdmin, onShowAdmin }) => {
 const [showProfile, setShowProfile] = useState(false);
+// Versteckter Admin-Zugang: fünfmal kurz hintereinander auf "Mein Konto"
+// tippen. Öffnet den Admin-Bereich nur für das Admin-Konto (isAdmin, siehe
+// shared/admin.js) — für alle anderen passiert schlicht nichts. Der echte
+// Schutz liegt in firestore.rules und den api/*.js-Endpoints.
+const adminTapsRef = useRef({ count: 0, at: 0 });
+const handleAccountTitleTap = () => {
+const now = Date.now();
+const taps = adminTapsRef.current;
+taps.count = now - taps.at < 1500 ? taps.count + 1 : 1;
+taps.at = now;
+if (taps.count < 5) return;
+taps.count = 0;
+if (!isAdmin) return;
+onShowAdmin();
+setShowProfile(false);
+};
 // Fällt auf das generische User-Icon zurück, falls das Google-Profilbild aus
 // irgendeinem Grund nicht lädt (Hotlink-Schutz, CSP, Netzwerk) — sonst bliebe
 // ein kaputtes Bild-Icon stehen statt eines brauchbaren Platzhalters.
@@ -1234,7 +1251,7 @@ className="panel-parchment p-6 rounded-2xl w-full max-w-xs transform transition-
 onClick={e => e.stopPropagation()}
 >
 <div className="flex justify-between items-center border-b border-steel/40 pb-3 mb-4">
-<h3 className="text-xl font-bold text-gray-800 flex items-center">
+<h3 className="text-xl font-bold text-gray-800 flex items-center select-none" onClick={handleAccountTitleTap}>
 {/* Profil-Icon folgt der Berufs-Akzentfarbe */}
 <User className="w-5 h-5 mr-2 text-(--accent) transition-colors duration-500 ease-in-out" />
 Mein Konto
@@ -1322,13 +1339,6 @@ className="flex items-center px-4 py-2 bg-red-600 text-white font-semibold round
 Abmelden
 </button>
 </div>
-<button
-onClick={() => { onShowAdmin(); setShowProfile(false); }}
-className="w-full mt-3 flex items-center justify-center text-xs text-gray-400 hover:text-gray-600 transition"
->
-<Lock className="w-3 h-3 mr-1" />
-Admin-Bereich
-</button>
 {/* Versionsnummer klein unten rechts statt im Hauptbildschirm-Header (siehe
     Kopfleiste weiter unten) — Quelle bleibt package.json (vite.config.js
     define: __APP_VERSION__). */}
@@ -1805,10 +1815,11 @@ setAuthUser(toAuthUserSnapshot(user));
 setShowAuth(false);
 setGuestAccess('checking');
 // Custom Claims stecken im ID-Token, nicht im User-Objekt selbst — erst
-// getIdTokenResult() legt sie offen. Rein informativ für die UI (den
+// getIdTokenResult() legt sie offen. Admin nur mit Claim UND Admin-Konto
+// (shared/admin.js), gleiche Prüfung wie firestore.rules/api. Rein informativ für die UI (den
 // eigentlichen Zugriffsschutz für Daten setzt firestore.rules durch),
 // daher bleibt ein Fehler hier stumm und isAdmin einfach false.
-const admin = await getIdTokenResult(user).then((r) => r.claims?.admin === true).catch(() => false);
+const admin = await getIdTokenResult(user).then((r) => isAdminClaims(r.claims)).catch(() => false);
 const access = await checkGuestAccess(dbInstance, appId, user, admin);
 if (seq !== guestCheckSeqRef.current) return;
 setIsAdmin(admin);
@@ -3587,6 +3598,7 @@ siteAddress={siteAddress}
 onChangeSiteAddress={() => setShowSiteAddressModal(true)}
 handleReset={handleReset}
 onShowHistory={() => { setHistoryInitialTab('cloud'); setShowHistory(true); }}
+isAdmin={isAdmin}
 onShowAdmin={() => setShowAdmin(true)}
 />
 </div>

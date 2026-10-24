@@ -51,7 +51,7 @@ const buildMailto = (report) => {
 
 // Admin-Bereich: Übersicht aller Fehlerreports (Collection-Group-Query über alle
 // Nutzer, siehe fetchAllErrorReports). Zugriff hängt am Firebase Custom Claim
-// "admin: true" (isAdmin-Prop, gesetzt via scripts/set-admin-claim.mjs) — das ist
+// "admin: true" plus Marcos Google-Konto (isAdmin-Prop, siehe shared/admin.js) — das ist
 // ein echter Zugriffsschutz, durchgesetzt in firestore.rules, nicht nur UI-Gating.
 const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
   const [reports, setReports] = useState([]);
@@ -134,8 +134,9 @@ const AdminPanel = ({ db, appId, isAdmin, onClose }) => {
     }
   };
 
-  // Panel kann jederzeit geöffnet werden (siehe App.jsx "Admin-Bereich"-Button) —
-  // erst hier greift die echte Prüfung. isAdmin kommt aus dem ID-Token-Claim und
+  // Geöffnet wird das Panel nur über den versteckten Zugang (5× "Mein Konto",
+  // siehe App.jsx UserProfileModal) — die echte Prüfung greift trotzdem hier
+  // bzw. in firestore.rules. isAdmin kommt aus dem ID-Token-Claim und
   // kann sich ändern (z.B. nach frischer Anmeldung), daher als Effekt statt nur
   // beim ersten Mount.
   useEffect(() => {

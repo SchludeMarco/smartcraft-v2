@@ -1,6 +1,7 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { DEMO_LIFETIME_MAX } from '../shared/demoLimit.js';
+import { isAdminClaims } from '../shared/admin.js';
 import { getAdminApp, verifyAppCheck } from './_lib/firebaseAdmin.js';
 import { isSameOrigin } from './_lib/sameOrigin.js';
 import { denyNotInvited, isInvited } from './_lib/guests.js';
@@ -47,8 +48,8 @@ const RATE_LIMIT_MAX_PER_DAY = 200;
 // nutzen den zentralen Key, gebremst nur durch die Fenster oben.
 
 // Verifiziert das Firebase-ID-Token (Authorization: Bearer <token>) eines
-// Requests und liefert uid + Admin-Custom-Claim (gesetzt per
-// scripts/set-admin-claim.mjs, nie im Code/Repo hinterlegt). Fehlt das Token
+// Requests und liefert uid + Admin-Status (Custom Claim plus Admin-Konto,
+// siehe shared/admin.js). Fehlt das Token
 // oder ist es ungültig, liefert die Funktion null — der Request gilt dann als
 // nicht authentifiziert und wird abgewiesen (siehe Handler unten).
 async function getVerifiedUser(req, app) {
@@ -57,7 +58,7 @@ async function getVerifiedUser(req, app) {
   if (!idToken) return null;
   try {
     const decoded = await getAuth(app).verifyIdToken(idToken);
-    return { uid: decoded.uid, isAdmin: decoded.admin === true, decoded };
+    return { uid: decoded.uid, isAdmin: isAdminClaims(decoded), decoded };
   } catch {
     return null;
   }
