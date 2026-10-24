@@ -1,13 +1,14 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { APP_ID } from '../../shared/appId.js';
 import { guestDocId } from '../../shared/guests.js';
+import { isAdminClaims } from '../../shared/admin.js';
 
 // "Nur für Eingeladene" (analog zu RetroMind): Sm@rtCraft ist kein öffentliches
 // Angebot, sondern nur für Personen, die der Admin eingeladen hat. Die
 // Gästeliste liegt in Firestore unter artifacts/{appId}/guests/{email}
 // (gepflegt im Admin-Bereich, siehe src/GuestList.jsx), Konten mit Custom
-// Claim "admin: true" (scripts/set-admin-claim.mjs) gelten immer als
-// eingeladen. Durchgesetzt wird das hier serverseitig für jeden kosten-
+// Claim "admin: true" auf dem Admin-Konto (siehe shared/admin.js) gelten
+// immer als eingeladen. Durchgesetzt wird das hier serverseitig für jeden kosten-
 // verursachenden Endpoint (Gemini, TTS, Geocoding) und zusätzlich in
 // firestore.rules für die Nutzerdaten — das Login-Gate in App.jsx ist nur die
 // passende Anzeige dazu, kein Schutz.
@@ -23,7 +24,7 @@ const cache = new Map();
 // E-Mail-Adresse zählt, nie eine vom Client behauptete.
 export async function isInvited(app, decoded) {
   if (!decoded) return false;
-  if (decoded.admin === true) return true;
+  if (isAdminClaims(decoded)) return true;
   if (decoded.email_verified !== true) return false;
   const id = guestDocId(decoded.email);
   if (!id) return false;

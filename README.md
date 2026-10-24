@@ -1,4 +1,4 @@
-# Sm@rtCraft – Der Kollege in der Hosentasche (V2.24.1)
+# Sm@rtCraft – Der Kollege in der Hosentasche (V2.25.0)
 
 **Ein Werkzeug, das ich mir selbst gewünscht hätte.**
 
@@ -276,7 +276,13 @@ wird (`api/report-bug.js`), damit ein verbreiteter Fehler nicht das Postfach
 flutet, bevor er überhaupt angesehen werden konnte. Derselbe
 Custom Claim schaltet auch den Admin-Bereich (`src/AdminPanel.jsx`) frei, der sie
 projektweit zusammenfasst — Zugriff wird durch `firestore.rules` durchgesetzt, nicht
-nur durch die App-UI. Über einen freischwebenden "Feedback"-Button (unten
+nur durch die App-UI. Seit V2.25.0 reicht der Claim allein nicht mehr: Admin ist
+nur, wer zusätzlich mit dem Google-Konto `ADMIN_EMAIL` aus `shared/admin.js`
+angemeldet ist (gleiche Prüfung in `firestore.rules`, `api/gemini.js` und
+`api/_lib/guests.js`). Einen sichtbaren Button gibt es nicht mehr: der
+Admin-Bereich öffnet sich, wenn man im Profil-Fenster fünfmal kurz
+hintereinander auf die Überschrift **„Mein Konto“** tippt — bei allen anderen
+Konten passiert dabei nichts. Über einen freischwebenden "Feedback"-Button (unten
 rechts, immer sichtbar) kann jeder Nutzer freiwillig eine Nachricht direkt
 an den Entwickler schicken
 (`src/FeedbackModal.jsx` → `api/send-feedback.js`) — per Mail über denselben

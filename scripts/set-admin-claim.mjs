@@ -3,6 +3,8 @@
 // mit dem Service-Account aus FIREBASE_SERVICE_ACCOUNT_KEY (gleiche Variable wie
 // api/gemini.js). Damit lässt sich Admin-Status vergeben, ohne UID/E-Mail/PIN im
 // Code oder Repo zu hinterlegen — siehe api/gemini.js (isAdminRequest),
+// Seit V2.25.0 reicht der Claim allein nicht mehr: Admin ist nur das Konto
+// ADMIN_EMAIL aus shared/admin.js (mit Google-Login) UND mit Claim.
 // firestore.rules (errorReports/adminMeta) und src/AdminPanel.jsx.
 //
 // Nutzung:
